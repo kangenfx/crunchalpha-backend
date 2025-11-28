@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 SQLAlchemy
 psycopg2-binary
+pg8000
 python-dotenv
 pydantic
 python-multipart
