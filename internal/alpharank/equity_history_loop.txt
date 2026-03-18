@@ -1,0 +1,31 @@
+
+	// 3. EQUITY HISTORY DD (from equity_snapshots table - for future real-time tracking)
+	rows, err := s.db.Query(`
+		SELECT balance, equity 
+		FROM equity_snapshots 
+		WHERE account_id = $1 
+		ORDER BY snapshot_time ASC
+	`, accountID)
+	
+	if err == nil {
+		defer rows.Close()
+		historyPeak := peak // Start from closed trades peak
+		
+		for rows.Next() {
+			var snapBalance, snapEquity float64
+			if err := rows.Scan(&snapBalance, &snapEquity); err == nil {
+				// Update peak from snapshot balance
+				if snapBalance > historyPeak {
+					historyPeak = snapBalance
+				}
+				
+				// Calculate DD from equity snapshot
+				if historyPeak > 0 && snapEquity > 0 {
+					dd := (historyPeak - snapEquity) / historyPeak * 100
+					if dd > maxDD {
+						maxDD = dd
+					}
+				}
+			}
+		}
+	}

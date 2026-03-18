@@ -1,0 +1,136 @@
+package main
+
+import (
+	"log"
+	"time"
+	"crunchalpha-v3/internal/database"
+	"crunchalpha-v3/internal/auth"
+	"crunchalpha-v3/internal/profile"
+	"crunchalpha-v3/internal/ratelimit"
+	"crunchalpha-v3/internal/middleware"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/cors"
+)
+
+func main() {
+	db, err := database.Connect()
+	if err != nil {
+		log.Fatal("Database connection failed:", err)
+	}
+	defer db.Close()
+
+	// Initialize services
+	authService := auth.NewService(db)
+	authHandler := auth.NewHandler(authService)
+	profileService := profile.NewService(db)
+	profileHandler := profile.NewHandler(profileService)
+	rateLimiter := ratelimit.NewLimiter(db)
+
+	r := gin.Default()
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://45.32.118.117:5176", "http://localhost:5176"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":   "ok",
+			"service":  "crunchalpha-v3",
+			"database": "connected",
+		})
+	})
+
+	// Public auth routes (no authentication required)
+	apiAuth := r.Group("/api/auth")
+	{
+		// Registration & Login
+		apiAuth.POST("/register",
+			rateLimiter.RateLimitMiddleware("register", ratelimit.Config{
+				MaxAttempts: 3,
+				Window:      1 * time.Hour,
+			}),
+			authHandler.Register,
+		)
+
+		apiAuth.POST("/login",
+			rateLimiter.RateLimitMiddleware("login", ratelimit.Config{
+				MaxAttempts: 5,
+				Window:      5 * time.Minute,
+			}),
+			authHandler.Login,
+		)
+
+		// Token Management
+		apiAuth.POST("/refresh",
+			rateLimiter.RateLimitMiddleware("refresh", ratelimit.Config{
+				MaxAttempts: 10,
+				Window:      1 * time.Minute,
+			}),
+			authHandler.Refresh,
+		)
+
+		apiAuth.POST("/logout", authHandler.Logout)
+
+		// Password Reset
+		apiAuth.POST("/forgot-password",
+			rateLimiter.RateLimitMiddleware("forgot-password", ratelimit.Config{
+				MaxAttempts: 3,
+				Window:      1 * time.Hour,
+			}),
+			authHandler.ForgotPassword,
+		)
+
+		apiAuth.GET("/reset-password/:token", authHandler.ValidateResetToken)
+		apiAuth.POST("/reset-password",
+			rateLimiter.RateLimitMiddleware("reset-password", ratelimit.Config{
+				MaxAttempts: 5,
+				Window:      1 * time.Hour,
+			}),
+			authHandler.ResetPassword,
+		)
+
+		// Email Verification
+		apiAuth.GET("/verify-email", authHandler.VerifyEmail)
+		apiAuth.POST("/verify-email", authHandler.VerifyEmail)
+		apiAuth.POST("/resend-verification",
+			rateLimiter.RateLimitMiddleware("resend-verification", ratelimit.Config{
+				MaxAttempts: 3,
+				Window:      1 * time.Hour,
+			}),
+			authHandler.ResendVerification,
+		)
+	}
+
+	// Protected routes (require authentication)
+	apiProtected := r.Group("/api")
+	apiProtected.Use(middleware.AuthRequired())
+	{
+		// User Profile
+		apiProtected.GET("/profile", profileHandler.GetProfile)
+		apiProtected.PUT("/profile", profileHandler.UpdateProfile)
+
+		// Logout all devices (requires auth)
+		apiProtected.POST("/auth/logout-all", authHandler.LogoutAll)
+	}
+
+	log.Println("🚀 CrunchAlpha V3 Multi-Sided Platform")
+	log.Println("📊 Modes: TRADER | INVESTOR | ANALYST")
+	log.Println("🔗 Database: Connected")
+	log.Println("🔐 Auth: READY")
+	log.Println("🔑 Password Reset: ENABLED")
+	log.Println("🔄 Refresh Token: ENABLED")
+	log.Println("🛡️  Rate Limiting: ENABLED")
+	log.Println("   - Login: 5 attempts / 5 minutes")
+	log.Println("   - Register: 3 attempts / hour")
+	log.Println("   - Password Reset: 3 requests / hour")
+	log.Println("📧 Email Service: MOCK MODE")
+	log.Println("✉️  Email Verification: ENABLED")
+	log.Println("👤 User Profile: ENABLED")
+	log.Println("🔒 Auth Middleware: ENABLED")
+	log.Println("⚡ Running on :8090")
+
+	r.Run(":8090")
+}

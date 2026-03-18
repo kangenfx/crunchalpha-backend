@@ -1,0 +1,11 @@
+⚠️  WARNING: DO NOT EDIT THIS DIRECTORY DIRECTLY! ⚠️
+
+This is PRODUCTION code (READ-ONLY).
+
+To make changes:
+1. Work in /root/crunchalpha-v3-TEST-backend/
+2. Test on port 8091
+3. Build and deploy to production
+4. Then sync: cp -r TEST/. .OLD/
+
+See /root/AI_COORDINATION.md and /root/DEVELOPMENT_WORKFLOW.md

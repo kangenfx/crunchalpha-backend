@@ -1,0 +1,63 @@
+package auth
+
+import (
+	"net/http"
+	"github.com/gin-gonic/gin"
+)
+
+type Handler struct {
+	service *Service
+}
+
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
+}
+
+func (h *Handler) Register(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "message": err.Error()})
+		return
+	}
+
+	// Default role if not provided
+	if req.PrimaryRole == "" {
+		req.PrimaryRole = "trader"
+	}
+
+	user, token, err := h.service.Register(req.Email, req.Password, req.PrimaryRole)
+	if err != nil {
+		if err == ErrUserExists {
+			c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Registration failed", "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, LoginResponse{
+		AccessToken: token,
+		TokenType:   "Bearer",
+		User:        user,
+	})
+}
+
+func (h *Handler) Login(c *gin.Context) {
+	var req LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "message": err.Error()})
+		return
+	}
+
+	user, token, err := h.service.Login(req.Email, req.Password)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication failed", "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, LoginResponse{
+		AccessToken: token,
+		TokenType:   "Bearer",
+		User:        user,
+	})
+}

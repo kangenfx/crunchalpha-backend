@@ -1,0 +1,75 @@
+package investor
+
+import (
+	"time"
+)
+
+// UserInfo - basic user info from users table
+type UserInfo struct {
+	ID          string `json:"id" db:"id"`
+	Email       string `json:"email" db:"email"`
+	PrimaryRole string `json:"primary_role" db:"primary_role"`
+}
+
+// UserFollow - user following a trader
+type UserFollow struct {
+	ID              string    `json:"id" db:"id"`
+	UserID          string    `json:"user_id" db:"user_id"`
+	TraderAccountID string    `json:"trader_account_id" db:"trader_account_id"`
+	Status          string    `json:"status" db:"status"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// UserAllocation - allocation settings
+type UserAllocation struct {
+	ID              string    `json:"id" db:"id"`
+	UserID          string    `json:"user_id" db:"user_id"`
+	TraderAccountID string    `json:"trader_account_id" db:"trader_account_id"`
+	AllocationMode  string    `json:"allocation_mode" db:"allocation_mode"`
+	AllocationValue float64   `json:"allocation_value" db:"allocation_value"`
+	MaxRiskPct      float64   `json:"max_risk_pct" db:"max_risk_pct"`
+	MaxPositions    int       `json:"max_positions" db:"max_positions"`
+	Status          string    `json:"status" db:"status"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Subscription - user subscription to trader
+type Subscription struct {
+	ID              string    `json:"id" db:"id"`
+	UserID          string    `json:"user_id" db:"user_id"`
+	TraderAccountID string    `json:"trader_account_id" db:"trader_account_id"`
+	StartAt         time.Time `json:"start_at" db:"start_at"`
+	EndAt           time.Time `json:"end_at" db:"end_at"`
+	Status          string    `json:"status" db:"status"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// AllocationWithTraderInfo - allocation with trader details
+type AllocationWithTraderInfo struct {
+	TraderAccountID  string  `json:"trader_account_id"`
+	TraderAccountNum string  `json:"trader_account_number"`
+	AllocationMode   string  `json:"allocation_mode"`
+	AllocationValue  float64 `json:"allocation_value"`
+	MaxRiskPct       float64 `json:"max_risk_pct"`
+	MaxPositions     int     `json:"max_positions"`
+	AlphaScore       float64 `json:"alpha_score"`
+	Grade            string  `json:"grade"`
+	RiskLevel        string  `json:"risk_level"`
+	Status           string  `json:"status"`
+}
+
+// API Request Models
+type SubscribeRequest struct {
+	TraderAccountID string `json:"trader_account_id"`
+}
+
+type AllocationRequest struct {
+	TraderAccountID string  `json:"trader_account_id"`
+	AllocationMode  string  `json:"allocation_mode"`
+	AllocationValue float64 `json:"allocation_value"`
+	MaxRiskPct      float64 `json:"max_risk_pct"`
+	MaxPositions    int     `json:"max_positions"`
+}

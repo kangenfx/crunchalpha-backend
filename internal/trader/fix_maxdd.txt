@@ -1,0 +1,8 @@
+	// READ MaxDD from alpha_ranks table (SINGLE SOURCE OF TRUTH!)
+	var maxDDFromDB sql.NullFloat64
+	err := s.repo.db.QueryRow(`SELECT max_drawdown_pct FROM alpha_ranks WHERE account_id = $1 AND symbol = 'ALL'`, accountID).Scan(&maxDDFromDB)
+	if err == nil && maxDDFromDB.Valid {
+		maxDD = maxDDFromDB.Float64
+	} else {
+		maxDD = 0
+	}

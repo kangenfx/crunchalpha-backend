@@ -1,0 +1,156 @@
+package trader
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+)
+
+// GetDashboardWithAlphaRank returns dashboard with AlphaRank from database
+func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*DashboardResponse, error) {
+	account, err := s.repo.GetAccountByID(accountID, userID)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("account not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	brokerLabel := fmt.Sprintf("%s • %s • %s — Account %s (%s)",
+		account.Broker, account.Platform, account.Currency,
+		account.AccountNumber, account.Status)
+
+	var alphaScore float64
+	var grade string
+	var survivabilityScore, scalabilityScore int
+	
+	err = s.repo.db.QueryRow(`
+		SELECT 
+			alpha_score, 
+			grade,
+			COALESCE(alpha_score, 0)::int,
+			COALESCE(alpha_score * 0.7, 0)::int
+		FROM alpha_ranks 
+		WHERE account_id = $1 
+		ORDER BY calculated_at DESC 
+		LIMIT 1
+	`, accountID).Scan(&alphaScore, &grade, &survivabilityScore, &scalabilityScore)
+	
+	if err == sql.ErrNoRows {
+		return nil, errors.New("no AlphaRank calculated yet")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AlphaRank: %v", err)
+	}
+	
+	// Get risk flags count - FIXED QUERY
+	var criticalCount, majorCount, minorCount int
+	s.repo.db.QueryRow(`
+		SELECT 
+			COUNT(*) FILTER (WHERE severity = 3) as critical,
+			COUNT(*) FILTER (WHERE severity = 2) as major,
+			COUNT(*) FILTER (WHERE severity = 1) as minor
+		FROM alpha_flags 
+		WHERE account_id = $1 AND is_active = true
+	`, accountID).Scan(&criticalCount, &majorCount, &minorCount)
+	
+	// Determine risk level
+	risk := "LOW"
+	if criticalCount > 0 {
+		risk = "HIGH"
+	} else if majorCount >= 1 {
+		risk = "MEDIUM"
+	}
+	
+	tier := getTierFromGrade(grade)
+
+	pillars := []Pillar{
+		{Code: "P1", Name: "Return vs Drawdown", Weight: 20, Score: 0},
+		{Code: "P2", Name: "Consistency", Weight: 20, Score: 0},
+		{Code: "P3", Name: "Risk Behaviour", Weight: 25, Score: 0},
+		{Code: "P4", Name: "Recovery", Weight: 10, Score: 0},
+		{Code: "P5", Name: "Math Edge", Weight: 10, Score: 0},
+		{Code: "P6", Name: "Discipline", Weight: 8, Score: 0},
+		{Code: "P7", Name: "Track Record", Weight: 7, Score: 0},
+	}
+
+	dashboard := &DashboardResponse{
+		Snapshot: DashboardSnapshot{
+			Tier:         tier,
+			Risk:         risk,
+			Grade:        grade,
+			AlphaScore:   alphaScore,
+			Equity:       "Loading...",
+			Balance:      "Loading...",
+			PnLToday:     "+0.00 USD",
+			TotalTrades:  0,
+			WinRate:      0,
+			ProfitFactor: 0,
+			MaxDD:        0,
+			BrokerLabel:  brokerLabel,
+		},
+		Survivability: SurvivabilityScore{
+			Score: survivabilityScore,
+			Label: getScoreLabel(survivabilityScore),
+			Note:  "Based on AlphaRank",
+		},
+		Scalability: ScalabilityScore{
+			Score: scalabilityScore,
+			Label: getScoreLabel(scalabilityScore),
+			Note:  "Growth potential",
+		},
+		Pillars:   pillars,
+		RiskFlags: RiskFlags{
+			Counts: struct {
+				Critical int `json:"critical"`
+				Major    int `json:"major"`
+				Minor    int `json:"minor"`
+			}{
+				Critical: criticalCount,
+				Major:    majorCount,
+				Minor:    minorCount,
+			},
+			Items: []RiskFlag{},
+		},
+		Metrics: []Metric{
+			{Label: "AlphaScore", Value: fmt.Sprintf("%.1f/100", alphaScore)},
+			{Label: "Grade", Value: grade},
+			{Label: "Risk Level", Value: risk},
+			{Label: "Critical Flags", Value: fmt.Sprintf("%d", criticalCount)},
+		},
+		Regime: RegimeDetection{
+			Regime:     "Analyzing",
+			Confidence: 0.0,
+			Window:     "D1",
+			Reason:     "Loading data",
+		},
+	}
+
+	return dashboard, nil
+}
+
+func getTierFromGrade(grade string) string {
+	switch grade {
+	case "A+", "A", "A-":
+		return "PROFESSIONAL"
+	case "B+", "B", "B-":
+		return "SEMI-PRO"
+	case "C+", "C", "C-":
+		return "RETAIL"
+	default:
+		return "MICRO"
+	}
+}
+
+func getScoreLabel(score int) string {
+	switch {
+	case score >= 80:
+		return "Excellent"
+	case score >= 60:
+		return "Good"
+	case score >= 40:
+		return "Moderate"
+	default:
+		return "Limited"
+	}
+}

@@ -1,0 +1,166 @@
+package investor
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
+)
+
+type Repository struct {
+	DB *sql.DB
+}
+
+func NewRepository(db *sql.DB) *Repository {
+	return &Repository{DB: db}
+}
+
+// GetUserInfo - get basic user info from users table
+func (r *Repository) GetUserInfo(ctx context.Context, userID string) (*UserInfo, error) {
+	var user UserInfo
+	err := r.DB.QueryRowContext(ctx, `
+		SELECT id, email, primary_role
+		FROM users
+		WHERE id = $1
+	`, userID).Scan(&user.ID, &user.Email, &user.PrimaryRole)
+	
+	if err != nil {
+		return nil, fmt.Errorf("error getting user info: %w", err)
+	}
+	
+	return &user, nil
+}
+
+// UpsertAllocation - create or update allocation
+func (r *Repository) UpsertAllocation(ctx context.Context, userID, traderAccountID string, mode string, value, maxRisk float64, maxPos int) error {
+	query := `
+		INSERT INTO user_allocations 
+		(user_id, trader_account_id, allocation_mode, allocation_value, max_risk_pct, max_positions, status, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', NOW())
+		ON CONFLICT (user_id, trader_account_id) 
+		DO UPDATE SET
+			allocation_mode = EXCLUDED.allocation_mode,
+			allocation_value = EXCLUDED.allocation_value,
+			max_risk_pct = EXCLUDED.max_risk_pct,
+			max_positions = EXCLUDED.max_positions,
+			updated_at = NOW()
+	`
+	
+	_, err := r.DB.ExecContext(ctx, query, userID, traderAccountID, mode, value, maxRisk, maxPos)
+	if err != nil {
+		return fmt.Errorf("error upserting allocation: %w", err)
+	}
+	
+	return nil
+}
+
+// GetAllocations - get all allocations for a user
+func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]AllocationWithTraderInfo, error) {
+	query := `
+		SELECT 
+			ua.trader_account_id,
+			COALESCE(ta.account_number, '') as account_number,
+			ua.allocation_mode,
+			ua.allocation_value,
+			ua.max_risk_pct,
+			ua.max_positions,
+			COALESCE(ar.alpha_score, 0) as alpha_score,
+			COALESCE(ar.grade, 'N/A') as grade,
+			COALESCE(ar.risk_level, 'UNKNOWN') as risk_level,
+			ua.status
+		FROM user_allocations ua
+		LEFT JOIN trader_accounts ta ON ta.id = ua.trader_account_id
+		LEFT JOIN alpha_ranks ar ON ar.account_id = ua.trader_account_id
+		WHERE ua.user_id = $1
+		ORDER BY ua.updated_at DESC
+	`
+	
+	rows, err := r.DB.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting allocations: %w", err)
+	}
+	defer rows.Close()
+	
+	var allocations []AllocationWithTraderInfo
+	for rows.Next() {
+		var alloc AllocationWithTraderInfo
+		err := rows.Scan(
+			&alloc.TraderAccountID,
+			&alloc.TraderAccountNum,
+			&alloc.AllocationMode,
+			&alloc.AllocationValue,
+			&alloc.MaxRiskPct,
+			&alloc.MaxPositions,
+			&alloc.AlphaScore,
+			&alloc.Grade,
+			&alloc.RiskLevel,
+			&alloc.Status,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning allocation: %w", err)
+		}
+		allocations = append(allocations, alloc)
+	}
+	
+	return allocations, nil
+}
+
+// CreateSubscription - create new subscription
+func (r *Repository) CreateSubscription(ctx context.Context, userID, traderAccountID string, startAt, endAt time.Time) error {
+	query := `
+		INSERT INTO user_subscriptions 
+		(user_id, trader_account_id, start_at, end_at, status)
+		VALUES ($1, $2, $3, $4, 'ACTIVE')
+	`
+	
+	_, err := r.DB.ExecContext(ctx, query, userID, traderAccountID, startAt, endAt)
+	if err != nil {
+		return fmt.Errorf("error creating subscription: %w", err)
+	}
+	
+	return nil
+}
+
+// GetSubscriptions - get all subscriptions for a user
+func (r *Repository) GetSubscriptions(ctx context.Context, userID string) ([]Subscription, error) {
+	query := `
+		SELECT id, user_id, trader_account_id, start_at, end_at, status, created_at, updated_at
+		FROM user_subscriptions
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`
+	
+	rows, err := r.DB.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting subscriptions: %w", err)
+	}
+	defer rows.Close()
+	
+	var subs []Subscription
+	for rows.Next() {
+		var sub Subscription
+		err := rows.Scan(&sub.ID, &sub.UserID, &sub.TraderAccountID, &sub.StartAt, &sub.EndAt, &sub.Status, &sub.CreatedAt, &sub.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning subscription: %w", err)
+		}
+		subs = append(subs, sub)
+	}
+	
+	return subs, nil
+}
+
+// FollowTrader - create follow relationship
+func (r *Repository) FollowTrader(ctx context.Context, userID, traderAccountID string) error {
+	query := `
+		INSERT INTO user_follows (user_id, trader_account_id, status)
+		VALUES ($1, $2, 'ACTIVE')
+		ON CONFLICT (user_id, trader_account_id) DO NOTHING
+	`
+	
+	_, err := r.DB.ExecContext(ctx, query, userID, traderAccountID)
+	if err != nil {
+		return fmt.Errorf("error following trader: %w", err)
+	}
+	
+	return nil
+}

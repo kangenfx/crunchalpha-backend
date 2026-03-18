@@ -1,0 +1,56 @@
+package auth
+
+import (
+	"database/sql"
+	"errors"
+)
+
+type Service struct {
+	repo *Repository
+}
+
+func NewService(db *sql.DB) *Service {
+	return &Service{
+		repo: NewRepository(db),
+	}
+}
+
+func (s *Service) Register(email, password, role string) (*User, string, error) {
+	// Create user
+	user, err := s.repo.CreateUser(email, password, role)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Generate token
+	token, err := GenerateToken(user.ID, user.Email, user.PrimaryRole)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return user, token, nil
+}
+
+func (s *Service) Login(email, password string) (*User, string, error) {
+	// Get user
+	user, err := s.repo.GetUserByEmail(email)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return nil, "", errors.New("invalid email or password")
+		}
+		return nil, "", err
+	}
+
+	// Verify password
+	if err := s.repo.VerifyPassword(user.PasswordHash, password); err != nil {
+		return nil, "", errors.New("invalid email or password")
+	}
+
+	// Generate token
+	token, err := GenerateToken(user.ID, user.Email, user.PrimaryRole)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return user, token, nil
+}

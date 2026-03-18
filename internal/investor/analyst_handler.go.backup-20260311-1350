@@ -1,0 +1,498 @@
+package investor
+
+import (
+	"database/sql"
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+func getUID(c *gin.Context) (string, bool) {
+	v, exists := c.Get("user_id")
+	if !exists { return "", false }
+	s, ok := v.(string)
+	return s, ok && s != ""
+}
+
+// GET /api/investor/analyst-sets
+func (h *Handler) GetAnalystSets(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+
+	rows, err := h.service.repo.DB.Query(`
+		SELECT ss.id, ss.name, ss.analyst_id,
+		       COALESCE(u.name, u.email, '') as analyst_name,
+		       COALESCE(sub.status,'') as sub_status,
+		       COALESCE(sub.auto_follow, false) as auto_follow,
+		       COALESCE(sub.started_at::text,'') as started_at,
+		       COALESCE(sub.expires_at::text,'') as expires_at,
+		       COALESCE(ss.alpha_score,0) as alpha_score,
+		       COALESCE(ss.alpha_grade,'D') as alpha_grade
+		FROM analyst_signal_sets ss
+		LEFT JOIN users u ON u.id = ss.analyst_id::uuid
+		LEFT JOIN analyst_subscriptions sub ON sub.set_id=ss.id AND sub.investor_id=$1 AND sub.status='ACTIVE'
+		WHERE ss.status='Active'
+		ORDER BY ss.created_at DESC`, uid)
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "db error"}); return }
+	defer rows.Close()
+
+	type SetRow struct {
+		ID          string  `json:"id"`
+		Name        string  `json:"name"`
+		AnalystName string  `json:"analystName"`
+		SubStatus   string  `json:"subStatus"`
+		AutoFollow  bool    `json:"autoFollow"`
+		Subscribed  bool    `json:"subscribed"`
+		StartedAt   string  `json:"startedAt"`
+		ExpiresAt   string  `json:"expiresAt"`
+		AlphaScore  float64 `json:"alphaScore"`
+		AlphaGrade  string  `json:"alphaGrade"`
+	}
+	var sets []SetRow
+	for rows.Next() {
+		var s SetRow
+		rows.Scan(&s.ID, &s.Name, new(string), &s.AnalystName, &s.SubStatus, &s.AutoFollow,
+			&s.StartedAt, &s.ExpiresAt, &s.AlphaScore, &s.AlphaGrade)
+		s.Subscribed = s.SubStatus == "ACTIVE"
+		sets = append(sets, s)
+	}
+	if sets == nil { sets = []SetRow{} }
+	c.JSON(200, gin.H{"ok": true, "sets": sets})
+}
+
+// GET /api/investor/analyst-subscriptions
+func (h *Handler) GetAnalystSubscriptions(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+
+	rows, err := h.service.repo.DB.Query(`
+		SELECT s.id, s.set_id, s.status, s.auto_follow, s.created_at,
+		       ss.name as set_name,
+		       COALESCE(u.name, u.email, '') as analyst_name
+		FROM analyst_subscriptions s
+		JOIN analyst_signal_sets ss ON ss.id = s.set_id
+		LEFT JOIN users u ON u.id = ss.analyst_id::uuid
+		WHERE s.investor_id=$1 AND s.status='ACTIVE'
+		ORDER BY s.created_at DESC`, uid)
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "db error"}); return }
+	defer rows.Close()
+
+	type SubRow struct {
+		ID          string `json:"id"`
+		SetID       string `json:"setId"`
+		SetName     string `json:"setName"`
+		AnalystName string `json:"analystName"`
+		Status      string `json:"status"`
+		AutoFollow  bool   `json:"autoFollow"`
+		CreatedAt   string `json:"createdAt"`
+	}
+	var subs []SubRow
+	for rows.Next() {
+		var s SubRow
+		var createdAt time.Time
+		rows.Scan(&s.ID, &s.SetID, &s.Status, &s.AutoFollow, &createdAt, &s.SetName, &s.AnalystName)
+		s.CreatedAt = createdAt.Format("2006-01-02")
+		subs = append(subs, s)
+	}
+	if subs == nil { subs = []SubRow{} }
+	c.JSON(200, gin.H{"ok": true, "subscriptions": subs})
+}
+
+// POST /api/investor/analyst-subscribe
+func (h *Handler) SubscribeAnalystSet(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+
+	var req struct {
+		SetID      string `json:"setId"`
+		AutoFollow bool   `json:"autoFollow"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.SetID == "" {
+		c.JSON(400, gin.H{"ok": false, "error": "setId required"}); return
+	}
+
+	var analystID string
+	err := h.service.repo.DB.QueryRow(`SELECT analyst_id FROM analyst_signal_sets WHERE id=$1`, req.SetID).Scan(&analystID)
+	if err != nil { c.JSON(404, gin.H{"ok": false, "error": "signal set not found"}); return }
+
+	_, err = h.service.repo.DB.Exec(`INSERT INTO analyst_subscriptions
+		(investor_id, analyst_id, set_id, status, auto_follow, created_at, cancelled_at, started_at, expires_at)
+		VALUES ($1::uuid,$2,$3,'ACTIVE',$4,now(),NULL,now(),now() + interval '30 days')
+		ON CONFLICT (investor_id, set_id) DO UPDATE
+		SET status='ACTIVE', auto_follow=$4, cancelled_at=NULL, created_at=now(),
+		    started_at=now(), expires_at=now() + interval '30 days'`,
+		uid, analystID, req.SetID, req.AutoFollow)
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed"}); return }
+	c.JSON(200, gin.H{"ok": true, "message": "Subscribed successfully"})
+}
+
+// POST /api/investor/analyst-unsubscribe
+func (h *Handler) UnsubscribeAnalystSet(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+
+	var req struct { SetID string `json:"setId"` }
+	if err := c.ShouldBindJSON(&req); err != nil || req.SetID == "" {
+		c.JSON(400, gin.H{"ok": false, "error": "setId required"}); return
+	}
+
+	_, err := h.service.repo.DB.Exec(`UPDATE analyst_subscriptions SET status='CANCELLED', cancelled_at=now()
+		WHERE investor_id=$1 AND set_id=$2 AND status='ACTIVE'`, uid, req.SetID)
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "unsubscribe failed"}); return }
+	c.JSON(200, gin.H{"ok": true, "message": "Unsubscribed"})
+}
+
+// GET /api/investor/analyst-feed
+func (h *Handler) GetAnalystFeed(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+
+	rows, err := h.service.repo.DB.Query(`
+		SELECT sig.id, sig.pair, sig.direction, sig.entry, sig.sl, sig.tp,
+		       sig.status, sig.issued_at, COALESCE(sig.notes,''),
+		       ss.name as set_name,
+		       COALESCE(sig.running_at::text,'') as running_at,
+		       COALESCE(sig.closed_at::text,'') as closed_at
+		FROM analyst_signals sig
+		JOIN analyst_signal_sets ss ON ss.id = sig.set_id
+		JOIN analyst_subscriptions sub ON sub.set_id = sig.set_id
+		WHERE sub.investor_id=$1 AND sub.status='ACTIVE'
+		ORDER BY sig.id DESC LIMIT 200`, uid)
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "db error"}); return }
+	defer rows.Close()
+
+	type SigRow struct {
+		ID        int64  `json:"id"`
+		Pair      string `json:"pair"`
+		Direction string `json:"direction"`
+		Entry     string `json:"entry"`
+		SL        string `json:"sl"`
+		TP        string `json:"tp"`
+		Status    string `json:"status"`
+		IssuedAt  string `json:"issuedAt"`
+		Notes     string `json:"notes"`
+		SetName   string `json:"setName"`
+		RunningAt string `json:"runningAt"`
+		ClosedAt  string `json:"closedAt"`
+	}
+	var sigs []SigRow
+	for rows.Next() {
+		var s SigRow
+		rows.Scan(&s.ID, &s.Pair, &s.Direction, &s.Entry, &s.SL, &s.TP,
+			&s.Status, &s.IssuedAt, &s.Notes, &s.SetName, &s.RunningAt, &s.ClosedAt)
+		sigs = append(sigs, s)
+	}
+	if sigs == nil { sigs = []SigRow{} }
+	c.JSON(200, gin.H{"ok": true, "signals": sigs, "count": len(sigs)})
+}
+
+var _ = sql.ErrNoRows
+var _ = http.StatusOK
+
+// GET /api/investor/subscription-history — only CANCELLED subscriptions (completed periods)
+func (h *Handler) GetSubscriptionHistory(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+
+	rows, err := h.service.repo.DB.Query(`
+		SELECT 
+			sub.id::text, sub.set_id, sub.status, sub.auto_follow,
+			COALESCE(sub.started_at::text,'') as started_at,
+			COALESCE(sub.expires_at::text,'') as expires_at,
+			COALESCE(sub.cancelled_at::text,'') as cancelled_at,
+			COALESCE(ss.name,'') as set_name,
+			COALESCE(NULLIF(u.name,''), u.email, '') as analyst_name,
+			COALESCE(ss.alpha_score,0) as alpha_score,
+			COALESCE(ss.alpha_grade,'') as alpha_grade,
+			COUNT(o.id) as total_orders,
+			COUNT(o.id) FILTER (WHERE o.status='CLOSED_TP') as wins,
+			COUNT(o.id) FILTER (WHERE o.status='CLOSED_SL') as losses,
+			COALESCE(SUM(CASE 
+				WHEN o.status='CLOSED_TP' THEN (o.close_price - o.open_price) * o.lot_size * 100
+				WHEN o.status='CLOSED_SL' THEN (o.close_price - o.open_price) * o.lot_size * 100
+				ELSE 0 END), 0) as total_pnl
+		FROM analyst_subscriptions sub
+		LEFT JOIN analyst_signal_sets ss ON ss.id = sub.set_id
+		LEFT JOIN users u ON u.id::text = ss.analyst_id
+		LEFT JOIN investor_signal_orders o ON o.set_id=sub.set_id 
+			AND o.investor_id=sub.investor_id
+			AND o.created_at >= sub.started_at
+			AND (sub.cancelled_at IS NULL OR o.created_at <= sub.cancelled_at)
+		WHERE sub.investor_id=$1::uuid AND sub.status='CANCELLED'
+		GROUP BY sub.id, sub.set_id, sub.status, sub.auto_follow,
+		         sub.started_at, sub.expires_at, sub.cancelled_at,
+		         ss.name, u.name, u.email, ss.alpha_score, ss.alpha_grade
+		ORDER BY sub.cancelled_at DESC`, uid)
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return }
+	defer rows.Close()
+
+	type HistRow struct {
+		ID          string  `json:"id"`
+		SetID       string  `json:"setId"`
+		SetName     string  `json:"setName"`
+		AnalystName string  `json:"analystName"`
+		Status      string  `json:"status"`
+		AutoFollow  bool    `json:"autoFollow"`
+		StartedAt   string  `json:"startedAt"`
+		ExpiresAt   string  `json:"expiresAt"`
+		CancelledAt string  `json:"cancelledAt"`
+		AlphaScore  float64 `json:"alphaScore"`
+		AlphaGrade  string  `json:"alphaGrade"`
+		TotalOrders int     `json:"totalOrders"`
+		Wins        int     `json:"wins"`
+		Losses      int     `json:"losses"`
+		WinRate     float64 `json:"winRate"`
+		TotalPnL    float64 `json:"totalPnl"`
+	}
+	var items []HistRow
+	for rows.Next() {
+		var row HistRow
+		err := rows.Scan(&row.ID, &row.SetID, &row.Status, &row.AutoFollow,
+			&row.StartedAt, &row.ExpiresAt, &row.CancelledAt,
+			&row.SetName, &row.AnalystName, &row.AlphaScore, &row.AlphaGrade,
+			&row.TotalOrders, &row.Wins, &row.Losses, &row.TotalPnL)
+		if err != nil { continue }
+		if row.TotalOrders > 0 {
+			row.WinRate = float64(row.Wins) / float64(row.TotalOrders) * 100
+		}
+		items = append(items, row)
+	}
+	if items == nil { items = []HistRow{} }
+	c.JSON(200, gin.H{"ok": true, "history": items, "count": len(items)})
+}
+
+// POST /api/investor/copy-trader-subscribe
+func (h *Handler) CopyTraderSubscribe(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+	var req struct {
+		TraderAccountID string  `json:"traderAccountId"`
+		LotMode         string  `json:"lotMode"`
+		LotSize         float64 `json:"lotSize"`
+		RiskPercent     float64 `json:"riskPercent"`
+		MaxLot          float64 `json:"maxLot"`
+		CopySL          bool    `json:"copySl"`
+		CopyTP          bool    `json:"copyTp"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.TraderAccountID == "" {
+		c.JSON(400, gin.H{"ok": false, "error": "traderAccountId required"}); return
+	}
+	lotMethod := req.LotMode
+	if lotMethod == "" { lotMethod = "FIXED" }
+	_, err := h.service.repo.DB.Exec(`
+		INSERT INTO copy_subscriptions
+			(id, follower_account_id, provider_account_id, lot_multiplier, max_lot, min_lot,
+			 copy_sl, copy_tp, status, lot_calculation_method, max_risk_percent, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3, $4, 0.01, $5, $6, 'active', $7, $8, now(), now())
+		ON CONFLICT (follower_account_id, provider_account_id) DO UPDATE SET
+			status='active', lot_multiplier=$3, max_lot=$4, copy_sl=$5, copy_tp=$6,
+			lot_calculation_method=$7, max_risk_percent=$8, updated_at=now()`,
+		uid, req.TraderAccountID, req.LotSize, req.MaxLot,
+		req.CopySL, req.CopyTP, lotMethod, req.RiskPercent)
+	if err != nil {
+		c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return
+	}
+	c.JSON(200, gin.H{"ok": true, "message": "Subscribed to copy trader"})
+}
+
+// POST /api/investor/copy-trader-unsubscribe
+func (h *Handler) CopyTraderUnsubscribe(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+	var req struct { TraderAccountID string `json:"traderAccountId"` }
+	if err := c.ShouldBindJSON(&req); err != nil || req.TraderAccountID == "" {
+		c.JSON(400, gin.H{"ok": false, "error": "traderAccountId required"}); return
+	}
+	_, err := h.service.repo.DB.Exec(`
+		UPDATE copy_subscriptions SET status='inactive', updated_at=now()
+		WHERE follower_account_id=$1::uuid AND provider_account_id=$2::uuid`,
+		uid, req.TraderAccountID)
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return }
+	c.JSON(200, gin.H{"ok": true, "message": "Unsubscribed"})
+}
+
+// GET /api/investor/copy-trader-subscriptions
+func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+	rows, err := h.service.repo.DB.Query(`
+		SELECT cs.id::text, cs.provider_account_id::text, cs.status,
+			cs.lot_calculation_method, cs.lot_multiplier, cs.max_lot, cs.max_risk_percent,
+			cs.copy_sl, cs.copy_tp, cs.created_at::text,
+			COALESCE(ta.nickname, ta.account_number) as trader_name,
+			COALESCE(ta.broker,'') as broker, COALESCE(ta.platform::text,'') as platform,
+			COALESCE(ar.alpha_score,0) as alpha_score, COALESCE(ar.grade,'') as grade
+		FROM copy_subscriptions cs
+		LEFT JOIN trader_accounts ta ON ta.id = cs.provider_account_id
+		LEFT JOIN alpha_ranks ar ON ar.account_id = cs.provider_account_id AND ar.symbol='ALL'
+		WHERE cs.follower_account_id=$1::uuid
+		ORDER BY cs.created_at DESC`, uid)
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return }
+	defer rows.Close()
+	type SubRow struct {
+		ID         string  `json:"id"`
+		TraderID   string  `json:"traderId"`
+		Status     string  `json:"status"`
+		LotMode    string  `json:"lotMode"`
+		LotSize    float64 `json:"lotSize"`
+		MaxLot     float64 `json:"maxLot"`
+		RiskPct    float64 `json:"riskPct"`
+		CopySL     bool    `json:"copySl"`
+		CopyTP     bool    `json:"copyTp"`
+		CreatedAt  string  `json:"createdAt"`
+		TraderName string  `json:"traderName"`
+		Broker     string  `json:"broker"`
+		Platform   string  `json:"platform"`
+		AlphaScore float64 `json:"alphaScore"`
+		Grade      string  `json:"grade"`
+	}
+	var subs []SubRow
+	for rows.Next() {
+		var s SubRow
+		if err := rows.Scan(&s.ID,&s.TraderID,&s.Status,&s.LotMode,&s.LotSize,&s.MaxLot,
+			&s.RiskPct,&s.CopySL,&s.CopyTP,&s.CreatedAt,&s.TraderName,&s.Broker,&s.Platform,
+			&s.AlphaScore,&s.Grade); err != nil { continue }
+		subs = append(subs, s)
+	}
+	if subs == nil { subs = []SubRow{} }
+	c.JSON(200, gin.H{"ok": true, "subscriptions": subs, "count": len(subs)})
+}
+
+// GET /api/investor/trader-profile/:account_id
+func (h *Handler) GetTraderProfile(c *gin.Context) {
+	accountID := c.Param("account_id")
+	if accountID == "" { c.JSON(400, gin.H{"ok":false,"error":"account_id required"}); return }
+
+	// Basic info + alpharank
+	var profile struct {
+		ID             string  `json:"id"`
+		AccountNumber  string  `json:"account_number"`
+		Broker         string  `json:"broker"`
+		Platform       string  `json:"platform"`
+		Nickname       string  `json:"nickname"`
+		Equity         float64 `json:"equity"`
+		Balance        float64 `json:"balance"`
+		AlphaScore     float64 `json:"alpha_score"`
+		Grade          string  `json:"grade"`
+		MaxDrawdownPct float64 `json:"max_drawdown_pct"`
+		WinRate        float64 `json:"win_rate"`
+		NetPnl         float64 `json:"net_pnl"`
+		TotalTrades    int     `json:"total_trades"`
+		ProfitFactor   float64 `json:"profit_factor"`
+		Survivability  float64 `json:"survivability"`
+		Scalability    float64 `json:"scalability"`
+			ROI           float64 `json:"roi"`
+			TotalDeposit  float64 `json:"total_deposit"`
+			TotalWithdraw float64 `json:"total_withdraw"`
+			CreatedAt     string  `json:"created_at"`
+	}
+	err := h.service.repo.DB.QueryRow(`
+		SELECT ta.id::text, ta.account_number, COALESCE(ta.broker,''), COALESCE(ta.platform::text,''),
+			COALESCE(ta.nickname,''), COALESCE(ta.equity,0), COALESCE(ta.balance,0),
+			COALESCE(ar.alpha_score,0), COALESCE(ar.grade,'N/A'),
+			COALESCE(ar.max_drawdown_pct,0),
+			COALESCE(ta.created_at::text,'')
+		FROM trader_accounts ta
+		LEFT JOIN alpha_ranks ar ON ar.account_id=ta.id AND ar.symbol='ALL'
+		WHERE ta.id=$1::uuid AND ta.status='active'`, accountID).Scan(
+		&profile.ID, &profile.AccountNumber, &profile.Broker, &profile.Platform,
+		&profile.Nickname, &profile.Equity, &profile.Balance,
+		&profile.AlphaScore, &profile.Grade, &profile.MaxDrawdownPct,
+			&profile.CreatedAt)
+	if err != nil { c.JSON(404, gin.H{"ok":false,"error":"trader not found: "+err.Error()}); return }
+
+	// Get ALL metrics from alpha_ranks - single source of truth
+	h.service.repo.DB.QueryRow(`
+		SELECT COALESCE(win_rate,0), COALESCE(net_pnl,0), COALESCE(roi,0),
+			COALESCE(total_trades_all,0), COALESCE(profit_factor,0),
+			COALESCE(survivability_score,0), COALESCE(scalability_score,0),
+			COALESCE(total_deposit,0), COALESCE(total_withdraw,0)
+		FROM alpha_ranks
+		WHERE account_id=$1::uuid AND symbol='ALL'`, accountID).Scan(
+		&profile.WinRate, &profile.NetPnl, &profile.ROI,
+		&profile.TotalTrades, &profile.ProfitFactor,
+		&profile.Survivability, &profile.Scalability,
+		&profile.TotalDeposit, &profile.TotalWithdraw)
+
+	// Pillars - stored as JSONB in alpha_ranks
+	type Pillar struct {
+		Code   string  `json:"code"`
+		Name   string  `json:"name"`
+		Score  float64 `json:"score"`
+		Weight int     `json:"weight"`
+		Reason string  `json:"reason"`
+	}
+	var pillarsJSON []byte
+	var pillars []Pillar
+	h.service.repo.DB.QueryRow(`
+		SELECT COALESCE(pillars::text,'[]') FROM alpha_ranks
+		WHERE account_id=$1::uuid AND symbol='ALL' LIMIT 1`, accountID).Scan(&pillarsJSON)
+	if pillarsJSON != nil {
+		json.Unmarshal(pillarsJSON, &pillars)
+	}
+
+	// Per pair
+	type PairItem struct {
+		Symbol    string  `json:"symbol"`
+		Grade     string  `json:"grade"`
+		Score     float64 `json:"score"`
+		Trades    int     `json:"trades"`
+		WinRate   float64 `json:"win_rate"`
+		NetProfit float64 `json:"net_profit"`
+		MaxDD     float64 `json:"max_dd"`
+	}
+	ppRows, _ := h.service.repo.DB.Query(`
+		SELECT ar.symbol, COALESCE(ar.grade,''), COALESCE(ar.alpha_score,0),
+			COALESCE(ar.trade_count,0), 0::float, 0::float,
+			COALESCE(ar.max_drawdown_pct,0)
+		FROM alpha_ranks ar
+		WHERE ar.account_id=$1::uuid AND ar.symbol!='ALL'
+		ORDER BY ar.alpha_score DESC`, accountID)
+	var pairs []PairItem
+	if ppRows != nil {
+		defer ppRows.Close()
+		for ppRows.Next() {
+			var p PairItem
+			ppRows.Scan(&p.Symbol,&p.Grade,&p.Score,&p.Trades,&p.WinRate,&p.NetProfit,&p.MaxDD)
+			pairs = append(pairs, p)
+		}
+	}
+
+	// Monthly performance
+	type MonthRow struct {
+		Year  int     `json:"year"`
+		Month int     `json:"month"`
+		Profit float64 `json:"profit"`
+		Trades int     `json:"trades"`
+		WinRate float64 `json:"winRate"`
+	}
+	mRows, _ := h.service.repo.DB.Query(`
+		SELECT year, month, COALESCE(net_profit,0), COALESCE(total_trades,0), COALESCE(win_rate,0)
+		FROM performance_metrics
+		WHERE account_id=$1::uuid AND period='MONTHLY' AND account_type='trader'
+		ORDER BY year, month DESC LIMIT 24`, accountID)
+	var monthly []MonthRow
+	if mRows != nil {
+		defer mRows.Close()
+		for mRows.Next() {
+			var m MonthRow
+			mRows.Scan(&m.Year,&m.Month,&m.Profit,&m.Trades,&m.WinRate)
+			monthly = append(monthly, m)
+		}
+	}
+
+	if pillars == nil { pillars = []Pillar{} }
+	if pairs == nil { pairs = []PairItem{} }
+	if monthly == nil { monthly = []MonthRow{} }
+
+	// Risk flags from alpha_ranks
+	var flagsJSON []byte
+	h.service.repo.DB.QueryRow(`
+		SELECT COALESCE(risk_flags::text,'[]') FROM alpha_ranks
+		WHERE account_id=$1::uuid AND symbol='ALL' LIMIT 1`, accountID).Scan(&flagsJSON)
+
+	c.JSON(200, gin.H{"ok":true,"profile":profile,"pillars":pillars,"pairs":pairs,
+		"monthly":monthly,"risk_flags_raw":string(flagsJSON)})
+}

@@ -1,0 +1,76 @@
+package trader
+
+import (
+	"database/sql"
+	"crunchalpha-v3/internal/alpharank"
+)
+
+// GetMaxDrawdown - SUPER SIMPLE!
+// Balance after each trade SUDAH INCLUDE semua deposit/WD dari MT5
+// Tinggal loop trades, track peak, hitung DD!
+func GetMaxDrawdown(db *sql.DB, accountID string, currentEquity float64, trades []alpharank.TradeData) float64 {
+	if len(trades) == 0 {
+		return 0
+	}
+	
+	// Get INITIAL balance (before first trade)
+	var initialBalance float64
+	err := db.QueryRow(`
+		SELECT COALESCE(balance, 0) 
+		FROM trader_accounts 
+		WHERE id = $1
+	`, accountID).Scan(&initialBalance)
+	
+	if err != nil || initialBalance <= 0 {
+		initialBalance = 100 // Fallback
+	}
+	
+	// Calculate what balance was BEFORE all these trades
+	totalPL := 0.0
+	for _, trade := range trades {
+		totalPL += trade.Profit + trade.Swap + trade.Commission
+	}
+	
+	startingBalance := initialBalance - totalPL
+	if startingBalance <= 0 {
+		startingBalance = 100
+	}
+	
+	// Loop trades, track peak, calculate DD
+	balance := startingBalance
+	peak := startingBalance
+	maxDD := 0.0
+	
+	for _, trade := range trades {
+		// Add trade P/L to balance
+		balance += trade.Profit + trade.Swap + trade.Commission
+		
+		// Update peak
+		if balance > peak {
+			peak = balance
+		}
+		
+		// Calculate DD
+		if peak > 0 {
+			dd := ((peak - balance) / peak) * 100
+			if dd > maxDD {
+				maxDD = dd
+			}
+		}
+	}
+	
+	return maxDD
+}
+
+// Dummy functions to avoid errors
+func CalculateAbsoluteDD(db *sql.DB, accountID string, currentEquity float64) float64 {
+	return 0
+}
+
+func CalculateRelativeDD(db *sql.DB, accountID string, trades []alpharank.TradeData) float64 {
+	return 0
+}
+
+func CalculateRealDD(db *sql.DB, accountID string, trades []alpharank.TradeData) float64 {
+	return 0
+}

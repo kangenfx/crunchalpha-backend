@@ -1,0 +1,284 @@
+package alpharank
+
+import (
+	"math"
+	"time"
+)
+
+// DetectRiskFlags analyzes trades and detects all risk flags
+func DetectRiskFlags(metrics AccountMetrics) []RiskFlag {
+	flags := []RiskFlag{}
+	
+	// TIER 1: CRITICAL
+	flags = append(flags, detectMartingale(metrics.Trades)...)
+	flags = append(flags, detectNoStopLoss(metrics.Trades)...)
+	flags = append(flags, detectOverleveraging(metrics.Trades, metrics.CurrentEquity)...)
+	flags = append(flags, detectExtremeDrawdown(metrics.MaxDrawdownPct)...)
+	
+	// TIER 2: MAJOR
+	flags = append(flags, detectLongFloatingLoss(metrics.Trades)...)
+	flags = append(flags, detectRevengeTrading(metrics.Trades)...)
+	flags = append(flags, detectStrategyChange(metrics.Trades)...)
+	
+	// TIER 3: MINOR
+	flags = append(flags, detectWeekendExposure(metrics.Trades)...)
+	flags = append(flags, detectConsistencyVolatility(metrics.Trades)...)
+	
+	return flags
+}
+
+// CRITICAL: Martingale detection
+func detectMartingale(trades []TradeData) []RiskFlag {
+	if len(trades) < 4 {
+		return nil
+	}
+	
+	doublingCount := 0
+	for i := 1; i < len(trades); i++ {
+		if trades[i-1].Profit < 0 {
+			ratio := trades[i].Lots / trades[i-1].Lots
+			if ratio >= 1.5 && ratio <= 2.5 {
+				doublingCount++
+			}
+		}
+	}
+	
+	if doublingCount >= 3 {
+		return []RiskFlag{{
+			FlagType:  "MARTINGALE",
+			Severity:  "CRITICAL",
+			Penalty:   30,
+			Title:     "MARTINGALE",
+			Desc:      "Lot increases >50% after loss ≥3 times",
+			ScoreText: "-30",
+		}}
+	}
+	return nil
+}
+
+// CRITICAL: No stop loss
+func detectNoStopLoss(trades []TradeData) []RiskFlag {
+	if len(trades) == 0 {
+		return nil
+	}
+	
+	withoutSL := 0
+	for _, t := range trades {
+		if t.StopLoss == 0 {
+			withoutSL++
+		}
+	}
+	
+	pct := float64(withoutSL) / float64(len(trades)) * 100
+	if pct > 70 {
+		return []RiskFlag{{
+			FlagType:  "NO_STOP_LOSS",
+			Severity:  "CRITICAL",
+			Penalty:   25,
+			Title:     "NO_STOP_LOSS (>70%)",
+			Desc:      ">70% trades without SL",
+			ScoreText: "-25",
+		}}
+	}
+	return nil
+}
+
+// CRITICAL: Overleveraging
+func detectOverleveraging(trades []TradeData, equity float64) []RiskFlag {
+	if len(trades) == 0 || equity == 0 {
+		return nil
+	}
+	
+	overleveraged := 0
+	for _, t := range trades {
+		if t.Profit < 0 {
+			lossPct := math.Abs(t.Profit) / equity * 100
+			if lossPct > 5 {
+				overleveraged++
+			}
+		}
+	}
+	
+	pct := float64(overleveraged) / float64(len(trades)) * 100
+	if pct > 20 {
+		return []RiskFlag{{
+			FlagType:  "OVERLEVERAGING",
+			Severity:  "CRITICAL",
+			Penalty:   25,
+			Title:     "OVERLEVERAGING",
+			Desc:      "Risk per trade >5% equity",
+			ScoreText: "-25",
+		}}
+	}
+	return nil
+}
+
+// CRITICAL: Extreme drawdown
+func detectExtremeDrawdown(maxDD float64) []RiskFlag {
+	if maxDD > 100 {
+		return []RiskFlag{{
+			FlagType:  "EXTREME_DRAWDOWN",
+			Severity:  "CRITICAL",
+			Penalty:   30,
+			Title:     "EXTREME_DRAWDOWN",
+			Desc:      "Max DD > 100%",
+			ScoreText: "-30",
+		}}
+	}
+	return nil
+}
+
+// MAJOR: Long floating loss
+func detectLongFloatingLoss(trades []TradeData) []RiskFlag {
+	for _, t := range trades {
+		if t.Profit < 0 {
+			duration := t.CloseTime.Sub(t.OpenTime)
+			if duration > 5*24*time.Hour {
+				return []RiskFlag{{
+					FlagType:  "LONG_FLOATING_LOSS",
+					Severity:  "MAJOR",
+					Penalty:   20,
+					Title:     "LONG_FLOATING_LOSS",
+					Desc:      "Loss held >5 days",
+					ScoreText: "-20",
+				}}
+			}
+		}
+	}
+	return nil
+}
+
+// MAJOR: Revenge trading
+func detectRevengeTrading(trades []TradeData) []RiskFlag {
+	if len(trades) < 2 {
+		return nil
+	}
+	
+	for i := 1; i < len(trades); i++ {
+		if trades[i-1].Profit < 0 {
+			lotIncrease := (trades[i].Lots/trades[i-1].Lots - 1) * 100
+			if math.Abs(trades[i-1].Profit) > 50 && lotIncrease > 100 {
+				return []RiskFlag{{
+					FlagType:  "REVENGE_TRADING",
+					Severity:  "MAJOR",
+					Penalty:   15,
+					Title:     "REVENGE_TRADING",
+					Desc:      "Lot spike after loss",
+					ScoreText: "-15",
+				}}
+			}
+		}
+	}
+	return nil
+}
+
+// MAJOR: Strategy change
+func detectStrategyChange(trades []TradeData) []RiskFlag {
+	if len(trades) < 20 {
+		return nil
+	}
+	
+	mid := len(trades) / 2
+	avg1 := avgDuration(trades[:mid])
+	avg2 := avgDuration(trades[mid:])
+	
+	if avg1 == 0 {
+		return nil
+	}
+	
+	change := math.Abs(avg2/avg1-1) * 100
+	if change > 300 {
+		return []RiskFlag{{
+			FlagType:  "STRATEGY_CHANGE",
+			Severity:  "MAJOR",
+			Penalty:   15,
+			Title:     "STRATEGY_CHANGE",
+			Desc:      "Duration changed >300%",
+			ScoreText: "-15",
+		}}
+	}
+	return nil
+}
+
+// MINOR: Weekend exposure
+func detectWeekendExposure(trades []TradeData) []RiskFlag {
+	if len(trades) == 0 {
+		return nil
+	}
+	
+	weekendTrades := 0
+	for _, t := range trades {
+		if isWeekend(t.OpenTime) || isWeekend(t.CloseTime) {
+			weekendTrades++
+		}
+	}
+	
+	pct := float64(weekendTrades) / float64(len(trades)) * 100
+	if pct > 50 {
+		return []RiskFlag{{
+			FlagType:  "WEEKEND_EXPOSURE",
+			Severity:  "MINOR",
+			Penalty:   10,
+			Title:     "WEEKEND_EXPOSURE",
+			Desc:      "Weekend positions >50%",
+			ScoreText: "-10",
+		}}
+	}
+	return nil
+}
+
+// MINOR: Consistency volatility
+func detectConsistencyVolatility(trades []TradeData) []RiskFlag {
+	weeklyReturns := calculateWeeklyReturns(trades)
+	if len(weeklyReturns) < 4 {
+		return nil
+	}
+	
+	mean := 0.0
+	for _, r := range weeklyReturns {
+		mean += r
+	}
+	mean /= float64(len(weeklyReturns))
+	
+	if mean == 0 {
+		return nil
+	}
+	
+	variance := 0.0
+	for _, r := range weeklyReturns {
+		diff := r - mean
+		variance += diff * diff
+	}
+	variance /= float64(len(weeklyReturns))
+	stdDev := math.Sqrt(variance)
+	
+	cv := stdDev / math.Abs(mean)
+	if cv > 2.0 {
+		return []RiskFlag{{
+			FlagType:  "CONSISTENCY_VOLATILITY",
+			Severity:  "MINOR",
+			Penalty:   8,
+			Title:     "CONSISTENCY_VOLATILITY",
+			Desc:      "Weekly variance high",
+			ScoreText: "-8",
+		}}
+	}
+	return nil
+}
+
+// Helpers
+func avgDuration(trades []TradeData) float64 {
+	if len(trades) == 0 {
+		return 0
+	}
+	total := 0.0
+	for _, t := range trades {
+		total += t.CloseTime.Sub(t.OpenTime).Hours()
+	}
+	return total / float64(len(trades))
+}
+
+func isWeekend(t time.Time) bool {
+	wd := t.Weekday()
+	return wd == time.Saturday || wd == time.Sunday
+}

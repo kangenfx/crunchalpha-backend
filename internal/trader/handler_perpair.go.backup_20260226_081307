@@ -1,0 +1,158 @@
+package trader
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"crunchalpha-v3/internal/alpharank"
+	"github.com/gin-gonic/gin"
+)
+
+// GetAlphaRankPerPair returns AlphaRank calculated per trading symbol
+func (h *Handler) GetAlphaRankPerPair(c *gin.Context) {
+	accountID := c.Query("account_id")
+	if accountID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "account_id required"})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	// Get account to verify ownership
+	account, err := h.service.repo.GetAccountByID(accountID, userID.(string))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "account not found"})
+		return
+	}
+
+	// Get distinct symbols for this account
+	rows, err := h.service.repo.db.Query(`
+		SELECT DISTINCT symbol 
+		FROM trades 
+		WHERE account_id = $1 AND status = 'closed'
+		ORDER BY symbol
+	`, accountID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get symbols"})
+		return
+	}
+	defer rows.Close()
+
+	var symbols []string
+	for rows.Next() {
+		var symbol string
+		rows.Scan(&symbol)
+		symbols = append(symbols, symbol)
+	}
+
+	if len(symbols) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"account_id":     accountID,
+			"account_number": account.AccountNumber,
+			"pairs":          []map[string]interface{}{},
+			"total_symbols":  0,
+			"message":        "No closed trades yet",
+		})
+		return
+	}
+
+	// Calculate AlphaRank for each symbol
+	pairResults := []map[string]interface{}{}
+
+	for _, symbol := range symbols {
+		// Get trades for this symbol
+		trades, _ := h.service.getTradesForSymbol(accountID, symbol)
+		if len(trades) < 10 {
+			continue // Skip symbols with insufficient trades
+		}
+
+		// Get balance/equity
+		var balance, equity float64
+		h.service.repo.db.QueryRow(`
+			SELECT COALESCE(balance, 0), COALESCE(equity, 0)
+			FROM trader_accounts WHERE id = $1
+		`, accountID).Scan(&balance, &equity)
+
+		// Build metrics for this symbol
+		metrics := h.service.buildMetrics(accountID, trades, balance, equity, symbol)
+
+		// Calculate AlphaRank
+		calculator := alpharank.NewCalculator()
+		result := calculator.Calculate(metrics)
+
+		// Get stats
+		winRate := 0.0
+		if metrics.TotalTrades > 0 {
+			winRate = float64(metrics.WinningTrades) / float64(metrics.TotalTrades) * 100
+		}
+
+		// Check if we have saved data in alpha_ranks
+		var savedFlags []byte
+		var savedCritical, savedMajor, savedMinor int
+		err := h.service.repo.db.QueryRow(`
+			SELECT 
+				COALESCE(risk_flags, '[]'::jsonb),
+				COALESCE(critical_count, 0),
+				COALESCE(major_count, 0),
+				COALESCE(minor_count, 0)
+			FROM alpha_ranks
+			WHERE account_id = $1 AND symbol = $2
+		`, accountID, symbol).Scan(&savedFlags, &savedCritical, &savedMajor, &savedMinor)
+
+		var flags []alpharank.RiskFlag
+		if err == nil && len(savedFlags) > 0 {
+			// Use saved flags
+			json.Unmarshal(savedFlags, &flags)
+		} else {
+			// Use calculated flags
+			flags = result.RiskFlags.Items
+		}
+
+		// Format flags for response with severity
+		flagsResponse := []map[string]interface{}{}
+		for _, flag := range flags {
+			flagsResponse = append(flagsResponse, map[string]interface{}{
+				"name":     flag.Title,
+				"severity": flag.Severity,
+				"desc":     flag.Desc,
+			})
+		}
+
+		// Format pillars
+		pillarsResponse := []map[string]interface{}{}
+		for _, pillar := range result.Pillars {
+			pillarsResponse = append(pillarsResponse, map[string]interface{}{
+				"code":   pillar.Code,
+				"name":   pillar.Name,
+				"score":  pillar.Score,
+				"weight": pillar.Weight,
+			})
+		}
+
+		pairResults = append(pairResults, map[string]interface{}{
+			"symbol":     symbol,
+			"score":      result.AlphaScore,
+			"grade":      result.Grade,
+			"tier":       result.Tier,
+			"trades":     metrics.TotalTrades,
+			"win_rate":   winRate,
+			"net_profit": metrics.NetProfit,
+			"wins":       metrics.WinningTrades,
+			"losses":     metrics.LosingTrades,
+			"max_dd":     metrics.MaxDrawdownPct,
+			"pillars":    pillarsResponse,
+			"flags":      flagsResponse,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"account_id":     accountID,
+		"account_number": account.AccountNumber,
+		"pairs":          pairResults,
+		"total_symbols":  len(pairResults),
+	})
+}

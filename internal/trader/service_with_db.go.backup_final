@@ -1,0 +1,291 @@
+package trader
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"math"
+
+	"crunchalpha-v3/internal/alpharank"
+)
+
+// GetDashboardWithAlphaRank returns dashboard with AlphaRank from database
+func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*DashboardResponse, error) {
+	account, err := s.repo.GetAccountByID(accountID, userID)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("account not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	brokerLabel := fmt.Sprintf("%s • %s • %s — Account %s (%s)",
+		account.Broker, account.Platform, account.Currency,
+		account.AccountNumber, account.Status)
+
+	// Get AlphaRank from database
+	var result struct {
+		P1, P2, P3, P4, P5, P6, P7 float64
+		AlphaScore                 float64
+		Grade                      string
+		Badge                      string
+		TradeCount                 int
+	}
+
+	err = s.repo.db.QueryRow(`
+		SELECT
+			profitability_score, risk_score, consistency_score,
+			stability_score, activity_score, duration_score, drawdown_score,
+			alpha_score, grade, badge, trade_count
+		FROM alpha_ranks
+		WHERE account_id = $1 AND symbol = 'ALL'
+	`, accountID).Scan(
+		&result.P1, &result.P2, &result.P3, &result.P4,
+		&result.P5, &result.P6, &result.P7,
+		&result.AlphaScore, &result.Grade, &result.Badge, &result.TradeCount,
+	)
+
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// Get trades and build metrics
+	trades, _ := s.getTradesForAccount(accountID)
+	var balance, equity float64
+	s.repo.db.QueryRow(`
+		SELECT COALESCE(balance, 0), COALESCE(equity, 0)
+		FROM trader_accounts WHERE id = $1
+	`, accountID).Scan(&balance, &equity)
+
+	metrics := s.buildMetrics(accountID, trades, balance, equity)
+
+	// Detect risk flags
+	flags := alpharank.DetectRiskFlags(metrics)
+
+	criticalCount := 0
+	majorCount := 0
+	minorCount := 0
+	for _, flag := range flags {
+		switch flag.Severity {
+		case "CRITICAL":
+			criticalCount++
+		case "MAJOR":
+			majorCount++
+		case "MINOR":
+			minorCount++
+		}
+	}
+
+	// Calculate survivability & scalability
+	calculator := alpharank.NewCalculator()
+	surv := calculator.CalculateSurvivability(metrics.MaxDrawdownPct, result.AlphaScore)
+	scal := calculator.CalculateScalability(metrics.CurrentBalance, result.AlphaScore)
+
+	risk := "LOW"
+	if criticalCount > 0 {
+		risk = "HIGH"
+	} else if majorCount >= 1 {
+		risk = "MEDIUM"
+	}
+
+	tier := result.Badge
+	if tier == "" {
+		tier = getTierFromGrade(result.Grade)
+	}
+
+	winRate := 0.0
+	profitFactor := 0.0
+	avgWin := 0.0
+	avgLoss := 0.0
+	riskReward := 0.0
+	expectancy := 0.0
+
+	if metrics.TotalTrades > 0 {
+		winRate = float64(metrics.WinningTrades) / float64(metrics.TotalTrades) * 100
+		if metrics.GrossLoss != 0 {
+			profitFactor = metrics.GrossProfit / (-metrics.GrossLoss)
+		}
+		expectancy = metrics.NetProfit / float64(metrics.TotalTrades)
+	}
+
+	if metrics.WinningTrades > 0 {
+		avgWin = metrics.GrossProfit / float64(metrics.WinningTrades)
+	}
+	if metrics.LosingTrades > 0 {
+		avgLoss = metrics.GrossLoss / float64(metrics.LosingTrades)
+	}
+
+	if avgLoss != 0 {
+		riskReward = avgWin / math.Abs(avgLoss)
+	}
+
+	pillars := []Pillar{
+		{Code: "P1", Name: "Return vs Drawdown", Weight: 20, Score: int(result.P1)},
+		{Code: "P2", Name: "Risk Behaviour", Weight: 25, Score: int(result.P2)},
+		{Code: "P3", Name: "Consistency", Weight: 20, Score: int(result.P3)},
+		{Code: "P4", Name: "Recovery", Weight: 10, Score: int(result.P4)},
+		{Code: "P5", Name: "Math Edge", Weight: 10, Score: int(result.P5)},
+		{Code: "P6", Name: "Discipline", Weight: 8, Score: int(result.P6)},
+		{Code: "P7", Name: "Track Record", Weight: 7, Score: int(result.P7)},
+	}
+
+	// Build AlphaRankResult untuk convert
+	alphaResult := alpharank.AlphaRankResult{
+		AlphaScore: result.AlphaScore,
+		Grade:      result.Grade,
+		Tier:       tier,
+		Risk:       risk,
+	}
+	alphaResult.RiskFlags.Counts.Critical = criticalCount
+	alphaResult.RiskFlags.Counts.Major = majorCount
+	alphaResult.RiskFlags.Counts.Minor = minorCount
+	alphaResult.RiskFlags.Items = flags
+
+	dashboard := &DashboardResponse{
+		Snapshot: DashboardSnapshot{
+			Tier:         tier,
+			Risk:         risk,
+			Grade:        result.Grade,
+			AlphaScore:   result.AlphaScore,
+			Equity:       fmt.Sprintf("$%.2f", equity),
+			Balance:      fmt.Sprintf("$%.2f", balance),
+			PnLToday:     "+0.00 USD",
+			TotalTrades:  metrics.TotalTrades,
+			WinRate:      winRate,
+			ProfitFactor: profitFactor,
+			MaxDD:        metrics.MaxDrawdownPct,
+			AvgWin:       avgWin,
+			AvgLoss:      avgLoss,
+			RiskReward:   riskReward,
+			Expectancy:   expectancy,
+			BrokerLabel:  brokerLabel,
+		},
+		Survivability: SurvivabilityScore{
+			Score: surv.Score,
+			Label: surv.Label,
+			Note:  surv.Note,
+		},
+		Scalability: ScalabilityScore{
+			Score: scal.Score,
+			Label: scal.Label,
+			Note:  scal.Note,
+		},
+		Pillars:   pillars,
+		RiskFlags: convertRiskFlags(alphaResult),
+                Statistics: &MetricsStatistics{
+                        TotalTrades:   metrics.TotalTrades,
+                        WinningTrades: metrics.WinningTrades,
+                        LosingTrades:  metrics.LosingTrades,
+                        WinRate:       winRate,
+                        ProfitFactor:  profitFactor,
+                        MaxDD:         metrics.MaxDrawdownPct,
+                        AvgWin:        avgWin,
+                        AvgLoss:       avgLoss,
+                        RiskReward:    riskReward,
+                        Expectancy:    expectancy,
+                },
+	}
+
+	return dashboard, nil
+}
+
+func (s *Service) getTradesForAccount(accountID string) ([]alpharank.TradeData, error) {
+	query := `
+		SELECT
+			symbol, type, lots, open_price, close_price,
+			profit, swap, commission, open_time, close_time
+		FROM trades
+		WHERE account_id = $1 AND status = 'closed'
+		ORDER BY close_time ASC
+	`
+
+	rows, err := s.repo.db.Query(query, accountID)
+	if err != nil {
+		return []alpharank.TradeData{}, nil
+	}
+	defer rows.Close()
+
+	var trades []alpharank.TradeData
+	for rows.Next() {
+		var t alpharank.TradeData
+		var openTime, closeTime sql.NullTime
+
+		err := rows.Scan(
+			&t.Symbol, &t.Type, &t.Lots, &t.OpenPrice, &t.ClosePrice,
+			&t.Profit, &t.Swap, &t.Commission, &openTime, &closeTime,
+		)
+		if err != nil {
+			continue
+		}
+
+		if openTime.Valid {
+			t.OpenTime = openTime.Time
+		}
+		if closeTime.Valid {
+			t.CloseTime = closeTime.Time
+		}
+
+		trades = append(trades, t)
+	}
+
+	return trades, nil
+}
+
+func (s *Service) buildMetrics(accountID string, trades []alpharank.TradeData, balance, equity float64) alpharank.AccountMetrics {
+	var (
+		grossProfit   float64
+		grossLoss     float64
+		winningTrades int
+		losingTrades  int
+		totalProfit   float64
+		maxDD         float64
+	)
+
+	for _, trade := range trades {
+		netProfit := trade.Profit + trade.Swap + trade.Commission
+		totalProfit += netProfit
+
+		if netProfit > 0 {
+			grossProfit += netProfit
+			winningTrades++
+		} else {
+			grossLoss += netProfit
+			losingTrades++
+		}
+	}
+
+	// Calculate Max Drawdown using 3-level system
+	maxDD = GetMaxDrawdown(s.repo.db, accountID, equity, trades)
+	
+
+	return alpharank.AccountMetrics{
+		AccountID:      accountID,
+		CurrentBalance: balance,
+		CurrentEquity:  equity,
+		NetProfit:      totalProfit,
+		GrossProfit:    grossProfit,
+		GrossLoss:      grossLoss,
+		TotalTrades:    len(trades),
+		WinningTrades:  winningTrades,
+		LosingTrades:   losingTrades,
+		MaxDrawdownPct: maxDD,
+		Trades:         trades,
+	}
+}
+
+func getTierFromGrade(grade string) string {
+	switch grade {
+	case "S+", "S", "S-":
+		return "LEGEND"
+	case "A+", "A", "A-":
+		return "ELITE"
+	case "B+", "B", "B-":
+		return "PRO"
+	case "C+", "C", "C-":
+		return "INTERMEDIATE"
+	case "D+", "D", "D-", "F":
+		return "NOVICE"
+	default:
+		return "MICRO"
+	}
+}

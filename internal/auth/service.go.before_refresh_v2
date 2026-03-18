@@ -1,0 +1,158 @@
+package auth
+
+import (
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"log"
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+type Service struct {
+	repo *Repository
+}
+
+func NewService(db *sql.DB) *Service {
+	return &Service{
+		repo: NewRepository(db),
+	}
+}
+
+func (s *Service) Register(email, password, role string) (*User, string, error) {
+	// Create user
+	user, err := s.repo.CreateUser(email, password, role)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Generate token
+	token, err := GenerateToken(user.ID, user.Email, user.PrimaryRole)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return user, token, nil
+}
+
+func (s *Service) Login(email, password string) (*User, string, error) {
+	// Get user
+	user, err := s.repo.GetUserByEmail(email)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return nil, "", errors.New("invalid email or password")
+		}
+		return nil, "", err
+	}
+
+	// Verify password
+	if err := s.repo.VerifyPassword(user.PasswordHash, password); err != nil {
+		return nil, "", errors.New("invalid email or password")
+	}
+
+	// Generate token
+	token, err := GenerateToken(user.ID, user.Email, user.PrimaryRole)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return user, token, nil
+}
+
+// ForgotPassword initiates password reset process
+func (s *Service) ForgotPassword(email string) (string, error) {
+	// Get user by email
+	user, err := s.repo.GetUserByEmail(email)
+	if err != nil {
+		// Don't reveal if email exists - security best practice
+		// Return nil error so response is same regardless
+		return "", nil
+	}
+
+	// Generate secure token using crypto/rand
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(tokenBytes)
+
+	// Set expiry (1 hour from now)
+	expiresAt := time.Now().Add(1 * time.Hour)
+
+	// Store token in database
+	err = s.repo.CreatePasswordResetToken(user.ID, token, expiresAt)
+	if err != nil {
+		return "", err
+	}
+
+	// TODO: Send email here
+	// emailService.SendPasswordResetEmail(user.Email, token)
+
+	// Return token for testing only - REMOVE IN PRODUCTION
+	return token, nil
+}
+
+// ValidateResetToken checks if reset token is valid
+func (s *Service) ValidateResetToken(token string) error {
+	prt, err := s.repo.GetPasswordResetToken(token)
+	if err != nil {
+		return errors.New("invalid token")
+	}
+
+	if prt.Used {
+		return errors.New("token already used")
+	}
+
+	if time.Now().After(prt.ExpiresAt) {
+		return errors.New("token expired")
+	}
+
+	return nil
+}
+
+// ResetPassword resets user password with valid token
+func (s *Service) ResetPassword(token, newPassword string) error {
+	// Validate token
+	prt, err := s.repo.GetPasswordResetToken(token)
+	if err != nil {
+		return errors.New("invalid token")
+	}
+
+	if prt.Used {
+		return errors.New("token already used")
+	}
+
+	if time.Now().After(prt.ExpiresAt) {
+		return errors.New("token expired")
+	}
+
+	// Hash new password
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update password
+	err = s.repo.UpdatePassword(prt.UserID, string(hash))
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	// Mark token as used
+	err = s.repo.MarkTokenAsUsed(token)
+	if err != nil {
+		return fmt.Errorf("failed to invalidate token: %w", err)
+	}
+
+	// Logout all devices (security: force re-login everywhere)
+	err = s.repo.InvalidateAllRefreshTokens(prt.UserID)
+	if err != nil {
+		// Log error but don't fail - password was changed successfully
+		log.Printf("Warning: failed to invalidate refresh tokens for user %s: %v", prt.UserID, err)
+	}
+
+	return nil
+}

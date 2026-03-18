@@ -1,0 +1,5 @@
+crunchalpha-v3
+*.exe
+*.test
+vendor/
+.env

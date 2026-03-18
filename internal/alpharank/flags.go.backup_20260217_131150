@@ -1,0 +1,825 @@
+package alpharank
+
+import (
+	"fmt"
+	"math"
+	"time"
+)
+
+// DetectRiskFlags analyzes trades and detects all risk flags
+func DetectRiskFlags(metrics AccountMetrics) []RiskFlag {
+	flags := []RiskFlag{}
+	
+	// TIER 1: CRITICAL
+	flags = append(flags, detectMartingale(metrics.Trades)...)
+	flags = append(flags, detectNoStopLoss(metrics.Trades)...)
+	flags = append(flags, detectOverleveraging(metrics.Trades, metrics.CurrentEquity)...)
+	flags = append(flags, detectExtremeDrawdown(metrics.MaxDrawdownPct)...)
+	
+	// TIER 2: MAJOR
+	flags = append(flags, detectLongFloatingLoss(metrics.Trades)...)
+	flags = append(flags, detectRevengeTrading(metrics.Trades)...)
+	flags = append(flags, detectStrategyChange(metrics.Trades)...)
+	
+	// TIER 3: MINOR
+	flags = append(flags, detectWeekendExposure(metrics.Trades)...)
+	flags = append(flags, detectConsistencyVolatility(metrics.Trades)...)
+	
+	// Additional sophisticated flags
+	flags = append(flags, detectHighCorrelation(metrics.Trades)...)
+	flags = append(flags, detectGridTrading(metrics.Trades)...)
+	flags = append(flags, detectStrategyDrift(metrics.Trades)...)
+	flags = append(flags, detectCommissionHeavy(metrics.Trades, metrics.GrossProfit, metrics.GrossLoss)...)
+	flags = append(flags, detectNewsTrading(metrics.Trades)...)
+	// Additional risk patterns
+	flags = append(flags, detectLotInconsistency(metrics.Trades)...)
+	flags = append(flags, detectHighFrequency(metrics.Trades)...)
+	flags = append(flags, detectPoorRiskReward(metrics.Trades)...)
+	flags = append(flags, detectMaxTradeSize(metrics.Trades, metrics.CurrentEquity)...)
+	flags = append(flags, detectDrawdownRecovery(metrics.Trades)...)
+	// Final sophisticated patterns
+	flags = append(flags, detectSymbolConcentration(metrics.Trades)...)
+	flags = append(flags, detectNightTrading(metrics.Trades)...)
+	flags = append(flags, detectWinStreakDependency(metrics.Trades)...)
+	flags = append(flags, detectAveragingDown(metrics.Trades)...)
+	flags = append(flags, detectExcessiveHedging(metrics.Trades)...)
+	return flags
+}
+
+// CRITICAL: Martingale detection
+func detectMartingale(trades []TradeData) []RiskFlag {
+	if len(trades) < 4 {
+		return nil
+	}
+	
+	doublingCount := 0
+	for i := 1; i < len(trades); i++ {
+		if trades[i-1].Profit < 0 {
+			ratio := trades[i].Lots / trades[i-1].Lots
+			if ratio >= 1.5 && ratio <= 2.5 {
+				doublingCount++
+			}
+		}
+	}
+	
+	if doublingCount >= 3 {
+		return []RiskFlag{{
+			FlagType:  "MARTINGALE",
+			Severity:  "CRITICAL",
+			Penalty:   30,
+			Title:     "MARTINGALE",
+			Desc:      "Lot increases >50% after loss ≥3 times",
+			ScoreText: "-30",
+		}}
+	}
+	return nil
+}
+
+// CRITICAL: No stop loss
+func detectNoStopLoss(trades []TradeData) []RiskFlag {
+	if len(trades) == 0 {
+		return nil
+	}
+	
+	withoutSL := 0
+	for _, t := range trades {
+		if t.StopLoss == 0 {
+			withoutSL++
+		}
+	}
+	
+	pct := float64(withoutSL) / float64(len(trades)) * 100
+	if pct > 70 {
+		return []RiskFlag{{
+			FlagType:  "NO_STOP_LOSS",
+			Severity:  "CRITICAL",
+			Penalty:   25,
+			Title:     "NO_STOP_LOSS (>70%)",
+			Desc:      ">70% trades without SL",
+			ScoreText: "-25",
+		}}
+	}
+	return nil
+}
+
+// CRITICAL: Overleveraging
+func detectOverleveraging(trades []TradeData, equity float64) []RiskFlag {
+	if len(trades) == 0 || equity == 0 {
+		return nil
+	}
+	
+	overleveraged := 0
+	for _, t := range trades {
+		if t.Profit < 0 {
+			lossPct := math.Abs(t.Profit) / equity * 100
+			if lossPct > 5 {
+				overleveraged++
+			}
+		}
+	}
+	
+	pct := float64(overleveraged) / float64(len(trades)) * 100
+	if pct > 20 {
+		return []RiskFlag{{
+			FlagType:  "OVERLEVERAGING",
+			Severity:  "CRITICAL",
+			Penalty:   25,
+			Title:     "OVERLEVERAGING",
+			Desc:      "Risk per trade >5% equity",
+			ScoreText: "-25",
+		}}
+	}
+	return nil
+}
+
+// CRITICAL: Extreme drawdown
+func detectExtremeDrawdown(maxDD float64) []RiskFlag {
+	if maxDD > 100 {
+		return []RiskFlag{{
+			FlagType:  "EXTREME_DRAWDOWN",
+			Severity:  "CRITICAL",
+			Penalty:   30,
+			Title:     "EXTREME_DRAWDOWN",
+			Desc:      "Max DD > 100%",
+			ScoreText: "-30",
+		}}
+	}
+	return nil
+}
+
+// MAJOR: Long floating loss
+func detectLongFloatingLoss(trades []TradeData) []RiskFlag {
+	for _, t := range trades {
+		if t.Profit < 0 {
+			duration := t.CloseTime.Sub(t.OpenTime)
+			if duration > 5*24*time.Hour {
+				return []RiskFlag{{
+					FlagType:  "LONG_FLOATING_LOSS",
+					Severity:  "MAJOR",
+					Penalty:   20,
+					Title:     "LONG_FLOATING_LOSS",
+					Desc:      "Loss held >5 days",
+					ScoreText: "-20",
+				}}
+			}
+		}
+	}
+	return nil
+}
+
+// MAJOR: Revenge trading
+func detectRevengeTrading(trades []TradeData) []RiskFlag {
+	if len(trades) < 2 {
+		return nil
+	}
+	
+	for i := 1; i < len(trades); i++ {
+		if trades[i-1].Profit < 0 {
+			lotIncrease := (trades[i].Lots/trades[i-1].Lots - 1) * 100
+			if math.Abs(trades[i-1].Profit) > 50 && lotIncrease > 100 {
+				return []RiskFlag{{
+					FlagType:  "REVENGE_TRADING",
+					Severity:  "MAJOR",
+					Penalty:   15,
+					Title:     "REVENGE_TRADING",
+					Desc:      "Lot spike after loss",
+					ScoreText: "-15",
+				}}
+			}
+		}
+	}
+	return nil
+}
+
+// MAJOR: Strategy change
+func detectStrategyChange(trades []TradeData) []RiskFlag {
+	if len(trades) < 20 {
+		return nil
+	}
+	
+	mid := len(trades) / 2
+	avg1 := avgDuration(trades[:mid])
+	avg2 := avgDuration(trades[mid:])
+	
+	if avg1 == 0 {
+		return nil
+	}
+	
+	change := math.Abs(avg2/avg1-1) * 100
+	if change > 300 {
+		return []RiskFlag{{
+			FlagType:  "STRATEGY_CHANGE",
+			Severity:  "MAJOR",
+			Penalty:   15,
+			Title:     "STRATEGY_CHANGE",
+			Desc:      "Duration changed >300%",
+			ScoreText: "-15",
+		}}
+	}
+	return nil
+}
+
+// MINOR: Weekend exposure
+func detectWeekendExposure(trades []TradeData) []RiskFlag {
+	if len(trades) == 0 {
+		return nil
+	}
+	
+	weekendTrades := 0
+	for _, t := range trades {
+		if isWeekend(t.OpenTime) || isWeekend(t.CloseTime) {
+			weekendTrades++
+		}
+	}
+	
+	pct := float64(weekendTrades) / float64(len(trades)) * 100
+	if pct > 50 {
+		return []RiskFlag{{
+			FlagType:  "WEEKEND_EXPOSURE",
+			Severity:  "MINOR",
+			Penalty:   10,
+			Title:     "WEEKEND_EXPOSURE",
+			Desc:      "Weekend positions >50%",
+			ScoreText: "-10",
+		}}
+	}
+	return nil
+}
+
+// MINOR: Consistency volatility
+func detectConsistencyVolatility(trades []TradeData) []RiskFlag {
+	weeklyReturns := calculateWeeklyReturns(trades)
+	if len(weeklyReturns) < 4 {
+		return nil
+	}
+	
+	mean := 0.0
+	for _, r := range weeklyReturns {
+		mean += r
+	}
+	mean /= float64(len(weeklyReturns))
+	
+	if mean == 0 {
+		return nil
+	}
+	
+	variance := 0.0
+	for _, r := range weeklyReturns {
+		diff := r - mean
+		variance += diff * diff
+	}
+	variance /= float64(len(weeklyReturns))
+	stdDev := math.Sqrt(variance)
+	
+	cv := stdDev / math.Abs(mean)
+	if cv > 2.0 {
+		return []RiskFlag{{
+			FlagType:  "CONSISTENCY_VOLATILITY",
+			Severity:  "MINOR",
+			Penalty:   8,
+			Title:     "CONSISTENCY_VOLATILITY",
+			Desc:      "Weekly variance high",
+			ScoreText: "-8",
+		}}
+	}
+	return nil
+}
+
+// Helpers
+func avgDuration(trades []TradeData) float64 {
+	if len(trades) == 0 {
+		return 0
+	}
+	total := 0.0
+	for _, t := range trades {
+		total += t.CloseTime.Sub(t.OpenTime).Hours()
+	}
+	return total / float64(len(trades))
+}
+
+func isWeekend(t time.Time) bool {
+	wd := t.Weekday()
+	return wd == time.Saturday || wd == time.Sunday
+}
+
+// ============================================================================
+// ADDITIONAL SOPHISTICATED FLAGS
+// ============================================================================
+
+// detectHighCorrelation detects multiple same-direction positions
+func detectHighCorrelation(trades []TradeData) []RiskFlag {
+	if len(trades) < 10 {
+		return nil
+	}
+	
+	maxSimultaneous := 0
+	for i := 0; i < len(trades)-1; i++ {
+		openPositions := 1
+		for j := i + 1; j < len(trades) && j < i+20; j++ {
+			if trades[j].OpenTime.Before(trades[i].CloseTime) {
+				if trades[i].Type == trades[j].Type {
+					openPositions++
+				}
+			}
+		}
+		if openPositions > maxSimultaneous {
+			maxSimultaneous = openPositions
+		}
+	}
+	
+	if maxSimultaneous >= 5 {
+		return []RiskFlag{{
+			FlagType:  "HIGH_CORRELATION",
+			Severity:  "MAJOR",
+			Penalty:   15,
+			Title:     "HIGH_CORRELATION",
+			Desc:      fmt.Sprintf("%d same-direction positions simultaneously", maxSimultaneous),
+			ScoreText: "-15",
+		}}
+	}
+	return nil
+}
+
+// detectGridTrading detects grid/hedging patterns
+func detectGridTrading(trades []TradeData) []RiskFlag {
+	if len(trades) < 20 {
+		return nil
+	}
+	
+	gridCount := 0
+	for i := 1; i < len(trades) && i < 100; i++ {
+		timeDiff := trades[i].OpenTime.Sub(trades[i-1].OpenTime)
+		if timeDiff < 5*time.Minute && timeDiff > 0 {
+			if trades[i].Lots == trades[i-1].Lots {
+				if (trades[i].Type == "buy" && trades[i-1].Type == "sell") ||
+				   (trades[i].Type == "sell" && trades[i-1].Type == "buy") {
+					gridCount++
+				}
+			}
+		}
+	}
+	
+	if gridCount >= 10 {
+		return []RiskFlag{{
+			FlagType:  "GRID_TRADING",
+			Severity:  "MAJOR",
+			Penalty:   15,
+			Title:     "GRID_TRADING",
+			Desc:      fmt.Sprintf("Grid/hedging pattern detected (%d instances)", gridCount),
+			ScoreText: "-15",
+		}}
+	}
+	return nil
+}
+
+// detectCommissionHeavy detects excessive scalping
+func detectCommissionHeavy(trades []TradeData, grossProfit, grossLoss float64) []RiskFlag {
+	if len(trades) < 50 {
+		return nil
+	}
+	
+	avgProfit := grossProfit / float64(len(trades))
+	avgLoss := math.Abs(grossLoss) / float64(len(trades))
+	
+	if avgProfit < 5 && avgLoss < 5 {
+		quickTrades := 0
+		for _, t := range trades {
+			duration := t.CloseTime.Sub(t.OpenTime)
+			if duration < 5*time.Minute {
+				quickTrades++
+			}
+		}
+		
+		pct := float64(quickTrades) / float64(len(trades)) * 100
+		if pct > 50 {
+			return []RiskFlag{{
+				FlagType:  "COMMISSION_HEAVY",
+				Severity:  "MINOR",
+				Penalty:   10,
+				Title:     "COMMISSION_HEAVY",
+				Desc:      fmt.Sprintf("%.0f%% trades <5min (high commissions)", pct),
+				ScoreText: "-10",
+			}}
+		}
+	}
+	return nil
+}
+
+// detectStrategyDrift detects changing trading patterns
+func detectStrategyDrift(trades []TradeData) []RiskFlag {
+	if len(trades) < 100 {
+		return nil
+	}
+	
+	mid := len(trades) / 2
+	firstHalf := trades[:mid]
+	secondHalf := trades[mid:]
+	
+	var firstAvgLot, secondAvgLot float64
+	for _, t := range firstHalf {
+		firstAvgLot += t.Lots
+	}
+	firstAvgLot /= float64(len(firstHalf))
+	
+	for _, t := range secondHalf {
+		secondAvgLot += t.Lots
+	}
+	secondAvgLot /= float64(len(secondHalf))
+	
+	ratio := secondAvgLot / firstAvgLot
+	if ratio > 3 || ratio < 0.33 {
+		return []RiskFlag{{
+			FlagType:  "STRATEGY_DRIFT",
+			Severity:  "MAJOR",
+			Penalty:   15,
+			Title:     "STRATEGY_DRIFT",
+			Desc:      fmt.Sprintf("Lot size changed %.1fx (instability)", ratio),
+			ScoreText: "-15",
+		}}
+	}
+	return nil
+}
+
+// detectNewsTrading detects high-volatility event trading
+func detectNewsTrading(trades []TradeData) []RiskFlag {
+	if len(trades) < 20 {
+		return nil
+	}
+	
+	newsTimeTrades := 0
+	for _, t := range trades {
+		minute := t.OpenTime.Minute()
+		if minute == 0 || minute == 30 {
+			newsTimeTrades++
+		}
+	}
+	
+	pct := float64(newsTimeTrades) / float64(len(trades)) * 100
+	if pct > 40 {
+		return []RiskFlag{{
+			FlagType:  "NEWS_TRADING",
+			Severity:  "MINOR",
+			Penalty:   10,
+			Title:     "NEWS_TRADING",
+			Desc:      fmt.Sprintf("%.0f%% trades at :00/:30 (volatility events)", pct),
+			ScoreText: "-10",
+		}}
+	}
+	return nil
+}
+
+// detectLotInconsistency detects erratic lot size changes
+func detectLotInconsistency(trades []TradeData) []RiskFlag {
+	if len(trades) < 30 {
+		return nil
+	}
+	
+	// Calculate lot size volatility
+	var lots []float64
+	for _, t := range trades {
+		if t.Lots > 0 {
+			lots = append(lots, t.Lots)
+		}
+	}
+	
+	if len(lots) < 30 {
+		return nil
+	}
+	
+	// Calculate mean and std dev
+	var sum, sumSq float64
+	for _, lot := range lots {
+		sum += lot
+		sumSq += lot * lot
+	}
+	mean := sum / float64(len(lots))
+	variance := (sumSq / float64(len(lots))) - (mean * mean)
+	stdDev := math.Sqrt(variance)
+	
+	// If std dev > 100% of mean, lots are very inconsistent
+	cv := (stdDev / mean) * 100
+	if cv > 150 {
+		return []RiskFlag{{
+			FlagType:  "LOT_INCONSISTENCY",
+			Severity:  "MINOR",
+			Penalty:   10,
+			Title:     "LOT_INCONSISTENCY",
+			Desc:      fmt.Sprintf("Lot sizes vary %.0f%% (erratic sizing)", cv),
+			ScoreText: "-10",
+		}}
+	}
+	return nil
+}
+
+// detectHighFrequency detects excessive trading
+func detectHighFrequency(trades []TradeData) []RiskFlag {
+	if len(trades) < 100 {
+		return nil
+	}
+	
+	// Calculate trades per day
+	if len(trades) == 0 {
+		return nil
+	}
+	
+	duration := trades[len(trades)-1].CloseTime.Sub(trades[0].OpenTime)
+	days := duration.Hours() / 24
+	
+	if days < 1 {
+		days = 1
+	}
+	
+	tradesPerDay := float64(len(trades)) / days
+	
+	// If more than 50 trades per day on average
+	if tradesPerDay > 50 {
+		return []RiskFlag{{
+			FlagType:  "HIGH_FREQUENCY",
+			Severity:  "MINOR",
+			Penalty:   10,
+			Title:     "HIGH_FREQUENCY",
+			Desc:      fmt.Sprintf("%.0f trades/day avg (overtrading)", tradesPerDay),
+			ScoreText: "-10",
+		}}
+	}
+	return nil
+}
+
+// detectPoorRiskReward detects bad risk/reward ratio
+func detectPoorRiskReward(trades []TradeData) []RiskFlag {
+	if len(trades) < 50 {
+		return nil
+	}
+	
+	var totalWins, totalLosses float64
+	winCount, lossCount := 0, 0
+	
+	for _, t := range trades {
+		if t.Profit > 0 {
+			totalWins += t.Profit
+			winCount++
+		} else if t.Profit < 0 {
+			totalLosses += math.Abs(t.Profit)
+			lossCount++
+		}
+	}
+	
+	if winCount == 0 || lossCount == 0 {
+		return nil
+	}
+	
+	avgWin := totalWins / float64(winCount)
+	avgLoss := totalLosses / float64(lossCount)
+	
+	rrRatio := avgWin / avgLoss
+	
+	// If average win < average loss (RR < 1)
+	if rrRatio < 1.0 {
+		return []RiskFlag{{
+			FlagType:  "POOR_RISK_REWARD",
+			Severity:  "MAJOR",
+			Penalty:   15,
+			Title:     "POOR_RISK_REWARD",
+			Desc:      fmt.Sprintf("Risk/Reward %.2f (avg win < avg loss)", rrRatio),
+			ScoreText: "-15",
+		}}
+	}
+	return nil
+}
+
+// detectMaxTradeSize detects position sizing too large
+func detectMaxTradeSize(trades []TradeData, equity float64) []RiskFlag {
+	if len(trades) < 10 || equity == 0 {
+		return nil
+	}
+	
+	// Find max single trade loss
+	var maxLoss float64
+	for _, t := range trades {
+		if t.Profit < 0 && math.Abs(t.Profit) > maxLoss {
+			maxLoss = math.Abs(t.Profit)
+		}
+	}
+	
+	// If single trade loss > 20% of equity
+	lossPct := (maxLoss / equity) * 100
+	if lossPct > 20 {
+		return []RiskFlag{{
+			FlagType:  "MAX_POSITION_SIZE",
+			Severity:  "CRITICAL",
+			Penalty:   25,
+			Title:     "MAX_POSITION_SIZE",
+			Desc:      fmt.Sprintf("Single trade lost %.1f%% of equity", lossPct),
+			ScoreText: "-25",
+		}}
+	}
+	return nil
+}
+
+// detectDrawdownRecovery detects poor recovery from drawdowns
+func detectDrawdownRecovery(trades []TradeData) []RiskFlag {
+	if len(trades) < 100 {
+		return nil
+	}
+	
+	// Track equity curve
+	equity := 10000.0
+	maxEquity := equity
+	maxDD := 0.0
+	_ = false
+	longDrawdown := 0
+	
+	for _, t := range trades {
+		equity += t.Profit
+		
+		if equity > maxEquity {
+			maxEquity = equity
+			// Recovery
+			longDrawdown = 0
+		} else {
+			dd := ((maxEquity - equity) / maxEquity) * 100
+			if dd > maxDD {
+				maxDD = dd
+			}
+			
+			if dd > 10 {
+				// In drawdown
+				longDrawdown++
+			}
+		}
+	}
+	
+	// If spent >30% of trades in drawdown
+	ddPct := (float64(longDrawdown) / float64(len(trades))) * 100
+	if ddPct > 30 {
+		return []RiskFlag{{
+			FlagType:  "SLOW_RECOVERY",
+			Severity:  "MAJOR",
+			Penalty:   15,
+			Title:     "SLOW_RECOVERY",
+			Desc:      fmt.Sprintf("In drawdown %.0f%% of time (slow recovery)", ddPct),
+			ScoreText: "-15",
+		}}
+	}
+	return nil
+}
+
+// detectSymbolConcentration detects trading only 1-2 symbols
+func detectSymbolConcentration(trades []TradeData) []RiskFlag {
+	if len(trades) < 30 {
+		return nil
+	}
+	
+	symbolCount := make(map[string]int)
+	for _, t := range trades {
+		symbolCount[t.Symbol]++
+	}
+	
+	// If >80% trades on single symbol
+	for symbol, count := range symbolCount {
+		pct := float64(count) / float64(len(trades)) * 100
+		if pct > 80 {
+			return []RiskFlag{{
+				FlagType:  "SYMBOL_CONCENTRATION",
+				Severity:  "MINOR",
+				Penalty:   10,
+				Title:     "SYMBOL_CONCENTRATION",
+				Desc:      fmt.Sprintf("%.0f%% trades on %s (lack of diversification)", pct, symbol),
+				ScoreText: "-10",
+			}}
+		}
+	}
+	return nil
+}
+
+// detectNightTrading detects trading during low liquidity hours
+func detectNightTrading(trades []TradeData) []RiskFlag {
+	if len(trades) < 20 {
+		return nil
+	}
+	
+	nightTrades := 0
+	for _, t := range trades {
+		hour := t.OpenTime.UTC().Hour()
+		// 22:00-06:00 UTC is typically low liquidity
+		if hour >= 22 || hour <= 6 {
+			nightTrades++
+		}
+	}
+	
+	pct := float64(nightTrades) / float64(len(trades)) * 100
+	if pct > 40 {
+		return []RiskFlag{{
+			FlagType:  "NIGHT_TRADING",
+			Severity:  "MINOR",
+			Penalty:   10,
+			Title:     "NIGHT_TRADING",
+			Desc:      fmt.Sprintf("%.0f%% trades during low liquidity hours", pct),
+			ScoreText: "-10",
+		}}
+	}
+	return nil
+}
+
+// detectWinStreakDependency detects reliance on lucky streaks
+func detectWinStreakDependency(trades []TradeData) []RiskFlag {
+	if len(trades) < 50 {
+		return nil
+	}
+	
+	maxStreak := 0
+	currentStreak := 0
+	
+	for _, t := range trades {
+		if t.Profit > 0 {
+			currentStreak++
+			if currentStreak > maxStreak {
+				maxStreak = currentStreak
+			}
+		} else {
+			currentStreak = 0
+		}
+	}
+	
+	// If longest win streak > 30% of total trades
+	streakPct := float64(maxStreak) / float64(len(trades)) * 100
+	if streakPct > 30 {
+		return []RiskFlag{{
+			FlagType:  "WIN_STREAK_DEPENDENCY",
+			Severity:  "MINOR",
+			Penalty:   10,
+			Title:     "WIN_STREAK_DEPENDENCY",
+			Desc:      fmt.Sprintf("Profit relies on %d-trade win streak", maxStreak),
+			ScoreText: "-10",
+		}}
+	}
+	return nil
+}
+
+// detectAveragingDown detects adding to losing positions
+func detectAveragingDown(trades []TradeData) []RiskFlag {
+	if len(trades) < 30 {
+		return nil
+	}
+	
+	avgDownCount := 0
+	
+	// Look for same symbol, same direction, increasing lot after loss
+	for i := 1; i < len(trades) && i < 200; i++ {
+		if trades[i-1].Profit < 0 {
+			// Same symbol, same direction, larger lot
+			if trades[i].Symbol == trades[i-1].Symbol &&
+			   trades[i].Type == trades[i-1].Type &&
+			   trades[i].Lots > trades[i-1].Lots {
+				avgDownCount++
+			}
+		}
+	}
+	
+	if avgDownCount >= 5 {
+		return []RiskFlag{{
+			FlagType:  "AVERAGING_DOWN",
+			Severity:  "CRITICAL",
+			Penalty:   25,
+			Title:     "AVERAGING_DOWN",
+			Desc:      fmt.Sprintf("Adding to losers %d times (dangerous)", avgDownCount),
+			ScoreText: "-25",
+		}}
+	}
+	return nil
+}
+
+// detectExcessiveHedging detects simultaneous opposite positions
+func detectExcessiveHedging(trades []TradeData) []RiskFlag {
+	if len(trades) < 30 {
+		return nil
+	}
+	
+	hedgeCount := 0
+	
+	for i := 1; i < len(trades) && i < 200; i++ {
+		// Check if opened within 1 minute, same symbol, opposite direction
+		timeDiff := trades[i].OpenTime.Sub(trades[i-1].OpenTime)
+		if timeDiff < time.Minute && timeDiff > 0 {
+			if trades[i].Symbol == trades[i-1].Symbol {
+				if (trades[i].Type == "buy" && trades[i-1].Type == "sell") ||
+				   (trades[i].Type == "sell" && trades[i-1].Type == "buy") {
+					hedgeCount++
+				}
+			}
+		}
+	}
+	
+	pct := float64(hedgeCount) / float64(len(trades)) * 100
+	if pct > 20 {
+		return []RiskFlag{{
+			FlagType:  "EXCESSIVE_HEDGING",
+			Severity:  "MAJOR",
+			Penalty:   15,
+			Title:     "EXCESSIVE_HEDGING",
+			Desc:      fmt.Sprintf("%.0f%% trades are hedged (complicates risk)", pct),
+			ScoreText: "-15",
+		}}
+	}
+	return nil
+}

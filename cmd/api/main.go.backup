@@ -1,0 +1,217 @@
+package main
+
+import (
+	"crunchalpha-v3/internal/alpharank"
+	"crunchalpha-v3/internal/apikey"
+	"crunchalpha-v3/internal/ea"
+	"log"
+	"time"
+	
+	"crunchalpha-v3/internal/database"
+	"crunchalpha-v3/internal/auth"
+	"crunchalpha-v3/internal/profile"
+	"crunchalpha-v3/internal/trader"
+	"crunchalpha-v3/internal/ratelimit"
+	"crunchalpha-v3/internal/middleware"
+	
+	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/cors"
+)
+
+func main() {
+	db, err := database.Connect()
+	if err != nil {
+		log.Fatal("Database connection failed:", err)
+	}
+	defer db.Close()
+
+	// Initialize services
+	authService := auth.NewService(db)
+	authHandler := auth.NewHandler(authService)
+	
+	profileService := profile.NewService(db)
+	profileHandler := profile.NewHandler(profileService)
+	
+	traderService := trader.NewService(db)
+	traderHandler := trader.NewHandler(traderService)
+
+	// API Key Handler
+	apikeyRepo := apikey.NewRepository(db)
+	apikeyHandler := apikey.NewHandler(apikeyRepo)
+
+	// EA Handler
+	eaRepo := ea.NewRepository(db)
+	eaHandler := ea.NewHandler(eaRepo)
+
+	// AlphaRank Handler
+	alpharankService := alpharank.NewService(db)
+	alpharankHandler := alpharank.NewHandler(alpharankService)
+	
+	rateLimiter := ratelimit.NewLimiter(db)
+	
+	r := gin.Default()
+	
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://45.32.118.117:5176", "http://localhost:5176"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":   "ok",
+			"service":  "crunchalpha-v3",
+			"database": "connected",
+		})
+	})
+
+	// Rate limit configs
+	loginLimit := ratelimit.Config{MaxAttempts: 5, Window: 5 * time.Minute}
+	registerLimit := ratelimit.Config{MaxAttempts: 3, Window: 1 * time.Hour}
+
+	// Public auth routes
+	apiAuth := r.Group("/api/auth")
+	{
+		apiAuth.POST("/register", rateLimiter.RateLimitMiddleware("register", registerLimit), authHandler.Register)
+		apiAuth.POST("/login", rateLimiter.RateLimitMiddleware("login", loginLimit), authHandler.Login)
+		apiAuth.POST("/refresh", authHandler.Refresh)
+		apiAuth.POST("/logout", authHandler.Logout)
+		
+		apiAuth.POST("/forgot-password", authHandler.ForgotPassword)
+		apiAuth.GET("/reset-password/:token", authHandler.ValidateResetToken)
+		apiAuth.POST("/reset-password", authHandler.ResetPassword)
+		
+		apiAuth.GET("/verify-email", authHandler.VerifyEmail)
+		apiAuth.POST("/verify-email", authHandler.VerifyEmail)
+		apiAuth.POST("/resend-verification", authHandler.ResendVerification)
+	}
+
+	// Auth middleware
+	authMiddleware := middleware.AuthRequired()
+	
+	// Protected profile routes
+	apiProfile := r.Group("/api/profile")
+	apiProfile.Use(authMiddleware)
+	{
+		apiProfile.GET("", profileHandler.GetProfile)
+		apiProfile.PUT("", profileHandler.UpdateProfile)
+	}
+	
+	// Protected auth routes
+	apiAuthProtected := r.Group("/api/auth")
+	apiAuthProtected.Use(authMiddleware)
+	{
+		apiAuthProtected.POST("/logout-all", authHandler.LogoutAll)
+	}
+
+	// Trader routes
+	traderRoutes := r.Group("/api/trader")
+	traderRoutes.Use(authMiddleware)
+	{
+		traderRoutes.GET("/accounts", traderHandler.GetAccounts)
+		traderRoutes.POST("/accounts", traderHandler.CreateAccount)
+		traderRoutes.GET("/dashboard", traderHandler.GetDashboard)
+		traderRoutes.POST("/dummy-account", traderHandler.CreateDummyAccount)
+		
+		// Dashboard with real AlphaRank from database
+		traderRoutes.GET("/dashboard-db", func(c *gin.Context) {
+			accountID := c.Query("account_id")
+			if accountID == "" {
+				c.JSON(400, gin.H{"error": "account_id required"})
+				return
+			}
+			
+			userID := c.GetString("user_id")
+			dashboard, err := traderService.GetDashboardWithAlphaRank(accountID, userID)
+			if err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			
+			c.JSON(200, dashboard)
+		})
+		traderRoutes.GET("/alpharank-perpair", traderHandler.GetAlphaRankPerPair)
+		traderRoutes.GET("/trades", traderHandler.GetTrades)
+		traderRoutes.GET("/monthly-performance", traderHandler.GetMonthlyPerformance)
+		// traderRoutes.GET("/equity-curve", traderHandler.GetEquityCurve)
+		traderRoutes.DELETE("/accounts/:account_id", traderHandler.DeleteAccountHandler)
+            traderRoutes.GET("/debug-metrics", func(c *gin.Context) {
+			accountID := c.Query("account_id")
+			if accountID == "" {
+				c.JSON(400, gin.H{"error": "account_id required"})
+				return
+			}
+			userID := c.GetString("user_id")
+			resp, err := traderService.GetDebugMetrics(accountID, userID)
+			if err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(200, resp)
+		})
+	}
+
+
+	// API Key Management Routes (JWT protected)
+	apikeyRoutes := r.Group("/api/apikeys")
+	apikeyRoutes.Use(authMiddleware)
+	{
+		apikeyRoutes.POST("", apikeyHandler.CreateAPIKey)
+		apikeyRoutes.GET("", apikeyHandler.ListAPIKeys)
+		apikeyRoutes.DELETE("/:key_id", apikeyHandler.RevokeAPIKey)
+	}
+
+
+
+
+	// EA Routes - Using API Key Authentication
+	eaRoutesAPIKey := r.Group("/api/ea")
+	eaRoutesAPIKey.Use(middleware.APIKeyAuth(apikeyRepo))
+	{
+		eaRoutesAPIKey.POST("/trade", eaHandler.ReceiveTrade)
+		eaRoutesAPIKey.POST("/account", eaHandler.ReceiveAccount)
+		eaRoutesAPIKey.POST("/sync", eaHandler.SyncAccount)
+
+	// AlphaRank calculation endpoint
+	r.POST("/api/alpharank/calculate/:account_id", alpharankHandler.CalculateAlphaRank)
+	r.GET("/api/alpharank/details/:account_id", alpharankHandler.GetDetailedAlphaRank)
+	}
+
+	log.Println("🚀 CrunchAlpha V3 Server starting on :8090")
+	log.Println("📊 AlphaRank™ Engine: ACTIVE")
+	log.Println("🗄️  Database: Connected")
+	r.Run(":8090")
+}
+
+// DEBUG ENDPOINT - Show all backend calculations
+func debugMetricsHandler(traderService *trader.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		accountID := c.Query("account_id")
+		if accountID == "" {
+			c.JSON(400, gin.H{"error": "account_id required"})
+			return
+		}
+		
+		userID := c.GetString("user_id")
+		
+		// Get full dashboard data
+		dashboard, err := traderService.GetDashboardWithAlphaRank(accountID, userID)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		
+		// Return EVERYTHING
+		c.JSON(200, gin.H{
+			"snapshot":      dashboard.Snapshot,
+			"statistics":    dashboard.Statistics,
+			"pillars":       dashboard.Pillars,
+			"survivability": dashboard.Survivability,
+			"scalability":   dashboard.Scalability,
+			"riskFlags":     dashboard.RiskFlags,
+			"regime":        dashboard.Regime,
+		})
+	}
+}

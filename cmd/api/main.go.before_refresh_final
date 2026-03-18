@@ -1,0 +1,63 @@
+package main
+
+import (
+	"log"
+	"crunchalpha-v3/internal/database"
+	"crunchalpha-v3/internal/auth"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/cors"
+)
+
+func main() {
+	// Connect database
+	db, err := database.Connect()
+	if err != nil {
+		log.Fatal("Database connection failed:", err)
+	}
+	defer db.Close()
+
+	// Initialize auth
+	authService := auth.NewService(db)
+	authHandler := auth.NewHandler(authService)
+
+	r := gin.Default()
+
+	// CORS
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://45.32.118.117:5176", "http://localhost:5176"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
+
+	// Health check
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":   "ok",
+			"service":  "crunchalpha-v3",
+			"database": "connected",
+		})
+	})
+
+	// Auth routes
+	apiAuth := r.Group("/api/auth")
+	{
+		// Authentication
+		apiAuth.POST("/register", authHandler.Register)
+		apiAuth.POST("/login", authHandler.Login)
+		
+		// Password Reset
+		apiAuth.POST("/forgot-password", authHandler.ForgotPassword)
+		apiAuth.GET("/reset-password/:token", authHandler.ValidateResetToken)
+		apiAuth.POST("/reset-password", authHandler.ResetPassword)
+	}
+
+	log.Println("🚀 CrunchAlpha V3 Multi-Sided Platform")
+	log.Println("📊 Modes: TRADER | INVESTOR | ANALYST")
+	log.Println("🔗 Database: Connected")
+	log.Println("🔐 Auth: READY")
+	log.Println("🔑 Password Reset: ENABLED")
+	log.Println("⚡ Running on :8090")
+
+	r.Run(":8090")
+}

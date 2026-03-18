@@ -1,0 +1,33 @@
+package auth
+
+import "time"
+
+// User represents platform user
+type User struct {
+	ID          string    `json:"id" db:"id"`
+	Email       string    `json:"email" db:"email"`
+	PasswordHash string   `json:"-" db:"password_hash"`
+	PrimaryRole string    `json:"primary_role" db:"primary_role"`
+	Name        *string   `json:"name,omitempty" db:"name"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+}
+
+// LoginRequest for login
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=6"`
+}
+
+// RegisterRequest for registration
+type RegisterRequest struct {
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required,min=8"`
+	PrimaryRole string `json:"primary_role"`
+}
+
+// LoginResponse after successful login
+type LoginResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	User        *User  `json:"user"`
+}

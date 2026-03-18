@@ -1,0 +1,228 @@
+package alpharank
+
+import (
+	"database/sql"
+	"fmt"
+	"time"
+)
+
+type Service struct {
+	db *sql.DB
+}
+
+func NewService(db *sql.DB) *Service {
+	return &Service{db: db}
+}
+
+func (s *Service) CalculateForAccount(accountID string) error {
+	trades, err := s.getTradesForAccount(accountID)
+	if err != nil {
+		return fmt.Errorf("failed to get trades: %w", err)
+	}
+
+	if len(trades) < 10 {
+		return fmt.Errorf("insufficient trades: need at least 10, have %d", len(trades))
+	}
+
+	var balance, equity float64
+	err = s.db.QueryRow(`
+		SELECT 
+			COALESCE(balance, 0) as balance,
+			COALESCE(equity, 0) as equity
+		FROM trader_accounts 
+		WHERE id = $1
+	`, accountID).Scan(&balance, &equity)
+	
+	if err != nil {
+		return fmt.Errorf("failed to get account info: %w", err)
+	}
+
+	metrics := s.buildMetrics(accountID, trades, balance, equity)
+	calculator := NewCalculator()
+	result := calculator.Calculate(metrics)
+
+	return s.saveAlphaRank(accountID, &result, len(trades))
+}
+
+func (s *Service) getTradesForAccount(accountID string) ([]TradeData, error) {
+	query := `
+		SELECT 
+			symbol,
+			type,
+			lots,
+			open_price,
+			close_price,
+			profit,
+			swap,
+			commission,
+			open_time,
+			close_time
+		FROM trades
+		WHERE account_id = $1
+		AND status = 'closed'
+		AND close_time IS NOT NULL
+		ORDER BY close_time ASC
+	`
+
+	rows, err := s.db.Query(query, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var trades []TradeData
+	for rows.Next() {
+		var t TradeData
+		var openTime, closeTime sql.NullTime
+
+		err := rows.Scan(
+			&t.Symbol,
+			&t.Type,
+			&t.Lots,
+			&t.OpenPrice,
+			&t.ClosePrice,
+			&t.Profit,
+			&t.Swap,
+			&t.Commission,
+			&openTime,
+			&closeTime,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if openTime.Valid {
+			t.OpenTime = openTime.Time
+		}
+		if closeTime.Valid {
+			t.CloseTime = closeTime.Time
+		}
+
+		trades = append(trades, t)
+	}
+
+	return trades, nil
+}
+
+func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, equity float64) AccountMetrics {
+	var (
+		grossProfit   float64
+		grossLoss     float64
+		winningTrades int
+		losingTrades  int
+		totalProfit   float64
+		maxDD         float64
+		startDate     time.Time
+		endDate       time.Time
+	)
+
+	if len(trades) > 0 {
+		startDate = trades[0].OpenTime
+		endDate = trades[len(trades)-1].CloseTime
+	}
+
+	for _, trade := range trades {
+		netProfit := trade.Profit + trade.Swap + trade.Commission
+		totalProfit += netProfit
+
+		if netProfit > 0 {
+			grossProfit += netProfit
+			winningTrades++
+		} else {
+			grossLoss += netProfit
+			losingTrades++
+		}
+	}
+
+	runningBalance := balance - totalProfit
+	peak := runningBalance
+	for _, trade := range trades {
+		netProfit := trade.Profit + trade.Swap + trade.Commission
+		runningBalance += netProfit
+		
+		if runningBalance > peak {
+			peak = runningBalance
+		}
+		
+		dd := (peak - runningBalance) / peak * 100
+		if dd > maxDD {
+			maxDD = dd
+		}
+	}
+
+	return AccountMetrics{
+		AccountID:      accountID,
+		CurrentBalance: balance,
+		CurrentEquity:  equity,
+		InitialDeposit: balance - totalProfit,
+		TotalDeposits:  0,
+		TotalWithdraws: 0,
+		NetProfit:      totalProfit,
+		GrossProfit:    grossProfit,
+		GrossLoss:      grossLoss,
+		TotalTrades:    len(trades),
+		WinningTrades:  winningTrades,
+		LosingTrades:   losingTrades,
+		MaxDrawdownPct: maxDD,
+		MaxDrawdownAbs: 0,
+		Trades:         trades,
+		StartDate:      startDate,
+		EndDate:        endDate,
+	}
+}
+
+func (s *Service) saveAlphaRank(accountID string, result *AlphaRankResult, tradeCount int) error {
+	var p1, p2, p3, p4, p5, p6, p7 float64
+	for _, pillar := range result.Pillars {
+		switch pillar.Code {
+		case "P1":
+			p1 = pillar.Score
+		case "P2":
+			p2 = pillar.Score
+		case "P3":
+			p3 = pillar.Score
+		case "P4":
+			p4 = pillar.Score
+		case "P5":
+			p5 = pillar.Score
+		case "P6":
+			p6 = pillar.Score
+		case "P7":
+			p7 = pillar.Score
+		}
+	}
+
+	query := `
+		INSERT INTO alpha_ranks (
+			account_id, account_type,
+			profitability_score, risk_score, consistency_score,
+			stability_score, activity_score, duration_score, drawdown_score,
+			alpha_score, grade, badge,
+			symbol, status, min_trades_met, trade_count,
+			calculated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
+		ON CONFLICT (account_id, symbol)
+		DO UPDATE SET
+			profitability_score = EXCLUDED.profitability_score,
+			risk_score = EXCLUDED.risk_score,
+			consistency_score = EXCLUDED.consistency_score,
+			stability_score = EXCLUDED.stability_score,
+			activity_score = EXCLUDED.activity_score,
+			duration_score = EXCLUDED.duration_score,
+			drawdown_score = EXCLUDED.drawdown_score,
+			alpha_score = EXCLUDED.alpha_score,
+			grade = EXCLUDED.grade,
+			badge = EXCLUDED.badge,
+			trade_count = EXCLUDED.trade_count,
+			calculated_at = NOW()
+	`
+
+	_, err := s.db.Exec(query,
+		accountID, "trader",
+		p1, p2, p3, p4, p5, p6, p7,
+		result.AlphaScore, result.Grade, result.Tier,
+		"ALL", "ACTIVE", true, tradeCount,
+	)
+
+	return err
+}

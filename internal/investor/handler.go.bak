@@ -1,0 +1,153 @@
+package investor
+
+import (
+	"database/sql"
+	"encoding/json"
+	"net/http"
+)
+
+type Handler struct {
+	service *Service
+}
+
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
+}
+
+// GetPortfolio handles GET /api/investor/portfolio
+func (h *Handler) GetPortfolio(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context (set by auth middleware)
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	investorID := userID.(string)
+	
+	portfolio, err := h.service.GetPortfolio(r.Context(), investorID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    portfolio,
+	})
+}
+
+// SetAllocation handles POST /api/investor/allocations
+func (h *Handler) SetAllocation(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	var req AllocationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	
+	investorID := userID.(string)
+	
+	err := h.service.SetAllocation(
+		r.Context(),
+		investorID,
+		req.TraderAccountID,
+		req.AllocationMode,
+		req.AllocationValue,
+		req.MaxRiskPct,
+		req.MaxPositions,
+	)
+	
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Allocation updated successfully",
+	})
+}
+
+// GetAllocations handles GET /api/investor/allocations
+func (h *Handler) GetAllocations(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	investorID := userID.(string)
+	
+	allocations, err := h.service.GetAllocations(r.Context(), investorID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    allocations,
+	})
+}
+
+// Subscribe handles POST /api/investor/subscribe
+func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	var req SubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	
+	investorID := userID.(string)
+	
+	// Subscribe for 30 days by default
+	err := h.service.Subscribe(r.Context(), investorID, req.TraderAccountID, 30)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Subscribed successfully",
+	})
+}
+
+// GetSubscriptions handles GET /api/investor/subscriptions
+func (h *Handler) GetSubscriptions(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	investorID := userID.(string)
+	
+	subscriptions, err := h.service.GetSubscriptions(r.Context(), investorID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    subscriptions,
+	})
+}

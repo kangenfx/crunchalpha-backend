@@ -1,0 +1,37 @@
+	// MaxDD = max of 2 sources:
+	// 1. DD from CURRENT FLOATING (balance vs equity)
+	// 2. DD from CLOSED TRADES history
+	
+	maxDD := 0.0
+	
+	// 1. CURRENT FLOATING DD
+	if balance > 0 {
+		floatingDD := (balance - equity) / balance * 100
+		if floatingDD > maxDD {
+			maxDD = floatingDD
+		}
+	}
+	
+	// 2. CLOSED TRADES DD (loop history, IGNORE WD/DEPO)
+	runningBalance := initialDeposit
+	peak := runningBalance
+	peakBalance = runningBalance
+	
+	for _, trade := range trades {
+		netProfit := trade.Profit + trade.Swap + trade.Commission
+		runningBalance += netProfit
+		
+		if runningBalance > peak {
+			peak = runningBalance
+		}
+		if peak > peakBalance {
+			peakBalance = peak
+		}
+		
+		if peak > 0 {
+			dd := (peak - runningBalance) / peak * 100
+			if dd > maxDD {
+				maxDD = dd
+			}
+		}
+	}

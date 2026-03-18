@@ -1,0 +1,163 @@
+package auth
+
+import (
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"log"
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+type Service struct {
+	repo *Repository
+}
+
+func NewService(db *sql.DB) *Service {
+	return &Service{
+		repo: NewRepository(db),
+	}
+}
+
+func (s *Service) Register(email, password, role string) (*User, string, error) {
+	user, err := s.repo.CreateUser(email, password, role)
+	if err != nil {
+		return nil, "", err
+	}
+	token, err := GenerateToken(user.ID, user.Email, user.PrimaryRole)
+	if err != nil {
+		return nil, "", err
+	}
+	return user, token, nil
+}
+
+// Login returns: user, access_token, refresh_token, error
+func (s *Service) Login(email, password string) (*User, string, string, error) {
+	user, err := s.repo.GetUserByEmail(email)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return nil, "", "", errors.New("invalid email or password")
+		}
+		return nil, "", "", err
+	}
+
+	if err := s.repo.VerifyPassword(user.PasswordHash, password); err != nil {
+		return nil, "", "", errors.New("invalid email or password")
+	}
+
+	accessToken, err := GenerateToken(user.ID, user.Email, user.PrimaryRole)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	refreshToken, err := GenerateRefreshToken()
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	tokenHash := HashToken(refreshToken)
+	expiresAt := time.Now().Add(RefreshTokenDuration)
+	err = s.repo.StoreRefreshToken(user.ID, tokenHash, expiresAt)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	return user, accessToken, refreshToken, nil
+}
+
+func (s *Service) RefreshAccessToken(refreshToken string) (string, string, error) {
+	tokenHash := HashToken(refreshToken)
+	rt, err := s.repo.GetRefreshToken(tokenHash)
+	if err != nil {
+		return "", "", errors.New("invalid refresh token")
+	}
+	if rt.Revoked {
+		return "", "", errors.New("refresh token has been revoked")
+	}
+	if time.Now().After(rt.ExpiresAt) {
+		return "", "", errors.New("refresh token has expired")
+	}
+	user, err := s.repo.GetUserByID(rt.UserID)
+	if err != nil {
+		return "", "", err
+	}
+	accessToken, err := GenerateToken(user.ID, user.Email, user.PrimaryRole)
+	if err != nil {
+		return "", "", err
+	}
+	return accessToken, user.ID, nil
+}
+
+func (s *Service) Logout(refreshToken string) error {
+	tokenHash := HashToken(refreshToken)
+	return s.repo.RevokeRefreshToken(tokenHash)
+}
+
+func (s *Service) LogoutAll(userID string) error {
+	return s.repo.RevokeAllUserRefreshTokens(userID)
+}
+
+func (s *Service) ForgotPassword(email string) (string, error) {
+	user, err := s.repo.GetUserByEmail(email)
+	if err != nil {
+		return "", nil
+	}
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(tokenBytes)
+	expiresAt := time.Now().Add(1 * time.Hour)
+	err = s.repo.CreatePasswordResetToken(user.ID, token, expiresAt)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func (s *Service) ValidateResetToken(token string) error {
+	prt, err := s.repo.GetPasswordResetToken(token)
+	if err != nil {
+		return errors.New("invalid token")
+	}
+	if prt.Used {
+		return errors.New("token already used")
+	}
+	if time.Now().After(prt.ExpiresAt) {
+		return errors.New("token expired")
+	}
+	return nil
+}
+
+func (s *Service) ResetPassword(token, newPassword string) error {
+	prt, err := s.repo.GetPasswordResetToken(token)
+	if err != nil {
+		return errors.New("invalid token")
+	}
+	if prt.Used {
+		return errors.New("token already used")
+	}
+	if time.Now().After(prt.ExpiresAt) {
+		return errors.New("token expired")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+	err = s.repo.UpdatePassword(prt.UserID, string(hash))
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+	err = s.repo.MarkTokenAsUsed(token)
+	if err != nil {
+		return fmt.Errorf("failed to invalidate token: %w", err)
+	}
+	err = s.repo.InvalidateAllRefreshTokens(prt.UserID)
+	if err != nil {
+		log.Printf("Warning: failed to invalidate refresh tokens: %v", err)
+	}
+	return nil
+}
