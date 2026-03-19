@@ -119,7 +119,7 @@ func (r *Repository) GetTradesByAccount(accountID string) ([]map[string]interfac
 			profit, commission, swap, status
 		FROM trades
 		WHERE account_id = $1
-		ORDER BY close_time DESC NULLS LAST
+		ORDER BY close_time DESC NULLS LAST, open_time DESC
 	`, accountID)
 	if err != nil {
 		return nil, err
