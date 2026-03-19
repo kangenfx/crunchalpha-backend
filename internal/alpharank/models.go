@@ -29,6 +29,10 @@ type AccountMetrics struct {
 	PeakBalance    float64  // NEW: peak balance for leverage calculations
 	NetProfit         float64
 	ClosedNetProfit   float64 // closed trades only, untuk P1 scoring
+	AvgWin          float64
+	AvgLoss         float64
+	RiskReward      float64
+	Expectancy      float64
 	GrossProfit    float64
 	GrossLoss      float64
 	TotalTrades    int

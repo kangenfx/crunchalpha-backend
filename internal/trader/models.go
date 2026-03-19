@@ -40,6 +40,7 @@ type DashboardSnapshot struct {
 	WinRate      float64 `json:"winRate"`
 	ProfitFactor float64 `json:"profitFactor"`
 	MaxDD        float64 `json:"maxDD"`
+	NetPnl       float64 `json:"netPnl"`
 	AvgWin       float64 `json:"avgWin"`
 	AvgLoss      float64 `json:"avgLoss"`
 	RiskReward   float64 `json:"riskReward"`

@@ -43,19 +43,10 @@ func (h *Handler) GetAlphaRankPerPair(c *gin.Context) {
 			ar.minor_count,
 			COALESCE(ar.pillars, '[]'::jsonb),
 			ar.trade_count,
-			COALESCE(t.wins, 0),
-			COALESCE(t.net_profit, 0)
+			COALESCE(ar.win_rate, 0),
+			COALESCE(ar.net_pnl, 0),
+			COALESCE(ar.profit_factor, 0)
 		FROM alpha_ranks ar
-		LEFT JOIN (
-			SELECT
-				account_id,
-				symbol,
-				SUM(CASE WHEN profit > 0 THEN 1 ELSE 0 END) as wins,
-				SUM(profit) as net_profit
-			FROM trades
-			WHERE account_id = $1 AND status = 'closed'
-			GROUP BY account_id, symbol
-		) t ON t.symbol = ar.symbol AND t.account_id = ar.account_id
 		WHERE ar.account_id = $1 AND ar.symbol != 'ALL'
 		ORDER BY ar.symbol
 	`, accountID)
@@ -69,14 +60,14 @@ func (h *Handler) GetAlphaRankPerPair(c *gin.Context) {
 
 	for rows.Next() {
 		var symbol, grade, badge, tier string
-		var score, maxDD, netProfit float64
-		var critical, major, minor, tradeCount, wins int
+		var score, maxDD, winRate, netPnl, profitFactor float64
+		var critical, major, minor, tradeCount int
 		var flagsJSON, pillarsJSON []byte
 
 		err := rows.Scan(
 			&symbol, &score, &grade, &badge, &tier, &maxDD,
 			&flagsJSON, &critical, &major, &minor,
-			&pillarsJSON, &tradeCount, &wins, &netProfit,
+			&pillarsJSON, &tradeCount, &winRate, &netPnl, &profitFactor,
 		)
 		if err != nil {
 			continue
@@ -103,13 +94,7 @@ func (h *Handler) GetAlphaRankPerPair(c *gin.Context) {
 				"code":   pillar.Code,
 				"name":   pillar.Name,
 				"score":  pillar.Score,
-				"weight": pillar.Weight,
 			})
-		}
-
-		winRate := 0.0
-		if tradeCount > 0 {
-			winRate = float64(wins) / float64(tradeCount) * 100
 		}
 
 		pairResults = append(pairResults, map[string]interface{}{
@@ -118,10 +103,9 @@ func (h *Handler) GetAlphaRankPerPair(c *gin.Context) {
 			"grade":      grade,
 			"tier":       badge,
 			"trades":     tradeCount,
-			"win_rate":   winRate,
-			"net_profit": netProfit,
-			"wins":       wins,
-			"losses":     tradeCount - wins,
+			"win_rate":      winRate,
+			"net_pnl":       netPnl,
+			"profit_factor": profitFactor,
 			"max_dd":     maxDD,
 			"pillars":    pillarsResponse,
 			"flags":      flagsResponse,

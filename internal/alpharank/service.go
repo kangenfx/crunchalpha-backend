@@ -273,6 +273,16 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		peakBalance = totalDeposits
 	}
 
+	// Derived metrics
+	avgWin := 0.0
+	if winningTrades > 0 { avgWin = grossProfit / float64(winningTrades) }
+	avgLoss := 0.0
+	if losingTrades > 0 { avgLoss = math.Abs(grossLoss) / float64(losingTrades) }
+	riskReward := 0.0
+	if avgLoss > 0 { riskReward = avgWin / avgLoss }
+	expectancy := 0.0
+	if len(trades) > 0 { expectancy = totalProfit / float64(len(trades)) }
+
 	return AccountMetrics{
 		AccountID:        accountID,
 		CurrentBalance:   balance,
@@ -285,6 +295,10 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		ClosedNetProfit:  totalProfit,
 		GrossProfit:      grossProfit,
 		GrossLoss:        grossLoss,
+		AvgWin:           avgWin,
+		AvgLoss:          avgLoss,
+		RiskReward:       riskReward,
+		Expectancy:       expectancy,
 		TotalTrades:      len(trades),
 		WinningTrades:    winningTrades,
 		LosingTrades:     losingTrades,
@@ -346,10 +360,11 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 			symbol, status, min_trades_met, trade_count,
 			risk_flags, critical_count, major_count, minor_count,
 			max_drawdown_pct, pillars,
-			win_rate, total_trades_all, profit_factor, net_pnl,
+				win_rate, total_trades_all, profit_factor, net_pnl,
+				winning_trades, losing_trades, avg_win, avg_loss, risk_reward, expectancy,
                         risk_level,
 			calculated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,NOW())
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,NOW())
 		ON CONFLICT (account_id, symbol)
 		DO UPDATE SET
 			profitability_score=EXCLUDED.profitability_score, risk_score=EXCLUDED.risk_score,
@@ -362,7 +377,11 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 			minor_count=EXCLUDED.minor_count, max_drawdown_pct=EXCLUDED.max_drawdown_pct,
 			pillars=EXCLUDED.pillars, win_rate=EXCLUDED.win_rate,
 			total_trades_all=EXCLUDED.total_trades_all, profit_factor=EXCLUDED.profit_factor,
-			net_pnl=EXCLUDED.net_pnl, risk_level=EXCLUDED.risk_level,
+				net_pnl=EXCLUDED.net_pnl,
+				winning_trades=EXCLUDED.winning_trades, losing_trades=EXCLUDED.losing_trades,
+				avg_win=EXCLUDED.avg_win, avg_loss=EXCLUDED.avg_loss,
+				risk_reward=EXCLUDED.risk_reward, expectancy=EXCLUDED.expectancy,
+				risk_level=EXCLUDED.risk_level,
                         calculated_at=NOW()
 	`
 
@@ -374,7 +393,9 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 		flagsJSON,
 		result.RiskFlags.Counts.Critical, result.RiskFlags.Counts.Major, result.RiskFlags.Counts.Minor,
 		maxDD, pillarsJSON,
-		winRate, totalTradesAll, profitFactor, netPnl,
+			winRate, totalTradesAll, profitFactor, netPnl,
+			int(metrics.WinningTrades), int(metrics.LosingTrades),
+			metrics.AvgWin, metrics.AvgLoss, metrics.RiskReward, metrics.Expectancy,
 			result.Risk,
 	)
 	return err

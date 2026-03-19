@@ -84,11 +84,12 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 		AvgLoss       float64
 		RiskReward    float64
 		Expectancy    float64
+		NetPnl        float64
 	}
 
 	err = s.repo.db.QueryRow(`
 		SELECT
-			COALESCE(total_trades, 0),
+			COALESCE(total_trades_all, 0),
 			COALESCE(winning_trades, 0),
 			COALESCE(losing_trades, 0),
 			COALESCE(win_rate, 0),
@@ -96,17 +97,19 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 			COALESCE(max_drawdown_pct, 0),
 			COALESCE(avg_win, 0),
 			COALESCE(avg_loss, 0),
-			COALESCE(reward_risk_ratio, 0),
-			COALESCE(expectancy, 0)
-		FROM performance_metrics
-		WHERE account_id = $1 AND period = 'ALL' AND symbol = 'ALL'
+			COALESCE(risk_reward, 0),
+			COALESCE(expectancy, 0),
+			COALESCE(net_pnl, 0)
+		FROM alpha_ranks
+		WHERE account_id = $1 AND symbol = 'ALL'
 	`, accountID).Scan(
 		&pm.TotalTrades, &pm.WinningTrades, &pm.LosingTrades,
 		&pm.WinRate, &pm.ProfitFactor, &pm.MaxDD,
 		&pm.AvgWin, &pm.AvgLoss, &pm.RiskReward, &pm.Expectancy,
+		&pm.NetPnl,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("performance metrics not calculated yet, run recalculate first")
+		return nil, fmt.Errorf("AlphaRank not calculated yet")
 	}
 
 	// Calculate survivability & scalability from DB values
@@ -168,6 +171,7 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 			WinRate:      winRate,
 			ProfitFactor: profitFactor,
 			MaxDD:        pm.MaxDD,
+			NetPnl:       pm.NetPnl,
 			AvgWin:       avgWin,
 			AvgLoss:      avgLoss,
 			RiskReward:   riskReward,

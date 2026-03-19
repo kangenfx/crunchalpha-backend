@@ -1,6 +1,7 @@
 package alpharank
 
 import (
+	"encoding/json"
 	"net/http"
 	"github.com/gin-gonic/gin"
 )
@@ -88,11 +89,12 @@ func (h *Handler) GetPublicTraderDetail(c *gin.Context) {
 
 	// Per pair
 	pairRows, err := h.service.db.Query(`
-		SELECT symbol, trade_count as total_trades, win_rate, profit_factor,
-		       COALESCE(risk_reward,0) as avg_rr, grade
-		FROM alpha_ranks
-		WHERE account_id=$1::uuid AND symbol != 'ALL'
-		ORDER BY alpha_score DESC LIMIT 8`, accountID)
+		SELECT ar.symbol, ar.trade_count, ar.win_rate, ar.profit_factor,
+		       COALESCE(ar.net_pnl,0), COALESCE(ar.max_drawdown_pct,0), ar.grade, ar.alpha_score,
+		       COALESCE(ar.risk_flags,'[]'::jsonb), COALESCE(ar.pillars,'[]'::jsonb)
+		FROM alpha_ranks ar
+		WHERE account_id=$1::uuid AND ar.symbol != 'ALL'
+		ORDER BY ar.alpha_score DESC LIMIT 8`, accountID)
 	if err != nil { c.JSON(500, gin.H{"ok":false,"error":err.Error()}); return }
 	defer pairRows.Close()
 
@@ -101,21 +103,114 @@ func (h *Handler) GetPublicTraderDetail(c *gin.Context) {
 		Trades       int     `json:"trades"`
 		WinRate      float64 `json:"winRate"`
 		ProfitFactor float64 `json:"profitFactor"`
-		AvgRR        float64 `json:"avgRR"`
+		NetPnl       float64 `json:"netPnl"`
+		MaxDD        float64 `json:"maxDD"`
+		AlphaScore   float64 `json:"alphaScore"`
 		Grade        string  `json:"grade"`
 	}
 	var pairs []PairRow
 	for pairRows.Next() {
 		var p PairRow
-		pairRows.Scan(&p.Symbol, &p.Trades, &p.WinRate, &p.ProfitFactor, &p.AvgRR, &p.Grade)
+		var flagsJSON, pillarsJSON []byte
+		pairRows.Scan(&p.Symbol, &p.Trades, &p.WinRate, &p.ProfitFactor,
+			&p.NetPnl, &p.MaxDD, &p.Grade, &p.AlphaScore,
+			&flagsJSON, &pillarsJSON)
+		_ = flagsJSON
+		_ = pillarsJSON
 		pairs = append(pairs, p)
 	}
 	if pairs == nil { pairs = []PairRow{} }
 
-	// Risk flags
-	var flagsJSON string
-	h.service.db.QueryRow(`SELECT COALESCE(risk_flags::text,'[]') FROM alpha_ranks
-		WHERE account_id=$1::uuid AND symbol='ALL'`, accountID).Scan(&flagsJSON)
+	// ALL stats dari alpha_ranks - single source of truth
+	var allStats struct {
+		AlphaScore    float64
+		Grade         string
+		Tier          string
+		WinRate       float64
+		ProfitFactor  float64
+		MaxDD         float64
+		NetPnl        float64
+		TotalTrades   int
+		WinningTrades int
+		LosingTrades  int
+		AvgWin        float64
+		AvgLoss       float64
+		RiskReward    float64
+		Expectancy    float64
+		Roi           float64
+		RiskLevel     string
+		Survivability float64
+		Scalability   float64
+		FlagsJSON     []byte
+		PillarsJSON   []byte
+	}
+	h.service.db.QueryRow(`
+		SELECT alpha_score, grade, COALESCE(tier,''), win_rate, profit_factor,
+		       max_drawdown_pct, COALESCE(net_pnl,0), COALESCE(total_trades_all,0),
+		       COALESCE(winning_trades,0), COALESCE(losing_trades,0),
+		       COALESCE(avg_win,0), COALESCE(avg_loss,0),
+		       COALESCE(risk_reward,0), COALESCE(expectancy,0),
+		       COALESCE(roi,0), COALESCE(risk_level,'MEDIUM'),
+		       COALESCE(survivability_score,0), COALESCE(scalability_score,0),
+		       COALESCE(risk_flags,'[]'::jsonb), COALESCE(pillars,'[]'::jsonb)
+		FROM alpha_ranks WHERE account_id=$1::uuid AND symbol='ALL'
+	`, accountID).Scan(
+		&allStats.AlphaScore, &allStats.Grade, &allStats.Tier,
+		&allStats.WinRate, &allStats.ProfitFactor, &allStats.MaxDD,
+		&allStats.NetPnl, &allStats.TotalTrades,
+		&allStats.WinningTrades, &allStats.LosingTrades,
+		&allStats.AvgWin, &allStats.AvgLoss,
+		&allStats.RiskReward, &allStats.Expectancy,
+		&allStats.Roi, &allStats.RiskLevel,
+		&allStats.Survivability, &allStats.Scalability,
+		&allStats.FlagsJSON, &allStats.PillarsJSON,
+	)
 
-	c.JSON(200, gin.H{"ok":true,"pairs":pairs,"flagsJson":flagsJSON})
+	// Parse flags - tampilkan
+	var flags []map[string]interface{}
+	if err := json.Unmarshal(allStats.FlagsJSON, &flags); err != nil || flags == nil {
+		flags = []map[string]interface{}{}
+	}
+
+	// Parse pillars - SEMBUNYIKAN weight dan reason
+	type PillarPublic struct {
+		Code  string  `json:"code"`
+		Name  string  `json:"name"`
+		Score float64 `json:"score"`
+	}
+	var pillarsRaw []struct {
+		Code   string  `json:"code"`
+		Name   string  `json:"name"`
+		Score  float64 `json:"score"`
+	}
+	json.Unmarshal(allStats.PillarsJSON, &pillarsRaw)
+	pillarsPublic := []PillarPublic{}
+	for _, p := range pillarsRaw {
+		pillarsPublic = append(pillarsPublic, PillarPublic{Code: p.Code, Name: p.Name, Score: p.Score})
+	}
+
+	c.JSON(200, gin.H{
+		"ok": true,
+		"alphaScore":    allStats.AlphaScore,
+		"grade":         allStats.Grade,
+		"tier":          allStats.Tier,
+		"winRate":       allStats.WinRate,
+		"profitFactor":  allStats.ProfitFactor,
+		"maxDD":         allStats.MaxDD,
+		"netPnl":        allStats.NetPnl,
+		"totalTrades":   allStats.TotalTrades,
+		"winningTrades": allStats.WinningTrades,
+		"losingTrades":  allStats.LosingTrades,
+		"avgWin":        allStats.AvgWin,
+		"avgLoss":       allStats.AvgLoss,
+		"riskReward":    allStats.RiskReward,
+		"expectancy":    allStats.Expectancy,
+		"roi":           allStats.Roi,
+		"riskLevel":     allStats.RiskLevel,
+		"survivability": allStats.Survivability,
+		"scalability":   allStats.Scalability,
+		"flags":         flags,
+		"pillars":       pillarsPublic,
+		"pairs":         pairs,
+	})
 }
