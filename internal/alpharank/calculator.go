@@ -78,7 +78,7 @@ func (c *Calculator) Calculate7Pillars(metrics AccountMetrics, flags []RiskFlag)
 	if depositBase <= 0 {
 		depositBase = metrics.InitialDeposit
 	}
-	pillars[0] = CalculateP1(metrics.NetProfit, depositBase, metrics.MaxDrawdownPct)
+	pillars[0] = CalculateP1(metrics.ClosedNetProfit, depositBase, metrics.MaxDrawdownPct)
 
 	// P2: Consistency with year+week fix + inactive weeks
 	pillars[1] = CalculateP2(metrics.Trades)

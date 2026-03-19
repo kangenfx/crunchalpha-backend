@@ -2,14 +2,20 @@ package ea
 
 import (
 	"database/sql"
+	"log"
 )
 
-type Repository struct {
-	db *sql.DB
+type AlphaRankCalculator interface {
+	CalculateForAccount(accountID string) error
 }
 
-func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+type Repository struct {
+	db              *sql.DB
+	alphaRankSvc    AlphaRankCalculator
+}
+
+func NewRepository(db *sql.DB, alphaRankSvc AlphaRankCalculator) *Repository {
+	return &Repository{db: db, alphaRankSvc: alphaRankSvc}
 }
 
 func (r *Repository) GetAccountIDByNumber(accountNumber, userID string) (string, error) {
@@ -25,9 +31,9 @@ func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 			account_id, ticket, symbol, type, lots,
 			open_price, close_price, profit, swap, commission,
 			open_time, close_time, status, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
 			to_timestamp($11), to_timestamp($12), $13, NOW())
-		ON CONFLICT (account_id, ticket) 
+		ON CONFLICT (account_id, ticket)
 		DO UPDATE SET
 			close_price = EXCLUDED.close_price,
 			profit = EXCLUDED.profit,
@@ -36,24 +42,24 @@ func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 			close_time = EXCLUDED.close_time,
 			status = EXCLUDED.status
 	`
-	
+
 	var closeTime int64
 	if trade.CloseTime > 0 {
 		closeTime = trade.CloseTime
 	}
-	
+
 	_, err := r.db.Exec(query,
 		accountID, trade.Ticket, trade.Symbol, trade.Type, trade.Lots,
 		trade.OpenPrice, trade.ClosePrice, trade.Profit, trade.Swap, trade.Commission,
 		trade.OpenTime, closeTime, trade.Status,
 	)
-	
+
 	return err
 }
 
 func (r *Repository) UpdateAccountBalance(accountID string, balance, equity float64) error {
 	query := `
-		UPDATE trader_accounts 
+		UPDATE trader_accounts
 		SET balance = $1, equity = $2, last_sync_at = NOW(), updated_at = NOW()
 		WHERE id = $3
 	`
@@ -61,19 +67,23 @@ func (r *Repository) UpdateAccountBalance(accountID string, balance, equity floa
 	return err
 }
 
-// TriggerAlphaRankCalculation starts async AlphaRank calculation
 func (r *Repository) TriggerAlphaRankCalculation(accountID string) {
-	// TODO: Call AlphaRank calculation engine
-	// For now, just log
-	// In production: queue job to calculate AlphaRank from trades
+	if r.alphaRankSvc == nil {
+		log.Printf("[AlphaRank] WARNING: alphaRankSvc is nil for account %s", accountID)
+		return
+	}
+	if err := r.alphaRankSvc.CalculateForAccount(accountID); err != nil {
+		log.Printf("[AlphaRank] Recalculate failed for account %s: %v", accountID, err)
+	} else {
+		log.Printf("[AlphaRank] Recalculate success for account %s", accountID)
+	}
 }
 
 func (r *Repository) SaveAccountTransactions(accountID string, initialDeposit, totalDeposits, totalWithdrawals float64) error {
-	// Save initial deposit if exists
 	if initialDeposit > 0 {
 		query := `
 			INSERT INTO account_transactions (account_id, transaction_type, amount, balance_after, description, transaction_time)
-			SELECT $1, 'deposit', $2, $2, 'Initial deposit from EA', 
+			SELECT $1, 'deposit', $2, $2, 'Initial deposit from EA',
 			       COALESCE((SELECT MIN(open_time) FROM trades WHERE account_id = $1), NOW())
 			ON CONFLICT DO NOTHING
 		`
@@ -82,8 +92,7 @@ func (r *Repository) SaveAccountTransactions(accountID string, initialDeposit, t
 			return err
 		}
 	}
-	
-	// Save total deposits if exists
+
 	if totalDeposits > 0 {
 		query := `
 			INSERT INTO account_transactions (account_id, transaction_type, amount, balance_after, description, transaction_time)
@@ -95,8 +104,7 @@ func (r *Repository) SaveAccountTransactions(accountID string, initialDeposit, t
 			return err
 		}
 	}
-	
-	// Save total withdrawals if exists
+
 	if totalWithdrawals > 0 {
 		query := `
 			INSERT INTO account_transactions (account_id, transaction_type, amount, balance_after, description, transaction_time)
@@ -108,7 +116,7 @@ func (r *Repository) SaveAccountTransactions(accountID string, initialDeposit, t
 			return err
 		}
 	}
-	
+
 	return nil
 }
 

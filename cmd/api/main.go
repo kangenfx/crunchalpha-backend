@@ -45,7 +45,7 @@ func main() {
         apikeyHandler := apikey.NewHandler(apikeyRepo)
 
         // EA Handler
-        eaRepo := ea.NewRepository(db)
+        eaRepo := ea.NewRepository(db, alpharankService)
         eaHandler := ea.NewHandler(eaRepo)
 
         alpharankHandler := alpharank.NewHandler(alpharankService)

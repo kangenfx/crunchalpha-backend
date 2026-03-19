@@ -14,7 +14,8 @@ import (
         "crunchalpha-v3/internal/profile"
         "crunchalpha-v3/internal/trader"
         "crunchalpha-v3/internal/ratelimit"
-        "crunchalpha-v3/internal/middleware"
+        "crunchalpha-v3/internal/admin"
+	"crunchalpha-v3/internal/middleware"
 
         "github.com/gin-gonic/gin"
         "github.com/gin-contrib/cors"
@@ -53,6 +54,16 @@ func main() {
 
 	// Analyst Handler
 	analystHandler := &analyst.Handler{DB: db}
+
+	// Admin Handlers
+	adminUserHandler := admin.NewUserHandler(db)
+	adminBrokerHandler := admin.NewBrokerHandler(db)
+	adminFeeHandler := admin.NewFeeHandler(db)
+	adminCashflowHandler := admin.NewCashflowHandler(db)
+	adminConfigHandler := admin.NewConfigHandler(db)
+	adminFeeCalc := admin.NewFeeCalculator(db)
+
+	// Admin Handlers
         investorRepo := investor.NewRepository(db)
         investorService := investor.NewService(investorRepo)
         investorHandler := investor.NewHandler(investorService)
@@ -218,7 +229,6 @@ func main() {
 	r.GET("/api/public/traders", alpharankHandler.GetPublicTraders)
 	r.GET("/api/public/trader/:id", alpharankHandler.GetPublicTraderDetail)
 	r.GET("/api/public/analyst-profile/:setId", analystHandler.GetPublicAnalystProfile)
-        r.POST("/api/admin/recalc-alpharank", analystHandler.AdminRecalcAllAlphaRank)
 
         // EA Download (public, no auth)
         r.GET("/api/ea/download/mt4", func(c *gin.Context) {
@@ -310,7 +320,42 @@ func main() {
         r.POST("/api/alpharank/calculate/:account_id", alpharankHandler.CalculateAlphaRank)
         r.GET("/api/alpharank/details/:account_id", alpharankHandler.GetDetailedAlphaRank)
 
-        log.Println("🚀 CrunchAlpha V3 Server starting on :8090")
+        // Admin routes (require is_admin=true via JWT)
+	adminRoutes := r.Group("/api/admin")
+	adminRoutes.Use(authMiddleware)
+	{
+		adminRoutes.GET("/stats", adminUserHandler.PlatformStats)
+		adminRoutes.GET("/users", adminUserHandler.ListUsers)
+		adminRoutes.PUT("/users/:id", adminUserHandler.UpdateUser)
+		adminRoutes.DELETE("/users/:id", adminUserHandler.DeleteUser)
+		adminRoutes.GET("/trading-accounts", adminUserHandler.ListTradingAccounts)
+		adminRoutes.GET("/signal-sets", adminUserHandler.ListSignalSets)
+		adminRoutes.GET("/audit-logs", adminUserHandler.AuditLogs)
+		adminRoutes.GET("/brokers", adminBrokerHandler.ListBrokers)
+		adminRoutes.POST("/brokers", adminBrokerHandler.CreateBroker)
+		adminRoutes.PUT("/brokers/:id", adminBrokerHandler.UpdateBroker)
+		adminRoutes.DELETE("/brokers/:id", adminBrokerHandler.DeleteBroker)
+		adminRoutes.GET("/fee-overrides", adminFeeHandler.ListFeeOverrides)
+		adminRoutes.POST("/fee-overrides", adminFeeHandler.UpsertFeeOverride)
+		adminRoutes.DELETE("/fee-overrides/:id", adminFeeHandler.DeleteFeeOverride)
+		adminRoutes.GET("/default-fees", adminFeeHandler.GetDefaultFees)
+		adminRoutes.POST("/recalc-alpharank", analystHandler.AdminRecalcAllAlphaRank)
+		adminRoutes.GET("/cashflow/summary", adminCashflowHandler.Summary)
+		adminRoutes.GET("/cashflow/signal-subscriptions", adminCashflowHandler.SignalSubscriptions)
+		adminRoutes.GET("/cashflow/copy-subscriptions", adminCashflowHandler.CopySubscriptions)
+		adminRoutes.GET("/cashflow/user-growth", adminCashflowHandler.UserGrowth)
+		adminRoutes.GET("/config/fees", adminConfigHandler.ListFeeConfig)
+		adminRoutes.PUT("/config/fees/:key", adminConfigHandler.UpdateFeeConfig)
+		adminRoutes.GET("/config/affiliate-tiers", adminConfigHandler.ListAffiliateTiers)
+		adminRoutes.PUT("/config/affiliate-tiers/:id", adminConfigHandler.UpdateAffiliateTier)
+		adminRoutes.GET("/config/docs", adminConfigHandler.GetDocs)
+		adminRoutes.GET("/fee-simulation", adminFeeCalc.SimulateFees)
+		adminRoutes.GET("/fee-simulation/all", adminFeeCalc.SimulateAllAccounts)
+		adminRoutes.PUT("/trading-accounts/:id/ib-status", adminFeeCalc.UpdateIBStatus)
+	}
+
+
+	log.Println("🚀 CrunchAlpha V3 Server starting on :8090")
         log.Println("📊 AlphaRank™ Engine: ACTIVE")
         log.Println("🗄️  Database: Connected")
         log.Println("💼 Investor Module: ACTIVE")

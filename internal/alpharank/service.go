@@ -78,7 +78,9 @@ func (s *Service) CalculateForAccount(accountID string) error {
                         symbolResult := calculator.Calculate(symbolMetrics)
 			
 			// Save per-pair (ignore errors)
-			s.saveAlphaRankForSymbol(accountID, symbol, &symbolResult, len(symbolTrades), symbolMetrics.MaxDrawdownPct)
+                        // net_pnl per-pair = closed profit + floating profit per symbol
+			symbolNetPnl := symbolMetrics.NetProfit
+                        s.saveAlphaRankForSymbol(accountID, symbol, &symbolResult, len(symbolTrades), symbolMetrics.MaxDrawdownPct, symbolNetPnl, &symbolMetrics)
 		}
 	}
 
@@ -280,6 +282,7 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		TotalWithdraws:   totalWithdrawals,
 		PeakBalance:      peakBalance,
 		NetProfit:        totalProfit,
+		ClosedNetProfit:  totalProfit,
 		GrossProfit:      grossProfit,
 		GrossLoss:        grossLoss,
 		TotalTrades:      len(trades),
@@ -320,7 +323,7 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 	// Calc global stats from metrics if available
 	winRate := 0.0
 	profitFactor := 0.0
-	netProfit := 0.0
+	netPnl := 0.0
 	totalTradesAll := tradeCount
 	if metrics != nil {
 		if metrics.TotalTrades > 0 {
@@ -329,7 +332,8 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 		if metrics.GrossLoss != 0 {
 			profitFactor = math.Abs(metrics.GrossProfit / metrics.GrossLoss)
 		}
-		netProfit = metrics.NetProfit
+		// net_pnl = equity + withdraw - deposit (REAL, termasuk floating open positions)
+		netPnl = metrics.CurrentEquity + metrics.TotalWithdraws - metrics.TotalDeposits
 		totalTradesAll = metrics.TotalTrades
 	}
 
@@ -342,7 +346,7 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 			symbol, status, min_trades_met, trade_count,
 			risk_flags, critical_count, major_count, minor_count,
 			max_drawdown_pct, pillars,
-			win_rate, total_trades_all, profit_factor, net_profit,
+			win_rate, total_trades_all, profit_factor, net_pnl,
                         risk_level,
 			calculated_at
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,NOW())
@@ -358,7 +362,7 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 			minor_count=EXCLUDED.minor_count, max_drawdown_pct=EXCLUDED.max_drawdown_pct,
 			pillars=EXCLUDED.pillars, win_rate=EXCLUDED.win_rate,
 			total_trades_all=EXCLUDED.total_trades_all, profit_factor=EXCLUDED.profit_factor,
-			net_profit=EXCLUDED.net_profit, risk_level=EXCLUDED.risk_level,
+			net_pnl=EXCLUDED.net_pnl, risk_level=EXCLUDED.risk_level,
                         calculated_at=NOW()
 	`
 
@@ -370,7 +374,7 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 		flagsJSON,
 		result.RiskFlags.Counts.Critical, result.RiskFlags.Counts.Major, result.RiskFlags.Counts.Minor,
 		maxDD, pillarsJSON,
-		winRate, totalTradesAll, profitFactor, netProfit,
+		winRate, totalTradesAll, profitFactor, netPnl,
 			result.Risk,
 	)
 	return err
@@ -398,7 +402,17 @@ func (s *Service) getDistinctSymbols(accountID string) ([]string, error) {
 	return symbols, nil
 }
 
-func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *AlphaRankResult, tradeCount int, maxDD float64) error {
+func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *AlphaRankResult, tradeCount int, maxDD float64, netPnl float64, metrics *AccountMetrics) error {
+	winRate := 0.0
+	profitFactor := 0.0
+	if metrics != nil {
+		if metrics.TotalTrades > 0 {
+			winRate = float64(metrics.WinningTrades) / float64(metrics.TotalTrades) * 100
+		}
+		if metrics.GrossLoss != 0 {
+			profitFactor = math.Abs(metrics.GrossProfit / metrics.GrossLoss)
+		}
+	}
 	var p1, p2, p3, p4, p5, p6, p7 float64
 	for _, pillar := range result.Pillars {
 		switch pillar.Code {
@@ -435,9 +449,10 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 				symbol, status, min_trades_met, trade_count,
 				risk_flags, critical_count, major_count, minor_count,
 				max_drawdown_pct, pillars,
+					net_pnl, win_rate, total_trades_all, profit_factor,
 				risk_level,
 				calculated_at
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,NOW())
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,NOW())
 			ON CONFLICT (account_id, symbol)
 			DO UPDATE SET
 				profitability_score = EXCLUDED.profitability_score,
@@ -458,7 +473,11 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 				minor_count = EXCLUDED.minor_count,
 				max_drawdown_pct = EXCLUDED.max_drawdown_pct,
 				pillars = EXCLUDED.pillars,
-				risk_level = EXCLUDED.risk_level,
+					net_pnl = EXCLUDED.net_pnl,
+					win_rate = EXCLUDED.win_rate,
+					total_trades_all = EXCLUDED.total_trades_all,
+					profit_factor = EXCLUDED.profit_factor,
+					risk_level = EXCLUDED.risk_level,
 				calculated_at = NOW()
 	`
 
@@ -472,6 +491,8 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 		result.RiskFlags.Counts.Major,
 		result.RiskFlags.Counts.Minor,
 		maxDD, pillarsJSON,
+		netPnl,
+		winRate, tradeCount, profitFactor,
 		GetRiskLevelFromCounts(result.RiskFlags.Counts.Critical, result.RiskFlags.Counts.Major, result.RiskFlags.Counts.Minor, result.AlphaScore),
 	)
 	return err
@@ -590,14 +611,21 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 		}
 	}
 
-	// Floating DD
-	if balance > 0 && equity < balance {
-		floatingDD := (balance - equity) / balance * 100
+	// Floating DD per-pair = abs(floating_profit_pair) / balance
+	// Konsisten untuk 1 pair maupun multi-pair (proporsional dari balance)
+	var symbolFloatingProfit float64
+	s.db.QueryRow(`
+		SELECT COALESCE(SUM(profit), 0)
+		FROM trades
+		WHERE account_id = $1 AND symbol = $2 AND status = 'open'
+	`, accountID, symbol).Scan(&symbolFloatingProfit)
+
+	if symbolFloatingProfit < 0 && balance > 0 {
+		floatingDD := (math.Abs(symbolFloatingProfit) / balance) * 100
 		if floatingDD > maxDD {
 			maxDD = floatingDD
 		}
 	}
-
 	// Cap at 100%
 	if maxDD > 100 {
 		maxDD = 100
@@ -609,7 +637,11 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 		CurrentEquity:    equity,
 		GrossProfit:      grossProfit,
 		GrossLoss:        grossLoss,
-		NetProfit:        totalProfit,
+		NetProfit:        totalProfit + symbolFloatingProfit,
+		ClosedNetProfit:  totalProfit,
+		TotalDeposits:    totalDeposits,
+		InitialDeposit:   initialDeposit,
+		TotalWithdraws:   totalWithdrawals,
 		WinningTrades:    winningTrades,
 		LosingTrades:     losingTrades,
 		TotalTrades:      len(symbolTrades),
