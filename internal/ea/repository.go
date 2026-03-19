@@ -40,7 +40,8 @@ func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 			swap = EXCLUDED.swap,
 			commission = EXCLUDED.commission,
 			close_time = EXCLUDED.close_time,
-			status = EXCLUDED.status
+				status = EXCLUDED.status
+			WHERE trades.status != 'closed'
 	`
 
 	var closeTime int64
@@ -54,6 +55,35 @@ func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 		trade.OpenTime, closeTime, trade.Status,
 	)
 
+	return err
+}
+
+func (r *Repository) SyncTrade(accountID string, trade *TradeData) error {
+	query := `
+			INSERT INTO trades (
+				account_id, ticket, symbol, type, lots,
+				open_price, close_price, profit, swap, commission,
+				open_time, close_time, status, created_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+				to_timestamp($11), to_timestamp($12), $13, NOW())
+			ON CONFLICT (account_id, ticket)
+			DO UPDATE SET
+				close_price = EXCLUDED.close_price,
+				profit = EXCLUDED.profit,
+				swap = EXCLUDED.swap,
+				commission = EXCLUDED.commission,
+				close_time = EXCLUDED.close_time,
+				status = EXCLUDED.status
+	`
+	var closeTime int64
+	if trade.CloseTime > 0 {
+		closeTime = trade.CloseTime
+	}
+	_, err := r.db.Exec(query,
+		accountID, trade.Ticket, trade.Symbol, trade.Type, trade.Lots,
+		trade.OpenPrice, trade.ClosePrice, trade.Profit, trade.Swap, trade.Commission,
+		trade.OpenTime, closeTime, trade.Status,
+	)
 	return err
 }
 

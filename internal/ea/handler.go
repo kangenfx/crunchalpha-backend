@@ -43,29 +43,28 @@ type AccountData struct {
 
 func (h *Handler) ReceiveTrade(c *gin.Context) {
 	var data TradeData
-
 	if err := c.ShouldBindJSON(&data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-
 	accountID, err := h.repo.GetAccountIDByNumber(data.AccountNumber, userID.(string))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "account not found"})
 		return
 	}
-
 	if err := h.repo.SaveTrade(accountID, &data); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save trade"})
 		return
 	}
-
+	// Trigger recalc saat trade closed
+	if data.Status == "closed" {
+		go h.repo.TriggerAlphaRankCalculation(accountID)
+	}
 	c.JSON(http.StatusCreated, gin.H{
 		"ok":      true,
 		"message": "trade received",
@@ -146,7 +145,7 @@ func (h *Handler) SyncAccount(c *gin.Context) {
 
 	tradesAdded := 0
 	for _, trade := range payload.ClosedTrades {
-		if err := h.repo.SaveTrade(accountID, &trade); err == nil {
+		if err := h.repo.SyncTrade(accountID, &trade); err == nil {
 			tradesAdded++
 		}
 	}
