@@ -681,16 +681,24 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 // GetRiskLevelFromCounts - standalone helper untuk compute risk_level dari counts
 func GetRiskLevelFromCounts(critical, major, minor int, alphaScore float64) string {
 	totalFlags := critical + major + minor
+	// EXTREME: Any critical flag OR AlphaScore < 30
 	if critical > 0 || alphaScore < 30 {
 		return "EXTREME"
 	}
+	// HIGH: 3+ flags OR AlphaScore 30-50
 	if totalFlags >= 3 || (alphaScore >= 30 && alphaScore < 50) {
 		return "HIGH"
 	}
-	if totalFlags == 2 || (alphaScore >= 50 && alphaScore < 70) {
+	// MEDIUM: 2+ major flags OR AlphaScore 50-70
+	if (critical+major) >= 2 || (alphaScore >= 50 && alphaScore < 70) {
 		return "MEDIUM"
 	}
-	if critical == 0 && totalFlags <= 1 && alphaScore >= 70 {
+	// VERIFIED_SAFE: AlphaScore >= 85, no flags
+	if alphaScore >= 85 && totalFlags == 0 {
+		return "VERIFIED_SAFE"
+	}
+	// LOW: 0-1 flags + AlphaScore >= 70
+	if critical == 0 && alphaScore >= 70 {
 		return "LOW"
 	}
 	return "MEDIUM"

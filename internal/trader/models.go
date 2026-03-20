@@ -47,6 +47,7 @@ type DashboardSnapshot struct {
 	Expectancy   float64 `json:"expectancy"`
 
 	BrokerLabel string `json:"brokerLabel"`
+	RiskLevel   string `json:"riskLevel"`
 
 	Statistics map[string]interface{} `json:"statistics,omitempty"`
 }
@@ -68,6 +69,7 @@ type Pillar struct {
 	Name   string `json:"name"`
 	Weight int    `json:"weight"`
 	Score  int    `json:"score"`
+	Reason string `json:"reason"`
 }
 
 type RiskFlag struct {

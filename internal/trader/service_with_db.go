@@ -34,6 +34,7 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 		CriticalCount              int
 		MajorCount                 int
 		MinorCount                 int
+		RiskLevel                  string
 	}
 
 	err = s.repo.db.QueryRow(`
@@ -44,7 +45,8 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 			COALESCE(risk_flags, '[]'::jsonb),
 			COALESCE(critical_count, 0),
 			COALESCE(major_count, 0),
-			COALESCE(minor_count, 0)
+				COALESCE(minor_count, 0),
+				COALESCE(risk_level, 'MEDIUM')
 		FROM alpha_ranks
 		WHERE account_id = $1 AND symbol = 'ALL'
 	`, accountID).Scan(
@@ -53,6 +55,7 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 		&result.AlphaScore, &result.Grade, &result.Badge, &result.TradeCount,
 		&result.RiskFlags,
 		&result.CriticalCount, &result.MajorCount, &result.MinorCount,
+		&result.RiskLevel,
 	)
 
 	if err != nil {
@@ -136,14 +139,23 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 	riskReward := pm.RiskReward
 	expectancy := pm.Expectancy
 
-	pillars := []Pillar{
-		{Code: "P1", Name: "Profitability", Weight: 20, Score: int(result.P1)},
-		{Code: "P2", Name: "Consistency", Weight: 20, Score: int(result.P2)},
-		{Code: "P3", Name: "Risk Management", Weight: 25, Score: int(result.P3)},
-		{Code: "P4", Name: "Recovery", Weight: 10, Score: int(result.P4)},
-		{Code: "P5", Name: "Trading Edge", Weight: 10, Score: int(result.P5)},
-		{Code: "P6", Name: "Discipline", Weight: 8, Score: int(result.P6)},
-		{Code: "P7", Name: "Track Record", Weight: 7, Score: int(result.P7)},
+	// Baca pillars dari alpha_ranks (include reason)
+	pillars := []Pillar{}
+	var pillarsJSON []byte
+	s.repo.db.QueryRow(`SELECT COALESCE(pillars,'[]'::jsonb) FROM alpha_ranks WHERE account_id=$1 AND symbol='ALL'`, accountID).Scan(&pillarsJSON)
+	if len(pillarsJSON) > 0 {
+		var rawPillars []struct {
+			Code   string  `json:"code"`
+			Name   string  `json:"name"`
+			Weight int     `json:"weight"`
+			Score  float64 `json:"score"`
+			Reason string  `json:"reason"`
+		}
+		if err := json.Unmarshal(pillarsJSON, &rawPillars); err == nil {
+			for _, p := range rawPillars {
+				pillars = append(pillars, Pillar{Code: p.Code, Name: p.Name, Weight: p.Weight, Score: int(p.Score), Reason: p.Reason})
+			}
+		}
 	}
 
 	// Build AlphaRankResult untuk convert
@@ -177,6 +189,7 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 			RiskReward:   riskReward,
 			Expectancy:   expectancy,
 			BrokerLabel:  brokerLabel,
+			RiskLevel:    result.RiskLevel,
 		},
 		Survivability: SurvivabilityScore{
 			Score: surv.Score,
