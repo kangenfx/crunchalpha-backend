@@ -68,6 +68,10 @@ func (s *Service) CalculateForAccount(accountID string) error {
 			}
 			
 			// Skip if insufficient trades
+				// Skip non-trading symbols
+				if symbol == "archived" || symbol == "" {
+					continue
+				}
 				if len(symbolTrades) < 1 {
 				continue
 			}

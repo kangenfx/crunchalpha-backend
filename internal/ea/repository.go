@@ -26,6 +26,10 @@ func (r *Repository) GetAccountIDByNumber(accountNumber, userID string) (string,
 }
 
 func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
+	// Skip non-trading symbols (archived, empty)
+	if trade.Symbol == "" || trade.Symbol == "archived" {
+		return nil
+	}
 	query := `
 		INSERT INTO trades (
 			account_id, ticket, symbol, type, lots,
