@@ -486,7 +486,7 @@ func (h *Handler) GetTraderProfile(c *gin.Context) {
 	ppRows, _ := h.service.repo.DB.Query(`
 		SELECT ar.symbol, COALESCE(ar.grade,''), COALESCE(ar.alpha_score,0),
 			COALESCE(ar.total_trades_all, ar.trade_count,0),
-			COALESCE(ar.win_rate,0), COALESCE(ar.net_profit,0),
+			COALESCE(ar.win_rate,0), COALESCE(ar.net_pnl,0),
 			COALESCE(ar.max_drawdown_pct,0),
 			COALESCE(ar.risk_level,'MEDIUM'),
 			COALESCE(ar.risk_flags::text,'[]')
