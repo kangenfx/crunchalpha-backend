@@ -689,8 +689,8 @@ func GetRiskLevelFromCounts(critical, major, minor int, alphaScore float64) stri
 	if totalFlags >= 3 || (alphaScore >= 30 && alphaScore < 50) {
 		return "HIGH"
 	}
-	// MEDIUM: 2+ major flags OR AlphaScore 50-70
-	if (critical+major) >= 2 || (alphaScore >= 50 && alphaScore < 70) {
+	// MEDIUM: 2 flags OR AlphaScore 50-70
+	if totalFlags >= 2 || (alphaScore >= 50 && alphaScore < 70) {
 		return "MEDIUM"
 	}
 	// VERIFIED_SAFE: AlphaScore >= 85, no flags
