@@ -68,7 +68,7 @@ func (s *Service) CalculateForAccount(accountID string) error {
 			}
 			
 			// Skip if insufficient trades
-			if len(symbolTrades) < 10 {
+				if len(symbolTrades) < 1 {
 				continue
 			}
 			
