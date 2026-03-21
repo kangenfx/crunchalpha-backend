@@ -367,8 +367,9 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 				win_rate, total_trades_all, profit_factor, net_pnl,
 				winning_trades, losing_trades, avg_win, avg_loss, risk_reward, expectancy,
                         risk_level,
+			survivability_score, scalability_score,
 			calculated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,NOW())
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,NOW())
 		ON CONFLICT (account_id, symbol)
 		DO UPDATE SET
 			profitability_score=EXCLUDED.profitability_score, risk_score=EXCLUDED.risk_score,
@@ -386,6 +387,8 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 				avg_win=EXCLUDED.avg_win, avg_loss=EXCLUDED.avg_loss,
 				risk_reward=EXCLUDED.risk_reward, expectancy=EXCLUDED.expectancy,
 				risk_level=EXCLUDED.risk_level,
+			survivability_score=EXCLUDED.survivability_score,
+			scalability_score=EXCLUDED.scalability_score,
                         calculated_at=NOW()
 	`
 
@@ -401,6 +404,7 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 			int(metrics.WinningTrades), int(metrics.LosingTrades),
 			metrics.AvgWin, metrics.AvgLoss, metrics.RiskReward, metrics.Expectancy,
 			result.Risk,
+			result.Survivability.Score, result.Scalability.Score,
 	)
 	return err
 }
