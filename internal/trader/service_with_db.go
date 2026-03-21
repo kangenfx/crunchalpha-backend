@@ -88,6 +88,8 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 		RiskReward    float64
 		Expectancy    float64
 		NetPnl        float64
+		SurvScore     int
+		ScalScore     int
 	}
 
 	err = s.repo.db.QueryRow(`
@@ -102,23 +104,22 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 			COALESCE(avg_loss, 0),
 			COALESCE(risk_reward, 0),
 			COALESCE(expectancy, 0),
-			COALESCE(net_pnl, 0)
+			COALESCE(net_pnl, 0),
+				COALESCE(survivability_score, 0),
+				COALESCE(scalability_score, 0)
 		FROM alpha_ranks
 		WHERE account_id = $1 AND symbol = 'ALL'
 	`, accountID).Scan(
 		&pm.TotalTrades, &pm.WinningTrades, &pm.LosingTrades,
 		&pm.WinRate, &pm.ProfitFactor, &pm.MaxDD,
 		&pm.AvgWin, &pm.AvgLoss, &pm.RiskReward, &pm.Expectancy,
-		&pm.NetPnl,
+		&pm.NetPnl, &pm.SurvScore, &pm.ScalScore,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("AlphaRank not calculated yet")
 	}
 
-	// Calculate survivability & scalability from DB values
-	calculator := alpharank.NewCalculator()
-	surv := calculator.CalculateSurvivability(pm.MaxDD, result.AlphaScore)
-	scal := calculator.CalculateScalability(balance, result.AlphaScore)
+	// Survivability & scalability dari DB
 
 	risk := "LOW"
 	if result.CriticalCount > 0 {
@@ -192,14 +193,14 @@ func (s *Service) GetDashboardWithAlphaRank(accountID, userID string) (*Dashboar
 			RiskLevel:    result.RiskLevel,
 		},
 		Survivability: SurvivabilityScore{
-			Score: surv.Score,
-			Label: surv.Label,
-			Note:  surv.Note,
+			Score: pm.SurvScore,
+			Label: survLabel(pm.SurvScore),
+			Note:  "0-100 score (retail transparency)",
 		},
 		Scalability: ScalabilityScore{
-			Score: scal.Score,
-			Label: scal.Label,
-			Note:  scal.Note,
+			Score: pm.ScalScore,
+			Label: survLabel(pm.ScalScore),
+			Note:  "Capacity & growth readiness",
 		},
 		Pillars:   pillars,
 		RiskFlags: convertRiskFlags(alphaResult),
@@ -388,4 +389,17 @@ func (s *Service) getTradesForSymbol(accountID, symbol string) ([]alpharank.Trad
 	}
 
 	return trades, nil
+}
+
+func survLabel(score int) string {
+	switch {
+	case score >= 80:
+		return "Excellent"
+	case score >= 60:
+		return "Good"
+	case score >= 40:
+		return "Moderate"
+	default:
+		return "Poor"
+	}
 }
