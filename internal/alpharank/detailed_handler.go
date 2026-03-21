@@ -19,19 +19,24 @@ func (h *Handler) GetDetailedAlphaRank(c *gin.Context) {
 		Grade string
 		Badge string
 		TradeCount int
+		SurvScore  int
+		ScalScore  int
 	}
 	
 	err := h.service.db.QueryRow(`
 		SELECT 
 			profitability_score, risk_score, consistency_score,
 			stability_score, activity_score, duration_score, drawdown_score,
-			alpha_score, grade, badge, trade_count
+			alpha_score, grade, badge, trade_count,
+				COALESCE(survivability_score, 0),
+				COALESCE(scalability_score, 0)
 		FROM alpha_ranks
 		WHERE account_id = $1 AND symbol = 'ALL'
 	`, accountID).Scan(
 		&result.P1, &result.P2, &result.P3, &result.P4, 
 		&result.P5, &result.P6, &result.P7,
 		&result.AlphaScore, &result.Grade, &result.Badge, &result.TradeCount,
+		&result.SurvScore, &result.ScalScore,
 	)
 	
 	if err != nil {
@@ -55,7 +60,6 @@ func (h *Handler) GetDetailedAlphaRank(c *gin.Context) {
 	h.service.db.QueryRow("SELECT COALESCE(SUM(amount), 0) FROM account_transactions WHERE account_id = $1 AND transaction_type = 'withdrawal'", accountID).Scan(&totalWithdrawals)
 	metrics := h.service.buildMetrics(accountID, trades, balance, equity, totalDeposits, totalWithdrawals)
 
-	// Use maxDD from DB (same source as stats bar) for consistent flag descriptions
 	var dbMaxDD float64
 	h.service.db.QueryRow(`
 		SELECT COALESCE(max_dd, 0) FROM alpha_ranks
@@ -67,9 +71,6 @@ func (h *Handler) GetDetailedAlphaRank(c *gin.Context) {
 	
 	flags := DetectRiskFlags(metrics)
 	
-	calculator := NewCalculator()
-	surv := calculator.CalculateSurvivability(metrics.MaxDrawdownPct, result.AlphaScore)
-	scal := calculator.CalculateScalability(metrics.PeakBalance, result.AlphaScore)
 	
 	// REGIME DETECTION
 	
@@ -112,14 +113,12 @@ func (h *Handler) GetDetailedAlphaRank(c *gin.Context) {
 			"items": flags,
 		},
 		"survivability": gin.H{
-			"score": surv.Score,
-			"label": surv.Label,
-			"note":  surv.Note,
+			"score": result.SurvScore,
+			"label": survLabel(result.SurvScore),
 		},
 		"scalability": gin.H{
-			"score": scal.Score,
-			"label": scal.Label,
-			"note":  scal.Note,
+			"score": result.ScalScore,
+			"label": survLabel(result.ScalScore),
 		},
 		"metrics": gin.H{
 			"total_trades":     metrics.TotalTrades,
@@ -139,4 +138,17 @@ func (h *Handler) GetDetailedAlphaRank(c *gin.Context) {
 	}
 	
 	c.JSON(http.StatusOK, response)
+}
+
+func survLabel(score int) string {
+	switch {
+	case score >= 80:
+		return "Excellent"
+	case score >= 60:
+		return "Good"
+	case score >= 40:
+		return "Moderate"
+	default:
+		return "Poor"
+	}
 }
