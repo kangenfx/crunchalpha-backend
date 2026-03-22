@@ -78,7 +78,7 @@ func (c *Calculator) Calculate7Pillars(metrics AccountMetrics, flags []RiskFlag)
 	if depositBase <= 0 {
 		depositBase = metrics.InitialDeposit
 	}
-	pillars[0] = CalculateP1(metrics.ClosedNetProfit, depositBase, metrics.MaxDrawdownPct)
+	pillars[0] = CalculateP1(metrics.NetProfit, depositBase, metrics.MaxDrawdownPct)
 
 	// P2: Consistency with year+week fix + inactive weeks
 	pillars[1] = CalculateP2(metrics.Trades)
@@ -87,7 +87,7 @@ func (c *Calculator) Calculate7Pillars(metrics AccountMetrics, flags []RiskFlag)
 	pillars[2] = CalculateP3(flags)
 
 	// P4: Recovery
-	pillars[3] = CalculateP4(metrics.Trades, metrics.MaxDrawdownPct)
+	pillars[3] = CalculateP4(metrics.Trades, metrics.MaxDrawdownPct, metrics.InitialDeposit)
 
 	// P5: Edge
 	winRate := 0.0

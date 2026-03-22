@@ -295,7 +295,7 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		TotalDeposits:    totalDeposits,
 		TotalWithdraws:   totalWithdrawals,
 		PeakBalance:      peakBalance,
-		NetProfit:        totalProfit,
+		NetProfit:        equity + totalWithdrawals - totalDeposits,
 		ClosedNetProfit:  totalProfit,
 		GrossProfit:      grossProfit,
 		GrossLoss:        grossLoss,

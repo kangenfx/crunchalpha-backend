@@ -100,8 +100,8 @@ func (h *Handler) GetDetailedAlphaRank(c *gin.Context) {
 		},
 		"pillars": gin.H{
 			"P1_Profitability": result.P1,
-			"P2_Risk":          result.P2,
-			"P3_Consistency":   result.P3,
+			"P2_Consistency":          result.P2,
+			"P3_RiskManagement":   result.P3,
 			"P4_Recovery":      result.P4,
 			"P5_Edge":          result.P5,
 			"P6_Discipline":    result.P6,

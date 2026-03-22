@@ -86,9 +86,9 @@ func CalculateP2(trades []TradeData) PillarScore {
 		weeklyMap[key] += trade.Profit
 	}
 
-	// Fill inactive weeks with $0 (from first trade to NOW)
-	now := time.Now()
-	for d := firstTrade; d.Before(now); d = d.AddDate(0, 0, 7) {
+	// Fill inactive weeks with $0 (first trade to last trade only)
+	// P7 handles inactive penalty - P2 only measures active period
+	for d := firstTrade; d.Before(lastTrade.AddDate(0, 0, 7)); d = d.AddDate(0, 0, 7) {
 		year, week := d.ISOWeek()
 		key := fmt.Sprintf("%d-%d", year, week)
 		if _, exists := weeklyMap[key]; !exists {
@@ -161,29 +161,103 @@ func CalculateP3(flags []RiskFlag) PillarScore {
 }
 
 // P4: Recovery (10%)
-func CalculateP4(trades []TradeData, maxDDPct float64) PillarScore {
+// P4: Recovery Resilience (10%)
+// Measures how fast trader recovers from max drawdown to new peak
+func CalculateP4(trades []TradeData, maxDDPct float64, initialDeposit float64) PillarScore {
 	pillar := PillarScore{
 		Code:   "P4",
-		Name:   "Recovery",
+		Name:   "Recovery Resilience",
 		Weight: 10,
 	}
 
-	switch {
-	case maxDDPct < 10:
+	if len(trades) < 2 {
+		pillar.Score = 50
+		pillar.Reason = "Insufficient trades"
+		return pillar
+	}
+
+	// No significant DD = perfect recovery
+	if maxDDPct < 5 {
 		pillar.Score = 100
-		pillar.Reason = fmt.Sprintf("DD %.1f%% < 10%%", maxDDPct)
-	case maxDDPct < 20:
-		pillar.Score = 80
-		pillar.Reason = fmt.Sprintf("DD %.1f%% < 20%%", maxDDPct)
-	case maxDDPct < 30:
-		pillar.Score = 60
-		pillar.Reason = fmt.Sprintf("DD %.1f%% < 30%%", maxDDPct)
-	case maxDDPct < 50:
-		pillar.Score = 40
-		pillar.Reason = fmt.Sprintf("DD %.1f%% < 50%%", maxDDPct)
+		pillar.Reason = fmt.Sprintf("DD %.1f%% minimal - no recovery needed", maxDDPct)
+		return pillar
+	}
+
+	// Find max drawdown point and recovery using running balance
+	runningBalance := initialDeposit
+	peak := initialDeposit
+	maxDD := 0.0
+	maxDDIdx := 0
+	peakIdx := 0
+
+	for i, trade := range trades {
+		netProfit := trade.Profit + trade.Swap + trade.Commission
+		runningBalance += netProfit
+		if runningBalance > peak {
+			peak = runningBalance
+			peakIdx = i
+		}
+		if peak > 0 {
+			dd := (peak - runningBalance) / peak * 100
+			if dd > maxDD {
+				maxDD = dd
+				maxDDIdx = i
+			}
+		}
+	}
+
+	// Check if trader recovered after max DD point
+	recoveryBalance := 0.0
+	for _, trade := range trades[:maxDDIdx+1] {
+		recoveryBalance += trade.Profit + trade.Swap + trade.Commission
+	}
+	peakBeforeDD := peak
+
+	// Find recovery - did balance exceed peak after DD?
+	recovered := false
+	recoveryWeeks := 0
+	runBal := recoveryBalance
+	for i := maxDDIdx + 1; i < len(trades); i++ {
+		runBal += trades[i].Profit + trades[i].Swap + trades[i].Commission
+		if runBal >= peakBeforeDD {
+			recovered = true
+			// Estimate weeks from DD point to recovery
+			duration := trades[i].CloseTime.Sub(trades[maxDDIdx].CloseTime)
+			recoveryWeeks = int(duration.Hours() / 168)
+			break
+		}
+	}
+	_ = peakIdx
+
+	if !recovered {
+		// Not recovered yet
+		if maxDDPct < 20 {
+			pillar.Score = 50
+			pillar.Reason = fmt.Sprintf("DD %.1f%% - recovering (not yet at peak)", maxDDPct)
+		} else {
+			pillar.Score = 20
+			pillar.Reason = fmt.Sprintf("DD %.1f%% - not recovered to peak", maxDDPct)
+		}
+		return pillar
+	}
+
+	// Recovered - score based on speed
+	switch {
+	case recoveryWeeks <= 1:
+		pillar.Score = 100
+		pillar.Reason = fmt.Sprintf("Recovered from %.1f%% DD in %d week(s)", maxDDPct, recoveryWeeks)
+	case recoveryWeeks <= 4:
+		pillar.Score = 85
+		pillar.Reason = fmt.Sprintf("Recovered from %.1f%% DD in %d weeks", maxDDPct, recoveryWeeks)
+	case recoveryWeeks <= 12:
+		pillar.Score = 65
+		pillar.Reason = fmt.Sprintf("Recovered from %.1f%% DD in %d weeks", maxDDPct, recoveryWeeks)
+	case recoveryWeeks <= 26:
+		pillar.Score = 45
+		pillar.Reason = fmt.Sprintf("Slow recovery from %.1f%% DD (%d weeks)", maxDDPct, recoveryWeeks)
 	default:
-		pillar.Score = 20
-		pillar.Reason = fmt.Sprintf("DD %.1f%% >= 50%%", maxDDPct)
+		pillar.Score = 25
+		pillar.Reason = fmt.Sprintf("Very slow recovery from %.1f%% DD (%d weeks)", maxDDPct, recoveryWeeks)
 	}
 
 	return pillar
@@ -233,7 +307,7 @@ func CalculateP6(trades []TradeData) PillarScore {
 	pillar := PillarScore{
 		Code:   "P6",
 		Name:   "Discipline",
-		Weight: 8,
+		Weight: 12,
 	}
 
 	if len(trades) == 0 {
@@ -243,7 +317,9 @@ func CalculateP6(trades []TradeData) PillarScore {
 	}
 
 	score := 100.0
+	reasons := []string{}
 
+	// 1. Stop Loss usage (max penalty -35)
 	withSL := 0
 	for _, t := range trades {
 		if t.StopLoss != 0 {
@@ -251,15 +327,59 @@ func CalculateP6(trades []TradeData) PillarScore {
 		}
 	}
 	slPct := float64(withSL) / float64(len(trades)) * 100
-
 	if slPct < 30 {
-		score -= 30
-		pillar.Reason = fmt.Sprintf("Only %.0f%% trades use SL", slPct)
-	} else if slPct < 50 {
+		score -= 35
+		reasons = append(reasons, fmt.Sprintf("SL %.0f%%", slPct))
+	} else if slPct < 60 {
 		score -= 15
-		pillar.Reason = fmt.Sprintf("%.0f%% trades use SL", slPct)
+		reasons = append(reasons, fmt.Sprintf("SL %.0f%%", slPct))
 	} else {
-		pillar.Reason = fmt.Sprintf("%.0f%% trades use SL - Good", slPct)
+		reasons = append(reasons, fmt.Sprintf("SL %.0f%%", slPct))
+	}
+
+	// 2. Take Profit usage (max penalty -25)
+	withTP := 0
+	for _, t := range trades {
+		if t.TakeProfit != 0 {
+			withTP++
+		}
+	}
+	tpPct := float64(withTP) / float64(len(trades)) * 100
+	if tpPct < 30 {
+		score -= 25
+		reasons = append(reasons, fmt.Sprintf("TP %.0f%%", tpPct))
+	} else if tpPct < 60 {
+		score -= 10
+		reasons = append(reasons, fmt.Sprintf("TP %.0f%%", tpPct))
+	} else {
+		reasons = append(reasons, fmt.Sprintf("TP %.0f%%", tpPct))
+	}
+
+	// 3. Overtrading detection - trades per day after loss (max penalty -20)
+	dailyMap := make(map[string][]TradeData)
+	for _, t := range trades {
+		day := t.CloseTime.Format("2006-01-02")
+		dailyMap[day] = append(dailyMap[day], t)
+	}
+	overtradeDays := 0
+	for _, dayTrades := range dailyMap {
+		if len(dayTrades) >= 5 {
+			// Check if previous day was loss
+			dayProfit := 0.0
+			for _, t := range dayTrades {
+				dayProfit += t.Profit
+			}
+			if dayProfit < 0 {
+				overtradeDays++
+			}
+		}
+	}
+	if overtradeDays >= 5 {
+		score -= 20
+		reasons = append(reasons, fmt.Sprintf("overtrading %dd", overtradeDays))
+	} else if overtradeDays >= 2 {
+		score -= 10
+		reasons = append(reasons, fmt.Sprintf("overtrading %dd", overtradeDays))
 	}
 
 	if score < 0 {
@@ -267,6 +387,12 @@ func CalculateP6(trades []TradeData) PillarScore {
 	}
 
 	pillar.Score = score
+	if len(reasons) > 0 {
+		pillar.Reason = fmt.Sprintf("SL/TP/OT: %s/%s", reasons[0], reasons[1])
+		if len(reasons) > 2 {
+			pillar.Reason += " " + reasons[2]
+		}
+	}
 	return pillar
 }
 
@@ -275,7 +401,7 @@ func CalculateP7(totalTrades, daysSinceStart int, lastTradeTime time.Time) Pilla
 	pillar := PillarScore{
 		Code:   "P7",
 		Name:   "Track Record",
-		Weight: 7,
+		Weight: 3,
 	}
 
 	tradesScore := 0.0
