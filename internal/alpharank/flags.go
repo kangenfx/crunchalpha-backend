@@ -19,12 +19,11 @@ func DetectRiskFlags(metrics AccountMetrics) []RiskFlag {
 	}
 
 	flags = append(flags, detectNoStopLoss(metrics.Trades, metrics.MaxDrawdownPct)...)
-	flags = append(flags, detectOverleveraging(metrics.Trades, peakBalance)...)
+	flags = append(flags, detectExcessivePositionSize(metrics.Trades, peakBalance)...)
 	flags = append(flags, detectRevengeTrading(metrics.Trades)...)
 	flags = append(flags, detectConsistencyVolatility(metrics.Trades)...)
 	// flags = append(flags, detectHighCorrelation(metrics.Trades)...) // REMOVED: Owner request
 	flags = append(flags, detectLotInconsistency(metrics.Trades)...)
-	flags = append(flags, detectMaxTradeSize(metrics.Trades, peakBalance)...)
 	flags = append(flags, detectMartingale(metrics.Trades)...)
 	flags = append(flags, detectExtremeDrawdown(metrics.MaxDrawdownPct)...)
 	flags = append(flags, detectStrategyChange(metrics.Trades)...)
@@ -79,38 +78,56 @@ func detectNoStopLoss(trades []TradeData, maxDD float64) []RiskFlag {
 }
 
 // CRITICAL: Overleveraging - Use peak balance
-func detectOverleveraging(trades []TradeData, peakBalance float64) []RiskFlag {
+func detectExcessivePositionSize(trades []TradeData, peakBalance float64) []RiskFlag {
 	if len(trades) == 0 || peakBalance <= 0 {
 		return nil
 	}
 
-	overlevCount := 0
+	// Standard: 1 lot = $100,000 notional, safe = 0.01 lot per $1000 (1:100 leverage safe usage)
+	// lotRatio = lots / (peakBalance / 100000) — how many "standard lots" relative to balance
+	// ratio > 2.0 = using more than 2x safe standard = excessive
+	excessiveCount := 0
+	maxRatio := 0.0
+
 	for _, t := range trades {
-		riskPct := (math.Abs(t.Profit) / peakBalance) * 100
-		if riskPct > 5 {
-			overlevCount++
+		if t.Lots <= 0 {
+			continue
+		}
+		safeMaxLots := peakBalance / 100000.0 * 2.0 // 2x safe threshold
+		if safeMaxLots <= 0 {
+			safeMaxLots = 0.01
+		}
+		ratio := t.Lots / safeMaxLots
+		if ratio > maxRatio {
+			maxRatio = ratio
+		}
+		if ratio > 1.0 {
+			excessiveCount++
 		}
 	}
 
-	overlevPct := float64(overlevCount) / float64(len(trades)) * 100
+	excessivePct := float64(excessiveCount) / float64(len(trades)) * 100
 
-	if overlevPct < 10 {
+	if excessivePct < 10 {
 		return nil
 	}
 
-	severity := "MAJOR"
-	penalty := 15
-	if overlevPct > 30 {
-		severity = "CRITICAL"
-		penalty = 25
+	if excessivePct > 30 || maxRatio > 5.0 {
+		return []RiskFlag{{
+			FlagType: "EXCESSIVE_POSITION_SIZE",
+			Severity: "CRITICAL",
+			Penalty:  25.0,
+			Title:    "Excessive Position Size",
+			Desc:     fmt.Sprintf("%.0f%% trades use lot size too large for balance ($%.0f)", excessivePct, peakBalance),
+		}}
 	}
 
 	return []RiskFlag{{
-		FlagType: "OVERLEVERAGING",
-		Severity: severity,
-		Penalty:  float64(penalty),
-		Title:    "Overleveraging",
-		Desc:     fmt.Sprintf("%.0f%% trades risk >5%% of peak balance ($%.0f)", overlevPct, peakBalance),
+		FlagType: "EXCESSIVE_POSITION_SIZE",
+		Severity: "MAJOR",
+		Penalty:  15.0,
+		Title:    "Large Position Size",
+		Desc:     fmt.Sprintf("%.0f%% trades exceed safe lot size for balance ($%.0f)", excessivePct, peakBalance),
 	}}
 }
 
@@ -339,43 +356,6 @@ func detectLotInconsistency(trades []TradeData) []RiskFlag {
 }
 
 // CRITICAL: Max Position Size - Use peak balance
-func detectMaxTradeSize(trades []TradeData, peakBalance float64) []RiskFlag {
-	if len(trades) == 0 || peakBalance <= 0 {
-		return nil
-	}
-
-	maxLossPct := 0.0
-	for _, t := range trades {
-		if t.Profit < 0 {
-			lossPct := math.Abs(t.Profit) / peakBalance * 100
-			if lossPct > maxLossPct {
-				maxLossPct = lossPct
-			}
-		}
-	}
-
-	if maxLossPct > 20 {
-		return []RiskFlag{{
-			FlagType: "MAX_POSITION_SIZE",
-			Severity: "CRITICAL",
-			Penalty:  25.0,
-			Title:    "Excessive Position Size",
-			Desc:     fmt.Sprintf("Single trade loss reached %.1f%% of peak balance", maxLossPct),
-		}}
-	}
-
-	if maxLossPct > 10 {
-		return []RiskFlag{{
-			FlagType: "MAX_POSITION_SIZE",
-			Severity: "MAJOR",
-			Penalty:  15.0,
-			Title:    "Large Position Size",
-			Desc:     fmt.Sprintf("Single trade loss reached %.1f%% of peak balance", maxLossPct),
-		}}
-	}
-
-	return nil
-}
 
 // CRITICAL: Martingale detection
 func detectMartingale(trades []TradeData) []RiskFlag {
