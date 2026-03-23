@@ -1,7 +1,6 @@
 package alpharank
 
 import (
-	"math"
 	"time"
 )
 
@@ -87,18 +86,16 @@ func (c *Calculator) Calculate7Pillars(metrics AccountMetrics, flags []RiskFlag)
 	pillars[2] = CalculateP3(flags)
 
 	// P4: Recovery
-	pillars[3] = CalculateP4(metrics.Trades, metrics.MaxDrawdownPct, metrics.InitialDeposit)
+	pillars[3] = CalculateP4(metrics.Trades, metrics.MaxDrawdownPct, metrics.NetProfit/metrics.TotalDeposits*100)
 
 	// P5: Edge
 	winRate := 0.0
-	profitFactor := 0.0
 	if metrics.TotalTrades > 0 {
 		winRate = float64(metrics.WinningTrades) / float64(metrics.TotalTrades) * 100
 	}
 	if metrics.GrossLoss != 0 {
-		profitFactor = math.Abs(metrics.GrossProfit / metrics.GrossLoss)
 	}
-	pillars[4] = CalculateP5(winRate, profitFactor)
+	pillars[4] = CalculateP5(metrics.Trades, winRate, metrics.AvgWin, metrics.AvgLoss)
 
 	// P6: Discipline
 	pillars[5] = CalculateP6(metrics.Trades)
