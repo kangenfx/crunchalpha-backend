@@ -27,6 +27,8 @@ func DetectRiskFlags(metrics AccountMetrics) []RiskFlag {
 	flags = append(flags, detectMartingale(metrics.Trades)...)
 	flags = append(flags, detectExtremeDrawdown(metrics.MaxDrawdownPct)...)
 	flags = append(flags, detectStrategyChange(metrics.Trades)...)
+	flags = append(flags, detectLongFloatingLoss(metrics.Trades)...)
+	flags = append(flags, detectWeekendExposure(metrics.Trades)...)
 
 	return flags
 }
@@ -381,7 +383,7 @@ func detectMartingale(trades []TradeData) []RiskFlag {
 		return []RiskFlag{{
 			FlagType: "MARTINGALE",
 			Severity: "CRITICAL",
-			Penalty:  25.0,
+			Penalty:  30.0,
 			Title:    "Martingale Pattern",
 			Desc:     fmt.Sprintf("Lot doubling pattern detected (%dx consecutive)", maxConsecutive),
 		}}
@@ -455,4 +457,66 @@ func avgDuration(trades []TradeData) float64 {
 
 func isWeekend(t time.Time) bool {
 	return t.Weekday() == time.Saturday || t.Weekday() == time.Sunday
+}
+
+// MAJOR: Long Floating Loss - position in loss >5 days
+func detectLongFloatingLoss(trades []TradeData) []RiskFlag {
+	if len(trades) == 0 {
+		return nil
+	}
+	longFloatCount := 0
+	for _, t := range trades {
+		if t.Profit < 0 {
+			duration := t.CloseTime.Sub(t.OpenTime)
+			if duration.Hours() > 5*24 {
+				longFloatCount++
+			}
+		}
+	}
+	longFloatPct := float64(longFloatCount) / float64(len(trades)) * 100
+	if longFloatPct > 20 {
+		return []RiskFlag{{
+			FlagType: "LONG_FLOATING_LOSS",
+			Severity: "MAJOR",
+			Penalty:  20.0,
+			Title:    "Long Floating Loss",
+			Desc:     fmt.Sprintf("%.0f%% trades held in loss >5 days", longFloatPct),
+		}}
+	}
+	if longFloatPct > 10 {
+		return []RiskFlag{{
+			FlagType: "LONG_FLOATING_LOSS",
+			Severity: "MINOR",
+			Penalty:  8.0,
+			Title:    "Long Floating Loss",
+			Desc:     fmt.Sprintf("%.0f%% trades held in loss >5 days", longFloatPct),
+		}}
+	}
+	return nil
+}
+
+// MINOR: Weekend Exposure - positions held over weekend
+func detectWeekendExposure(trades []TradeData) []RiskFlag {
+	if len(trades) == 0 {
+		return nil
+	}
+	weekendCount := 0
+	for _, t := range trades {
+		openDay := t.OpenTime.Weekday()
+		duration := t.CloseTime.Sub(t.OpenTime)
+		if openDay == 5 || (duration.Hours() > 48) {
+			weekendCount++
+		}
+	}
+	weekendPct := float64(weekendCount) / float64(len(trades)) * 100
+	if weekendPct > 50 {
+		return []RiskFlag{{
+			FlagType: "WEEKEND_EXPOSURE",
+			Severity: "MINOR",
+			Penalty:  10.0,
+			Title:    "Weekend Exposure",
+			Desc:     fmt.Sprintf("%.0f%% trades held over weekend (gap risk)", weekendPct),
+		}}
+	}
+	return nil
 }
