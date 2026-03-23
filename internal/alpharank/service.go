@@ -182,8 +182,18 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		}
 	}
 
-	// Starting balance = current balance minus all trade profits
-	initialDeposit := balance - totalProfit
+	// Initial deposit = first deposit before first trade
+	initialDeposit := 0.0
+	s.db.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM account_transactions
+		WHERE account_id = $1
+		AND transaction_type = 'deposit'
+		AND transaction_time <= (SELECT MIN(close_time) FROM trades WHERE account_id = $1 AND status = 'closed')
+	`, accountID).Scan(&initialDeposit)
+	if initialDeposit <= 0 {
+		initialDeposit = balance - totalProfit
+	}
 	if initialDeposit <= 0 {
 		initialDeposit = balance
 	}
@@ -309,9 +319,31 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		MaxDrawdownPct:   maxDD,
 		MaxDrawdownAbs:   0,
 		Trades:           trades,
+		EquitySnapshots:  s.loadEquitySnapshots(accountID),
 		StartDate:        startDate,
 		EndDate:          endDate,
 	}
+}
+
+
+// loadEquitySnapshots loads equity snapshots for an account
+func (s *Service) loadEquitySnapshots(accountID string) []EquitySnapshot {
+	rows, err := s.db.Query(`
+		SELECT snapshot_time, equity, balance
+		FROM equity_snapshots
+		WHERE account_id = $1
+		ORDER BY snapshot_time ASC`, accountID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var snapshots []EquitySnapshot
+	for rows.Next() {
+		var s EquitySnapshot
+		rows.Scan(&s.SnapshotTime, &s.Equity, &s.Balance)
+		snapshots = append(snapshots, s)
+	}
+	return snapshots
 }
 
 func (s *Service) saveAlphaRank(accountID string, result *AlphaRankResult, tradeCount int, maxDD float64) error {

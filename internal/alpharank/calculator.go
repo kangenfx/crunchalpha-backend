@@ -80,7 +80,7 @@ func (c *Calculator) Calculate7Pillars(metrics AccountMetrics, flags []RiskFlag)
 	pillars[0] = CalculateP1(metrics.NetProfit, depositBase, metrics.MaxDrawdownPct)
 
 	// P2: Consistency with year+week fix + inactive weeks
-	pillars[1] = CalculateP2(metrics.Trades)
+	pillars[1] = CalculateP2(metrics.Trades, metrics.InitialDeposit, metrics.EquitySnapshots)
 
 	// P3: Risk flags
 	pillars[2] = CalculateP3(flags)

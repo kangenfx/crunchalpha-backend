@@ -18,6 +18,13 @@ type TradeData struct {
 	Swap       float64
 }
 
+// EquitySnapshot represents equity at a point in time
+type EquitySnapshot struct {
+	SnapshotTime time.Time
+	Equity       float64
+	Balance      float64
+}
+
 // AccountMetrics contains all metrics needed for calculation
 type AccountMetrics struct {
 	AccountID      string
@@ -40,7 +47,8 @@ type AccountMetrics struct {
 	LosingTrades   int
 	MaxDrawdownPct float64
 	MaxDrawdownAbs float64
-	Trades         []TradeData
+	Trades            []TradeData
+	EquitySnapshots   []EquitySnapshot
 	StartDate      time.Time
 	EndDate        time.Time
 }

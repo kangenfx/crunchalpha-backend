@@ -54,7 +54,22 @@ func CalculateP1(netProfit, totalDeposits, maxDDPct float64) PillarScore {
 
 // P2: Consistency (20%) - Fixed year+week grouping + inactive weeks
 // P2: Consistency (20%) - Active weeks only, with loss-week multiplier
-func CalculateP2(trades []TradeData) PillarScore {
+// P2: Consistency (20%)
+// CV = stdDev / |mean| dari % return per minggu (bukan nominal dollar)
+// % return minggu = profit minggu / balance awal minggu x 100
+// Active weeks only - gap weeks = trader waiting for setup = discipline
+// Bonus multiplier for low loss weeks
+// P2: Consistency (20%)
+// Prioritas: pakai equity snapshots jika ada (include floating)
+// Fallback: initialDeposit + cumulative closed profit
+// % return per week = (equity_end - equity_start) / equity_start x 100
+// P2: Consistency (20%)
+// Priority 1: equity snapshots per week (equity-based, include floating)
+// Fallback: trade-by-trade P&L variance (per dokumen section 4.4)
+// P2: Consistency (20%)
+// Priority 1: equity snapshots per week (include floating)
+// Fallback: weekly closed profit / running balance from initialDeposit
+func CalculateP2(trades []TradeData, initialDeposit float64, snapshots []EquitySnapshot) PillarScore {
 	pillar := PillarScore{
 		Code:   "P2",
 		Name:   "Consistency",
@@ -67,23 +82,95 @@ func CalculateP2(trades []TradeData) PillarScore {
 		return pillar
 	}
 
-	// Build weekly profit map - ACTIVE WEEKS ONLY (no gap filling)
-	// Gap weeks = trader waiting for setup = discipline, not weakness
-	weeklyMap := make(map[string]float64)
-	for _, trade := range trades {
-		year, week := trade.CloseTime.ISOWeek()
-		key := fmt.Sprintf("%d-%d", year, week)
-		weeklyMap[key] += trade.Profit
+	var weeklyReturns []float64
+	dataSource := ""
+
+	// Priority 1: equity snapshots per week (include floating)
+	// Only use if equity data has meaningful variance (not all same value)
+	hasVariance := false
+	if len(snapshots) >= 4 {
+		firstEq := snapshots[0].Equity
+		for _, s := range snapshots {
+			if math.Abs(s.Equity-firstEq) > 1.0 {
+				hasVariance = true
+				break
+			}
+		}
+	}
+	if hasVariance {
+		weeklyEquity := make(map[string]float64)
+		weekOrder := []string{}
+		weekSeen := make(map[string]bool)
+		for _, snap := range snapshots {
+			year, week := snap.SnapshotTime.ISOWeek()
+			key := fmt.Sprintf("%d-%02d", year, week)
+			if !weekSeen[key] {
+				weekSeen[key] = true
+				weekOrder = append(weekOrder, key)
+			}
+			weeklyEquity[key] = snap.Equity // last snapshot of week
+		}
+		if len(weekOrder) >= 4 {
+			for i := 1; i < len(weekOrder); i++ {
+				prevEq := weeklyEquity[weekOrder[i-1]]
+				currEq := weeklyEquity[weekOrder[i]]
+				if prevEq > 0 {
+					weeklyReturns = append(weeklyReturns, (currEq-prevEq)/prevEq*100)
+				}
+			}
+			dataSource = "equity snapshots"
+		}
 	}
 
-	weeklyReturns := make([]float64, 0, len(weeklyMap))
-	for _, v := range weeklyMap {
-		weeklyReturns = append(weeklyReturns, v)
+	// Fallback: weekly closed profit / running balance from initialDeposit
+	if len(weeklyReturns) < 4 {
+		dataSource = "closed trades"
+		// Sort trades
+		sorted := make([]TradeData, len(trades))
+		copy(sorted, trades)
+		for i := 0; i < len(sorted)-1; i++ {
+			for j := i + 1; j < len(sorted); j++ {
+				if sorted[i].CloseTime.After(sorted[j].CloseTime) {
+					sorted[i], sorted[j] = sorted[j], sorted[i]
+				}
+			}
+		}
+
+		// Group by week
+		weeklyProfit := make(map[string]float64)
+		weekOrder := []string{}
+		weekSeen := make(map[string]bool)
+		for _, t := range sorted {
+			year, week := t.CloseTime.ISOWeek()
+			key := fmt.Sprintf("%d-%02d", year, week)
+			if !weekSeen[key] {
+				weekSeen[key] = true
+				weekOrder = append(weekOrder, key)
+			}
+			weeklyProfit[key] += t.Profit + t.Swap + t.Commission
+		}
+
+		// Calculate % return per week
+		// Week 1: profit / initialDeposit
+		// Week N: profit / (initialDeposit + sum of prev weeks profit)
+		weeklyReturns = []float64{}
+		runningBalance := initialDeposit
+		if runningBalance <= 0 {
+			runningBalance = 1000 // default fallback
+		}
+		for _, key := range weekOrder {
+			profit := weeklyProfit[key]
+			if runningBalance > 0 {
+				ret := profit / runningBalance * 100
+				weeklyReturns = append(weeklyReturns, ret)
+			}
+			runningBalance += profit
+		}
 	}
 
 	if len(weeklyReturns) < 4 {
 		pillar.Score = 0
-		pillar.Reason = "Need 4+ active weeks of history"
+		pillar.Reason = "Need 4+ weeks of history"
 		return pillar
 	}
 
@@ -96,11 +183,11 @@ func CalculateP2(trades []TradeData) PillarScore {
 
 	if mean == 0 {
 		pillar.Score = 0
-		pillar.Reason = "Zero mean weekly profit"
+		pillar.Reason = "Zero mean weekly return"
 		return pillar
 	}
 
-	// Standard deviation
+	// StdDev & CV
 	variance := 0.0
 	for _, r := range weeklyReturns {
 		diff := r - mean
@@ -108,41 +195,18 @@ func CalculateP2(trades []TradeData) PillarScore {
 	}
 	variance /= float64(len(weeklyReturns))
 	stdDev := math.Sqrt(variance)
-
-	// CV
 	CV := stdDev / math.Abs(mean)
 
 	// Base score
 	baseScore := 100.0 / (1.0 + CV)
 
-	// Loss week multiplier - reward traders with few/no loss weeks
-	lossWeeks := 0
-	for _, r := range weeklyReturns {
-		if r < 0 {
-			lossWeeks++
-		}
-	}
-	lossWeekPct := float64(lossWeeks) / float64(len(weeklyReturns)) * 100
-
-	multiplier := 1.0
-	switch {
-	case lossWeekPct == 0:
-		multiplier = 1.5
-	case lossWeekPct < 10:
-		multiplier = 1.3
-	case lossWeekPct < 20:
-		multiplier = 1.1
-	default:
-		multiplier = 1.0
-	}
-
-	score := baseScore * multiplier
+	score := baseScore
 	if score > 100 {
 		score = 100
 	}
 
 	pillar.Score = score
-	pillar.Reason = fmt.Sprintf("%d active weeks, %.0f%% loss weeks", len(weeklyReturns), lossWeekPct)
+	pillar.Reason = fmt.Sprintf("%d weeks (%s), CV=%.2f", len(weeklyReturns), dataSource, CV)
 	return pillar
 }
 
