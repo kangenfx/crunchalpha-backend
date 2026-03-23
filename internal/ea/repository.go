@@ -119,7 +119,8 @@ func (r *Repository) SaveAccountTransactions(accountID string, initialDeposit, t
 			INSERT INTO account_transactions (account_id, transaction_type, amount, balance_after, description, transaction_time)
 			SELECT $1, 'deposit', $2, $2, 'Initial deposit from EA',
 			       COALESCE((SELECT MIN(open_time) FROM trades WHERE account_id = $1), NOW())
-			ON CONFLICT DO NOTHING
+			ON CONFLICT (account_id, transaction_type, description)
+			DO UPDATE SET amount = EXCLUDED.amount, balance_after = EXCLUDED.balance_after
 		`
 		_, err := r.db.Exec(query, accountID, initialDeposit)
 		if err != nil {
@@ -131,7 +132,8 @@ func (r *Repository) SaveAccountTransactions(accountID string, initialDeposit, t
 		query := `
 			INSERT INTO account_transactions (account_id, transaction_type, amount, balance_after, description, transaction_time)
 			VALUES ($1, 'deposit', $2, 0, 'Total deposits from EA', NOW())
-			ON CONFLICT DO NOTHING
+			ON CONFLICT (account_id, transaction_type, description)
+			DO UPDATE SET amount = EXCLUDED.amount, balance_after = EXCLUDED.balance_after
 		`
 		_, err := r.db.Exec(query, accountID, totalDeposits)
 		if err != nil {
@@ -143,7 +145,8 @@ func (r *Repository) SaveAccountTransactions(accountID string, initialDeposit, t
 		query := `
 			INSERT INTO account_transactions (account_id, transaction_type, amount, balance_after, description, transaction_time)
 			VALUES ($1, 'withdrawal', $2, 0, 'Total withdrawals from EA', NOW())
-			ON CONFLICT DO NOTHING
+			ON CONFLICT (account_id, transaction_type, description)
+			DO UPDATE SET amount = EXCLUDED.amount, balance_after = EXCLUDED.balance_after
 		`
 		_, err := r.db.Exec(query, accountID, totalWithdrawals)
 		if err != nil {
