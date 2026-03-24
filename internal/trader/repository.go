@@ -296,11 +296,8 @@ func (r *Repository) GetAccountSummary(accountID, userID string) (deposit, withd
 		FROM account_transactions
 		WHERE account_id=$1::uuid`,
 		accountID).Scan(&deposit, &withdraw)
+	// net_pnl & roi dari alpha_ranks (single source of truth, zero on-the-fly)
+	r.db.QueryRow(`SELECT COALESCE(net_pnl,0), COALESCE(roi,0) FROM alpha_ranks WHERE account_id=$1::uuid AND symbol='ALL'`, accountID).Scan(&netProfit, &roi)
 
-	// netProfit = equity-based (include floating): equity + withdraw - deposit
-	var equity float64
-	r.db.QueryRow(`SELECT COALESCE(equity,0) FROM trader_accounts WHERE id=$1::uuid`, accountID).Scan(&equity)
-	netProfit = equity + withdraw - deposit
-	if deposit > 0 { roi = (netProfit / deposit) * 100 }
 	return
 }
