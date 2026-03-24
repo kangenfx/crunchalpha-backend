@@ -152,6 +152,13 @@ func (s *Service) getTradesForAccount(accountID string) ([]TradeData, error) {
 }
 
 func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, equity, totalDeposits, totalWithdrawals float64) AccountMetrics {
+	// Query floating profit dari DB (open trades) - zero on-the-fly
+	var floatingProfit float64
+	s.db.QueryRow(`
+		SELECT COALESCE(SUM(profit + swap + commission), 0)
+		FROM trades
+		WHERE account_id = $1 AND status = 'open'
+	`, accountID).Scan(&floatingProfit)
 	var (
 		grossProfit   float64
 		grossLoss     float64
@@ -305,7 +312,7 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		TotalDeposits:    totalDeposits,
 		TotalWithdraws:   totalWithdrawals,
 		PeakBalance:      peakBalance,
-		NetProfit:        equity + totalWithdrawals - totalDeposits,
+		NetProfit:        totalProfit + floatingProfit,
 		ClosedNetProfit:  totalProfit,
 		GrossProfit:      grossProfit,
 		GrossLoss:        grossLoss,
@@ -384,7 +391,7 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 			profitFactor = math.Abs(metrics.GrossProfit / metrics.GrossLoss)
 		}
 		// net_pnl = equity + withdraw - deposit (REAL, termasuk floating open positions)
-		netPnl = metrics.CurrentEquity + metrics.TotalWithdraws - metrics.TotalDeposits
+		netPnl = metrics.NetProfit
 			if metrics.TotalDeposits > 0 { roi = (netPnl / metrics.TotalDeposits) * 100 }
 		totalTradesAll = metrics.TotalTrades
 	}
