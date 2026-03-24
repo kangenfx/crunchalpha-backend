@@ -44,8 +44,9 @@ func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 			swap = EXCLUDED.swap,
 			commission = EXCLUDED.commission,
 			close_time = EXCLUDED.close_time,
-				status = EXCLUDED.status
-			WHERE trades.status != 'closed'
+				status = EXCLUDED.status,
+				lots = EXCLUDED.lots
+			WHERE trades.status != 'closed' OR EXCLUDED.status = 'open'
 	`
 
 	var closeTime int64
@@ -77,7 +78,8 @@ func (r *Repository) SyncTrade(accountID string, trade *TradeData) error {
 				swap = EXCLUDED.swap,
 				commission = EXCLUDED.commission,
 				close_time = EXCLUDED.close_time,
-				status = EXCLUDED.status
+				status = EXCLUDED.status,
+				lots = EXCLUDED.lots
 	`
 	var closeTime int64
 	if trade.CloseTime > 0 {
