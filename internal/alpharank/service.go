@@ -304,6 +304,7 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 	expectancy := 0.0
 	if len(trades) > 0 { expectancy = totalProfit / float64(len(trades)) }
 
+	// Derived metrics - sama dengan buildMetrics global
 	return AccountMetrics{
 		AccountID:        accountID,
 		CurrentBalance:   balance,
@@ -701,6 +702,13 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 		maxDD = 100
 	}
 
+	// Derived metrics - sama dengan buildMetrics global
+	avgWin := 0.0
+	if winningTrades > 0 { avgWin = grossProfit / float64(winningTrades) }
+	avgLoss := 0.0
+	if losingTrades > 0 { avgLoss = math.Abs(grossLoss) / float64(losingTrades) }
+	riskReward := 0.0
+	if avgLoss > 0 { riskReward = avgWin / avgLoss }
 	return AccountMetrics{
 		AccountID:        accountID,
 		CurrentBalance:   balance,
@@ -720,6 +728,9 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 		StartDate:        startDate,
 		EndDate:          endDate,
 		Trades:           symbolTrades,
+		AvgWin:           avgWin,
+		AvgLoss:          avgLoss,
+		RiskReward:       riskReward,
 	}
 }
 
