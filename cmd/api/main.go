@@ -291,6 +291,7 @@ func main() {
 		investorRoutes.GET("/trader-weekly-performance", investorHandler.GetTraderWeeklyPerformance)
 		investorRoutes.POST("/settings", investorHandler.SaveSettings)
 		investorRoutes.POST("/settings/generate-key", investorHandler.GenerateEAKey)
+		investorRoutes.GET("/copy-trade-history", investorHandler.GetCopyTradeHistory)
         }
 
         // EA Investor routes
@@ -298,6 +299,9 @@ func main() {
         eaInvestorRoutes.GET("/pending-signals", investorHandler.EAGetPendingSignals)
         eaInvestorRoutes.POST("/order-update", investorHandler.EAOrderUpdate)
         eaInvestorRoutes.GET("/settings", investorHandler.EAGetSettings)
+	eaInvestorRoutes.POST("/push-equity", investorHandler.EAPushEquity)
+	eaInvestorRoutes.GET("/pending-copy-trades", investorHandler.EAGetPendingCopyTrades)
+	eaInvestorRoutes.POST("/copy-trade-update", investorHandler.EACopyTradeUpdate)
 
         // Analyst routes
 	analystRoutes := r.Group("/api/analyst")
