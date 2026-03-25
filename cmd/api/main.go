@@ -292,6 +292,9 @@ func main() {
 		investorRoutes.POST("/settings", investorHandler.SaveSettings)
 		investorRoutes.POST("/settings/generate-key", investorHandler.GenerateEAKey)
 		investorRoutes.GET("/copy-trade-history", investorHandler.GetCopyTradeHistory)
+		investorRoutes.GET("/ea-keys", investorHandler.GetEAKeys)
+		investorRoutes.POST("/ea-keys", investorHandler.GenerateEAKeyForAccount)
+		investorRoutes.DELETE("/ea-keys/:id", investorHandler.DeleteEAKey)
         }
 
         // EA Investor routes
