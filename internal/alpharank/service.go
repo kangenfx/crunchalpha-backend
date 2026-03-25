@@ -263,20 +263,30 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		case "withdrawal":
 			runningBalance -= event.Amount
 		case "trade":
+			// DD opsi 1: per-trade DD = abs(loss) / balance_before
 			if event.Amount < 0 && runningBalance > 0 {
-				dd := (math.Abs(event.Amount) / runningBalance) * 100
-				if dd > maxDD {
-					maxDD = dd
+				dd1 := (math.Abs(event.Amount) / runningBalance) * 100
+				if dd1 > maxDD {
+					maxDD = dd1
 				}
 			}
 			runningBalance += event.Amount
 			if runningBalance > peakBalance {
 				peakBalance = runningBalance
 			}
+			// DD opsi 3: total net P&L / total deposit (handle MC/martingale multi-trade)
+			// Dihitung setelah loop selesai, lihat di bawah
 		}
 	}
 
-	// Floating DD
+	// DD opsi 3: abs(total closed net P&L) / totalDeposit (handle MC/martingale)
+	if totalDeposits > 0 && totalProfit < 0 {
+		dd3 := math.Abs(totalProfit) / totalDeposits * 100
+		if dd3 > maxDD {
+			maxDD = dd3
+		}
+	}
+	// DD opsi 2: Floating DD = abs(equity drop) / balance
 	if balance > 0 && equity < balance {
 		floatingDD := (balance - equity) / balance * 100
 		if floatingDD > maxDD {
@@ -421,7 +431,7 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 			grade=EXCLUDED.grade, badge=EXCLUDED.badge, tier=EXCLUDED.tier,
 			trade_count=EXCLUDED.trade_count, risk_flags=EXCLUDED.risk_flags,
 			critical_count=EXCLUDED.critical_count, major_count=EXCLUDED.major_count,
-			minor_count=EXCLUDED.minor_count, max_drawdown_pct=EXCLUDED.max_drawdown_pct,
+			minor_count=EXCLUDED.minor_count, max_drawdown_pct=GREATEST(alpha_ranks.max_drawdown_pct, EXCLUDED.max_drawdown_pct),
 			pillars=EXCLUDED.pillars, win_rate=EXCLUDED.win_rate,
 			total_trades_all=EXCLUDED.total_trades_all, profit_factor=EXCLUDED.profit_factor,
 				net_pnl=EXCLUDED.net_pnl, roi=EXCLUDED.roi,
@@ -542,7 +552,7 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 				critical_count = EXCLUDED.critical_count,
 				major_count = EXCLUDED.major_count,
 				minor_count = EXCLUDED.minor_count,
-				max_drawdown_pct = EXCLUDED.max_drawdown_pct,
+				max_drawdown_pct = GREATEST(alpha_ranks.max_drawdown_pct, EXCLUDED.max_drawdown_pct),
 				pillars = EXCLUDED.pillars,
 					net_pnl = EXCLUDED.net_pnl,
 					win_rate = EXCLUDED.win_rate,
@@ -682,7 +692,14 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 		}
 	}
 
-	// Floating DD per-pair = abs(floating_profit_pair) / balance
+	// DD opsi 3: abs(total closed net P&L) / totalDeposit (handle MC/martingale)
+	if totalDeposits > 0 && totalProfit < 0 {
+		dd3 := math.Abs(totalProfit) / totalDeposits * 100
+		if dd3 > maxDD {
+			maxDD = dd3
+		}
+	}
+	// DD opsi 2: Floating DD = abs(equity drop) / balance per-pair = abs(floating_profit_pair) / balance
 	// Konsisten untuk 1 pair maupun multi-pair (proporsional dari balance)
 	var symbolFloatingProfit float64
 	s.db.QueryRow(`
