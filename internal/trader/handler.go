@@ -132,6 +132,7 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		Nickname            string `json:"nickname"`
 		Currency            string `json:"currency"`
 		AccountRole         string `json:"account_role"`
+		About               string `json:"about"`
 	}
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -174,6 +175,7 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		payload.Nickname,
 		payload.Currency,
 		payload.AccountRole,
+		payload.About,
 	)
 	
 	if err != nil {
@@ -196,7 +198,42 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 	})
 }
 
-// GET /api/trader/account-summary
+
+// PUT /api/trader/accounts/:id
+func (h *Handler) UpdateAccount(c *gin.Context) {
+	accountID := c.Param("id")
+	if accountID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "account id required"})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var payload struct {
+		Nickname string `json:"nickname"`
+		About    string `json:"about"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.service.UpdateAccountMeta(accountID, userID.(string), payload.Nickname, payload.About); err != nil {
+		log.Printf("❌ UpdateAccount error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update account"})
+		return
+	}
+
+	log.Printf("✅ UpdateAccount - account_id=%s nickname=%s", accountID, payload.Nickname)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Account updated"})
+}
+
+
+// PUT /api/trader/accounts/:id
 func (h *Handler) GetAccountSummary(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	accountID := c.Query("account_id")

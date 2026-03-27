@@ -7,6 +7,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
+ARG CACHEBUST=1
 COPY . .
 
 RUN CGO_ENABLED=1 GOOS=linux go build -o crunchalpha-v3 ./cmd/api

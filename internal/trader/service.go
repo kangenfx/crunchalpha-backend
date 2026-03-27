@@ -203,8 +203,14 @@ func (s *Service) GetAccountByNumber(accountNumber, userID string) (*TraderAccou
 	return s.repo.GetAccountByNumber(accountNumber, userID)
 }
 // CreateAccountFull creates account with all fields (PRODUCTION)
-func (s *Service) CreateAccountFull(userID, accountNumber, broker, platform, server, investorPassword, nickname, currency, role string) (*TraderAccount, error) {
-	return s.repo.CreateAccountFull(userID, accountNumber, broker, platform, server, investorPassword, nickname, currency, role)
+
+func (s *Service) UpdateAccountMeta(accountID, userID, nickname, about string) error {
+	return s.repo.UpdateAccountMeta(accountID, userID, nickname, about)
+}
+
+
+func (s *Service) CreateAccountFull(userID, accountNumber, broker, platform, server, investorPassword, nickname, currency, role, about string) (*TraderAccount, error) {
+	return s.repo.CreateAccountFull(userID, accountNumber, broker, platform, server, investorPassword, nickname, currency, role, about)
 }
 
 

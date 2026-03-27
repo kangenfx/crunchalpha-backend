@@ -19,7 +19,8 @@ func (r *Repository) GetUserAccounts(userID string) ([]TraderAccount, error) {
 	rows, err := r.db.Query(`
 		SELECT id, user_id, COALESCE(nickname, account_number) as nickname, 
 		       broker, platform, COALESCE(currency, 'USD') as currency,
-		       account_number, account_type, status, updated_at, created_at
+		       account_number, account_type, status, updated_at, created_at,
+		       COALESCE(about, '') as about
 		FROM trader_accounts
 		WHERE user_id = $1
 		ORDER BY 
@@ -45,6 +46,7 @@ func (r *Repository) GetUserAccounts(userID string) ([]TraderAccount, error) {
 			&acc.ID, &acc.UserID, &acc.Nickname, &acc.Broker,
 			&acc.Platform, &acc.Currency, &acc.AccountNumber,
 			&acc.AccountType, &acc.Status, &acc.UpdatedAt, &acc.CreatedAt,
+			&acc.About,
 		)
 		if err != nil {
 			return nil, err
@@ -245,7 +247,18 @@ func (r *Repository) CreateAccount(userID, accountNumber, broker, platform, nick
 	return account, err
 }
 // CreateAccountFull creates a new trading account with all fields
-func (r *Repository) CreateAccountFull(userID, accountNumber, broker, platform, server, investorPassword, nickname, currency, role string) (*TraderAccount, error) {
+
+func (r *Repository) UpdateAccountMeta(accountID, userID, nickname, about string) error {
+	_, err := r.db.Exec(`
+		UPDATE trader_accounts
+		SET nickname = $1, about = $2
+		WHERE id = $3 AND user_id = $4
+	`, nickname, about, accountID, userID)
+	return err
+}
+
+
+func (r *Repository) CreateAccountFull(userID, accountNumber, broker, platform, server, investorPassword, nickname, currency, role, about string) (*TraderAccount, error) {
 	if currency == "" {
 		currency = "USD"
 	}

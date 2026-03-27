@@ -18,6 +18,7 @@ type TraderAccount struct {
 	Equity        float64   `json:"equity" db:"equity"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	About         string    `json:"about" db:"about"`
 }
 
 // AccountsResponse for listing accounts

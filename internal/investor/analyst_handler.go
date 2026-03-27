@@ -403,11 +403,13 @@ func (h *Handler) GetTraderProfile(c *gin.Context) {
 			TotalDeposit  float64 `json:"total_deposit"`
 			TotalWithdraw float64 `json:"total_withdraw"`
 				RiskLevel     string  `json:"risk_level"`
+				Strategy      string  `json:"strategy"`
 	}
 	err := h.service.repo.DB.QueryRow(`
 		SELECT ta.id::text, ta.account_number, COALESCE(ta.broker,''), COALESCE(ta.platform::text,''),
 				COALESCE(u.name, ta.nickname, ta.account_number) as trader_name,
 				COALESCE(ta.nickname,''), COALESCE(u.country,'') as country, COALESCE(u.bio,'') as bio,
+				COALESCE(ta.about,'') as strategy,
 				COALESCE(ta.equity,0), COALESCE(ta.balance,0),
 			COALESCE(ar.alpha_score,0), COALESCE(ar.grade,'N/A'),
 			COALESCE(ar.max_drawdown_pct,0)
@@ -416,7 +418,7 @@ func (h *Handler) GetTraderProfile(c *gin.Context) {
 		LEFT JOIN users u ON u.id = ta.user_id
 		WHERE ta.id=$1::uuid AND ta.status='active'`, accountID).Scan(
 		&profile.ID, &profile.AccountNumber, &profile.Broker, &profile.Platform,
-			&profile.TraderName, &profile.Nickname, &profile.Country, &profile.Bio,
+			&profile.TraderName, &profile.Nickname, &profile.Country, &profile.Bio, &profile.Strategy,
 				&profile.Equity, &profile.Balance,
 		&profile.AlphaScore, &profile.Grade, &profile.MaxDrawdownPct)
 	if err != nil { c.JSON(404, gin.H{"ok":false,"error":"trader not found: "+err.Error()}); return }

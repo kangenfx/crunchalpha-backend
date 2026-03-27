@@ -133,6 +133,7 @@ func main() {
         {
                 traderRoutes.GET("/accounts", traderHandler.GetAccounts)
                 traderRoutes.POST("/accounts", traderHandler.CreateAccount)
+			traderRoutes.PUT("/accounts/:id", traderHandler.UpdateAccount)
                 traderRoutes.GET("/dashboard", traderHandler.GetDashboard)
                 traderRoutes.POST("/dummy-account", traderHandler.CreateDummyAccount)
 

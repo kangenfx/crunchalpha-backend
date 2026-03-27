@@ -47,7 +47,8 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		       COALESCE(ar.roi,0), COALESCE(ar.net_pnl,0),
 		       COALESCE(ar.total_trades_all,0), COALESCE(ar.profit_factor,0),
 		       COALESCE(u.name, ta.nickname, ta.account_number) as trader_name,
-		       COALESCE(ar.risk_level,'MEDIUM') as risk_level
+		       COALESCE(ar.risk_level,'MEDIUM') as risk_level,
+		       COALESCE(ta.about,'') as about
 		FROM alpha_ranks ar
 		JOIN trader_accounts ta ON ta.id = ar.account_id
 		LEFT JOIN users u ON u.id = ta.user_id
@@ -72,13 +73,15 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		TotalTrades  int     `json:"totalTrades"`
 		ProfitFactor float64 `json:"profitFactor"`
 		RiskLevel   string  `json:"riskLevel"`
+		Strategy    string  `json:"strategy"`
 	}
 	var traders []TraderRow
 	for rows.Next() {
 		var t TraderRow
 		rows.Scan(&t.ID, &t.Nickname, &t.Broker, &t.Platform,
-			&t.AlphaScore, &t.Grade, &t.WinRate, &t.MaxDD,
-			&t.ROI, &t.NetPnl, &t.TotalTrades, &t.ProfitFactor, &t.TraderName, &t.RiskLevel)
+				&t.AlphaScore, &t.Grade, &t.WinRate, &t.MaxDD,
+				&t.ROI, &t.NetPnl, &t.TotalTrades, &t.ProfitFactor,
+				&t.TraderName, &t.RiskLevel, &t.Strategy)
 		traders = append(traders, t)
 	}
 	if traders == nil { traders = []TraderRow{} }
@@ -106,6 +109,7 @@ func (h *Handler) GetPublicTraderDetail(c *gin.Context) {
 		WinRate      float64 `json:"winRate"`
 		ProfitFactor float64 `json:"profitFactor"`
 		RiskLevel   string  `json:"riskLevel"`
+		Strategy    string  `json:"strategy"`
 		NetPnl       float64 `json:"netPnl"`
 		MaxDD        float64 `json:"maxDD"`
 		AlphaScore   float64 `json:"alphaScore"`
