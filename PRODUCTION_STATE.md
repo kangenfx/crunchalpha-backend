@@ -17,3 +17,14 @@
 - **Image:** `crunchalpha-v3:production-202603270205`
 ### Frontend:
 - **Image:** `crunchalpha-frontend-v3:prod-202603260931`
+
+## 📋 CHANGES 2026-03-27 (Performance Chart)
+### Frontend
+- feat: Weekly & Monthly chart tambah $ symbol dan cumulative ROI %
+- feat: Monthly ROI = cumulative dalam selected year / deposit
+- feat: Weekly ROI = cumulative dalam selected month / deposit
+- feat: TraderProfile marketplace chart juga updated
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-03-27)
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202603270345`

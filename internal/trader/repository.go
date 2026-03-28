@@ -248,6 +248,56 @@ func (r *Repository) CreateAccount(userID, accountNumber, broker, platform, nick
 }
 // CreateAccountFull creates a new trading account with all fields
 
+
+func (r *Repository) GetTradesByAccountPaginated(accountID string, limit, offset int) ([]map[string]interface{}, int, error) {
+	// Get total count
+	var total int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM trades WHERE account_id = $1 AND status = 'closed'`, accountID).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := r.db.Query(`
+		SELECT id, symbol, type, lots,
+		       open_time, close_time,
+		       open_price, close_price,
+		       COALESCE(profit,0)+COALESCE(swap,0)+COALESCE(commission,0) as net_profit
+		FROM trades
+		WHERE account_id = $1 AND status = 'closed'
+		ORDER BY close_time DESC
+		LIMIT $2 OFFSET $3
+	`, accountID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var trades []map[string]interface{}
+	for rows.Next() {
+		var id, symbol, tradeType string
+		var lots, openPrice, closePrice, netProfit float64
+		var openTime, closeTime interface{}
+		if err := rows.Scan(&id, &symbol, &tradeType, &lots, &openTime, &closeTime, &openPrice, &closePrice, &netProfit); err != nil {
+			continue
+		}
+		trades = append(trades, map[string]interface{}{
+			"id":          id,
+			"symbol":      symbol,
+			"type":        tradeType,
+			"lots":        lots,
+			"open_time":   openTime,
+			"close_time":  closeTime,
+			"open_price":  openPrice,
+			"close_price": closePrice,
+			"profit":      netProfit,
+		})
+	}
+	if trades == nil {
+		trades = []map[string]interface{}{}
+	}
+	return trades, total, rows.Err()
+}
+
 func (r *Repository) UpdateAccountMeta(accountID, userID, nickname, about string) error {
 	_, err := r.db.Exec(`
 		UPDATE trader_accounts

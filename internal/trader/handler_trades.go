@@ -15,10 +15,16 @@ func (h *Handler) GetTrades(c *gin.Context) {
 		return
 	}
 
-	limitStr := c.DefaultQuery("limit", "50")
+	limitStr := c.DefaultQuery("limit", "20")
 	limit, _ := strconv.Atoi(limitStr)
 	if limit <= 0 || limit > 1000 {
-		limit = 50
+		limit = 20
+	}
+
+	offsetStr := c.DefaultQuery("offset", "0")
+	offset, _ := strconv.Atoi(offsetStr)
+	if offset < 0 {
+		offset = 0
 	}
 
 	userID, exists := c.Get("user_id")
@@ -34,22 +40,18 @@ func (h *Handler) GetTrades(c *gin.Context) {
 		return
 	}
 
-	// Get real trades from database
-	trades, err := h.service.repo.GetTradesByAccount(accountID)
+	trades, total, err := h.service.repo.GetTradesByAccountPaginated(accountID, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch trades"})
 		return
-	}
-
-	// Apply limit
-	if len(trades) > limit {
-		trades = trades[:limit]
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"account_id": accountID,
 		"trades":     trades,
 		"count":      len(trades),
+		"total":      total,
 		"limit":      limit,
+		"offset":     offset,
 	})
 }
