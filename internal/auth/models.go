@@ -9,7 +9,8 @@ type User struct {
 	PasswordHash string   `json:"-" db:"password_hash"`
 	PrimaryRole string    `json:"primary_role" db:"primary_role"`
 	Name        *string   `json:"name,omitempty" db:"name"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	EmailVerified bool      `json:"email_verified" db:"email_verified"`
 }
 
 // LoginRequest for login

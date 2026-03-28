@@ -63,6 +63,48 @@ func (h *Handler) Register(c *gin.Context) {
 	})
 }
 
+
+// POST /api/auth/impersonate — exchange impersonate token for JWT
+func (h *Handler) Impersonate(c *gin.Context) {
+	var req struct {
+		Token string `json:"token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get user_id from impersonate_tokens
+	var userID string
+	err := h.service.repo.db.QueryRow(`
+		SELECT user_id::text FROM impersonate_tokens
+		WHERE token = $1 AND expires_at > NOW()
+	`, req.Token).Scan(&userID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	// Delete token after use
+	h.service.repo.db.Exec(`DELETE FROM impersonate_tokens WHERE token = $1`, req.Token)
+
+	// Get user info
+	var email, role string
+	h.service.repo.db.QueryRow(`SELECT email, primary_role FROM users WHERE id=$1::uuid`, userID).Scan(&email, &role)
+
+	// Generate JWT
+	accessToken, err := GenerateToken(userID, email, role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token": accessToken,
+		"token_type":   "Bearer",
+		"email":        email,
+	})
+}
 // Login now handles refresh token
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest

@@ -99,6 +99,7 @@ func main() {
                 apiAuth.POST("/login", rateLimiter.RateLimitMiddleware("login", loginLimit), authHandler.Login)
                 apiAuth.POST("/refresh", authHandler.Refresh)
                 apiAuth.POST("/logout", authHandler.Logout)
+			apiAuth.POST("/impersonate", authHandler.Impersonate)
 
                 apiAuth.POST("/forgot-password", authHandler.ForgotPassword)
                 apiAuth.GET("/reset-password/:token", authHandler.ValidateResetToken)
@@ -334,8 +335,14 @@ func main() {
 	{
 		adminRoutes.GET("/stats", adminUserHandler.PlatformStats)
 		adminRoutes.GET("/users", adminUserHandler.ListUsers)
+		adminRoutes.POST("/users", adminUserHandler.CreateUser)
 		adminRoutes.PUT("/users/:id", adminUserHandler.UpdateUser)
 		adminRoutes.DELETE("/users/:id", adminUserHandler.DeleteUser)
+		adminRoutes.POST("/users/:id/verify", adminUserHandler.ForceVerifyEmail)
+		adminRoutes.POST("/users/:id/reset-password", adminUserHandler.ResetPassword)
+		adminRoutes.POST("/users/:id/suspend", adminUserHandler.SuspendUser)
+		adminRoutes.POST("/users/:id/impersonate", adminUserHandler.ImpersonateUser)
+		adminRoutes.DELETE("/trading-accounts/:id", adminUserHandler.DeleteTradingAccount)
 		adminRoutes.GET("/trading-accounts", adminUserHandler.ListTradingAccounts)
 		adminRoutes.GET("/signal-sets", adminUserHandler.ListSignalSets)
 		adminRoutes.GET("/audit-logs", adminUserHandler.AuditLogs)

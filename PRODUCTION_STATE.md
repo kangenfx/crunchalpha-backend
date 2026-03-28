@@ -119,3 +119,17 @@
 3. EA Keys management di Copy Settings frontend
 4. Trigger copy engine dari EA trader push
 5. Trader Profile marketplace — trade history pagination
+
+## 🔑 DEPLOY COMMAND (WAJIB PAKAI ENV-FILE)
+```bash
+docker rm -f crunchalpha-backend && \
+docker run -d --name crunchalpha-backend \
+  --network root_crunchalpha-net \
+  -p 8090:8090 \
+  --env-file /root/.env-crunchalpha \
+  --restart unless-stopped \
+  --health-cmd="wget -qO- http://localhost:8090/health || exit 1" \
+  --health-interval=30s \
+  crunchalpha-v3:production-YYYYMMDDHHMM
+```
+⚠️ JANGAN deploy tanpa --env-file, email akan pakai mock mode!

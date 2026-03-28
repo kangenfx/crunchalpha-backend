@@ -1,9 +1,13 @@
 package admin
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"net/http"
+
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserHandler struct {
@@ -45,6 +49,28 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": users})
 }
 
+// POST /api/admin/users — create user, bypass email verification
+func (h *UserHandler) CreateUser(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+		Name     string `json:"name"`
+		Role     string `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()}); return
+	}
+	if req.Role == "" { req.Role = "trader" }
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": "hash failed"}); return }
+	_, err = h.DB.Exec(`
+		INSERT INTO users (email, password_hash, name, primary_role, status, email_verified, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, 'active', true, NOW(), NOW())
+	`, req.Email, string(hash), req.Name, req.Role)
+	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": "create failed: " + err.Error()}); return }
+	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "User created"})
+}
+
 func (h *UserHandler) UpdateUser(c *gin.Context) {
 	id := c.Param("id")
 	var req struct {
@@ -60,11 +86,79 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User updated"})
 }
 
+// POST /api/admin/users/:id/verify — force verify email
+func (h *UserHandler) ForceVerifyEmail(c *gin.Context) {
+	id := c.Param("id")
+	_, err := h.DB.Exec(`UPDATE users SET email_verified=true, updated_at=NOW() WHERE id=$1`, id)
+	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Email verified"})
+}
+
+// POST /api/admin/users/:id/reset-password — admin reset password
+func (h *UserHandler) ResetPassword(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()}); return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": "hash failed"}); return }
+	_, err = h.DB.Exec(`UPDATE users SET password_hash=$1, updated_at=NOW() WHERE id=$2`, string(hash), id)
+	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Password reset"})
+}
+
+// POST /api/admin/users/:id/suspend — suspend or unsuspend user
+func (h *UserHandler) SuspendUser(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		Suspend bool `json:"suspend"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()}); return
+	}
+	status := "active"
+	if req.Suspend { status = "suspended" }
+	_, err := h.DB.Exec(`UPDATE users SET status=$1, updated_at=NOW() WHERE id=$2`, status, id)
+	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
+	c.JSON(http.StatusOK, gin.H{"success": true, "status": status})
+}
+
+// POST /api/admin/users/:id/impersonate — generate short-lived impersonate token
+func (h *UserHandler) ImpersonateUser(c *gin.Context) {
+	id := c.Param("id")
+	// Check user exists
+	var email string
+	err := h.DB.QueryRow(`SELECT email FROM users WHERE id=$1`, id).Scan(&email)
+	if err != nil { c.JSON(http.StatusNotFound, gin.H{"error": "user not found"}); return }
+	// Generate random token
+	b := make([]byte, 32)
+	rand.Read(b)
+	token := hex.EncodeToString(b)
+	// Store in DB with 15min expiry
+	_, err = h.DB.Exec(`
+		INSERT INTO impersonate_tokens (token, user_id, expires_at, created_at)
+		VALUES ($1, $2::uuid, NOW() + INTERVAL '15 minutes', NOW())
+	`, token, id)
+	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token: " + err.Error()}); return }
+	c.JSON(http.StatusOK, gin.H{"success": true, "token": token, "email": email, "expires_in": "15 minutes"})
+}
+
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 	_, err := h.DB.Exec(`DELETE FROM users WHERE id=$1`, id)
 	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted"})
+}
+
+// DELETE /api/admin/trading-accounts/:id
+func (h *UserHandler) DeleteTradingAccount(c *gin.Context) {
+	id := c.Param("id")
+	_, err := h.DB.Exec(`UPDATE trader_accounts SET status='disabled' WHERE id=$1`, id)
+	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Account disabled"})
 }
 
 func (h *UserHandler) ListTradingAccounts(c *gin.Context) {

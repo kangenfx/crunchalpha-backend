@@ -66,6 +66,11 @@ func (s *Service) Login(email, password string) (*User, string, string, error) {
 		return nil, "", "", errors.New("invalid email or password")
 	}
 
+	// Block login if email not verified
+	if !user.EmailVerified {
+		return nil, "", "", errors.New("email not verified. Please check your inbox and verify your email first")
+	}
+
 	accessToken, err := GenerateToken(user.ID, user.Email, user.PrimaryRole)
 	if err != nil {
 		return nil, "", "", err
