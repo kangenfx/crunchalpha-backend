@@ -36,13 +36,6 @@ func (s *Service) Register(email, password, role string) (*User, string, error) 
 		return nil, "", err
 	}
 
-	// Send welcome email (async - don't block registration)
-	go func() {
-		if err := s.emailSender.SendWelcome(user.Email, ""); err != nil {
-			log.Printf("Failed to send welcome email to %s: %v", user.Email, err)
-		}
-	}()
-
 	// Send verification email (async)
 	go func() {
 		if err := s.SendVerificationEmail(user.ID, user.Email); err != nil {
@@ -281,6 +274,17 @@ func (s *Service) VerifyEmail(token string) error {
 
 	// Delete token
 	s.repo.DeleteEmailVerificationToken(token)
+
+	// Send welcome email after successful verification
+	go func() {
+		var userEmail string
+		s.repo.db.QueryRow(`SELECT email FROM users WHERE id=$1`, userID).Scan(&userEmail)
+		if userEmail != "" {
+			if err := s.emailSender.SendWelcome(userEmail, ""); err != nil {
+				log.Printf("Failed to send welcome email to %s: %v", userEmail, err)
+			}
+		}
+	}()
 
 	return nil
 }
