@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"github.com/gin-gonic/gin"
+	"strconv"
+	"strings"
+	"fmt"
 )
 
 type Handler struct {
@@ -39,9 +42,71 @@ func (h *Handler) CalculateAlphaRank(c *gin.Context) {
 
 // GET /api/public/traders — top traders by alpharank, no auth
 func (h *Handler) GetPublicTraders(c *gin.Context) {
-	rows, err := h.service.db.Query(`
-		SELECT ta.id::text, COALESCE(ta.nickname, ta.account_number) as nickname,
-		       COALESCE(ta.broker,'') as broker, COALESCE(ta.platform::text,'') as platform,
+	// Query params
+	sortBy    := c.DefaultQuery("sort", "alpha_score")
+	riskLevel := c.Query("risk")
+	platform  := c.Query("platform")
+	search    := c.Query("search")
+	pageStr   := c.DefaultQuery("page", "1")
+	limitStr  := c.DefaultQuery("limit", "12")
+
+	page,  _ := strconv.Atoi(pageStr)
+	limit, _ := strconv.Atoi(limitStr)
+	if page < 1  { page = 1 }
+	if limit < 1 || limit > 50 { limit = 12 }
+	offset := (page - 1) * limit
+
+	// Sort whitelist
+	sortCol := map[string]string{
+		"alpha_score":   "ar.alpha_score DESC",
+		"roi":           "ar.roi DESC",
+		"win_rate":      "ar.win_rate DESC",
+		"drawdown":      "ar.max_drawdown_pct ASC",
+		"profit_factor": "ar.profit_factor DESC",
+		"trades":        "ar.total_trades_all DESC",
+	}
+	orderBy, ok := sortCol[sortBy]
+	if !ok { orderBy = "ar.alpha_score DESC" }
+
+	// WHERE conditions
+	where := `ar.symbol='ALL'
+		AND ar.alpha_score > 0
+		AND COALESCE(ar.total_trades_all,0) >= 10
+		AND ta.status='active'`
+
+	args := []interface{}{}
+	argN := 1
+
+	if riskLevel != "" && riskLevel != "ALL" {
+		where += fmt.Sprintf(" AND ar.risk_level=$%d", argN)
+		args = append(args, riskLevel)
+		argN++
+	}
+	if platform != "" && platform != "ALL" {
+		where += fmt.Sprintf(" AND ta.platform::text=$%d", argN)
+		args = append(args, platform)
+		argN++
+	}
+	if search != "" {
+		where += fmt.Sprintf(" AND (LOWER(COALESCE(ta.nickname,ta.account_number)) LIKE $%d OR LOWER(ta.broker) LIKE $%d)", argN, argN)
+		args = append(args, "%"+strings.ToLower(search)+"%")
+		argN++
+	}
+
+	// Count total
+	var total int
+	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM alpha_ranks ar
+		JOIN trader_accounts ta ON ta.id = ar.account_id
+		WHERE %s`, where)
+	h.service.db.QueryRow(countSQL, args...).Scan(&total)
+
+	// Main query
+	queryArgs := append(args, limit, offset)
+	sqlQ := fmt.Sprintf(`
+		SELECT ta.id::text,
+		       COALESCE(ta.nickname, ta.account_number) as nickname,
+		       COALESCE(ta.broker,'') as broker,
+		       COALESCE(ta.platform::text,'') as platform,
 		       COALESCE(ar.alpha_score,0), COALESCE(ar.grade,'D'),
 		       COALESCE(ar.win_rate,0), COALESCE(ar.max_drawdown_pct,0),
 		       COALESCE(ar.roi,0), COALESCE(ar.net_pnl,0),
@@ -52,9 +117,12 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		FROM alpha_ranks ar
 		JOIN trader_accounts ta ON ta.id = ar.account_id
 		LEFT JOIN users u ON u.id = ta.user_id
-		WHERE ar.symbol='ALL' AND ar.alpha_score > 0 AND ta.status='active'
-		ORDER BY ar.alpha_score DESC
-		LIMIT 10`)
+		WHERE %s
+		ORDER BY %s
+		LIMIT $%d OFFSET $%d`,
+		where, orderBy, argN, argN+1)
+
+	rows, err := h.service.db.Query(sqlQ, queryArgs...)
 	if err != nil { c.JSON(500, gin.H{"ok":false,"error":err.Error()}); return }
 	defer rows.Close()
 
@@ -72,20 +140,32 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		NetPnl       float64 `json:"netPnl"`
 		TotalTrades  int     `json:"totalTrades"`
 		ProfitFactor float64 `json:"profitFactor"`
-		RiskLevel   string  `json:"riskLevel"`
-		Strategy    string  `json:"strategy"`
+		RiskLevel    string  `json:"riskLevel"`
+		Strategy     string  `json:"strategy"`
 	}
 	var traders []TraderRow
 	for rows.Next() {
 		var t TraderRow
 		rows.Scan(&t.ID, &t.Nickname, &t.Broker, &t.Platform,
-				&t.AlphaScore, &t.Grade, &t.WinRate, &t.MaxDD,
-				&t.ROI, &t.NetPnl, &t.TotalTrades, &t.ProfitFactor,
-				&t.TraderName, &t.RiskLevel, &t.Strategy)
+			&t.AlphaScore, &t.Grade, &t.WinRate, &t.MaxDD,
+			&t.ROI, &t.NetPnl, &t.TotalTrades, &t.ProfitFactor,
+			&t.TraderName, &t.RiskLevel, &t.Strategy)
 		traders = append(traders, t)
 	}
 	if traders == nil { traders = []TraderRow{} }
-	c.JSON(200, gin.H{"ok":true,"traders":traders,"count":len(traders)})
+
+	totalPages := 1
+	if total > 0 { totalPages = (total + limit - 1) / limit }
+	c.JSON(200, gin.H{
+		"ok":         true,
+		"traders":    traders,
+		"count":      len(traders),
+		"total":      total,
+		"page":       page,
+		"totalPages": totalPages,
+		"limit":      limit,
+	})
+
 }
 
 // GET /api/public/trader/:id — public trader detail with per pair and flags
