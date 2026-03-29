@@ -103,6 +103,7 @@ func (h *Handler) Impersonate(c *gin.Context) {
 		"access_token": accessToken,
 		"token_type":   "Bearer",
 		"email":        email,
+		"role":         role,
 	})
 }
 // Login now handles refresh token

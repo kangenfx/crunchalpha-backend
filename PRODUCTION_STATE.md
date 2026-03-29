@@ -133,3 +133,25 @@ docker run -d --name crunchalpha-backend \
   crunchalpha-v3:production-YYYYMMDDHHMM
 ```
 ⚠️ JANGAN deploy tanpa --env-file, email akan pakai mock mode!
+
+## 📋 CHANGES 2026-03-29
+### Backend
+- feat: /api/auth/impersonate — exchange impersonate token untuk JWT
+- feat: impersonate_tokens table di DB
+- feat: admin endpoints: create user, force verify, reset password, suspend, impersonate, delete trading account
+- fix: login blocked kalau email belum verified
+- fix: welcome email dikirim setelah verify, bukan saat register
+- fix: SMTP env-file wajib dipakai saat deploy backend
+
+### Frontend  
+- feat: ImpersonatePage — auto login via URL token
+- feat: ImpersonateBanner — banner kuning + Exit button
+- feat: Suspend/Unsuspend button di admin Users tab
+- fix: duplicate Create User button
+- fix: impersonate redirect ke /impersonate?token= (bukan localStorage manual)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-03-29)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202603281815`
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202603290958`

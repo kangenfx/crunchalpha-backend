@@ -50,9 +50,9 @@ func (r *Repository) CreateUser(email, password, role string) (*User, error) {
 func (r *Repository) GetUserByEmail(email string) (*User, error) {
 	var user User
 	err := r.db.QueryRow(`
-		SELECT id, email, password_hash, primary_role, created_at
+		SELECT id, email, password_hash, primary_role, created_at, COALESCE(email_verified, false)
 		FROM users WHERE email = $1
-	`, email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.PrimaryRole, &user.CreatedAt)
+	`, email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.PrimaryRole, &user.CreatedAt, &user.EmailVerified)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -125,9 +125,9 @@ func (r *Repository) InvalidateAllRefreshTokens(userID string) error {
 func (r *Repository) GetUserByID(userID string) (*User, error) {
 	var user User
 	err := r.db.QueryRow(`
-		SELECT id, email, password_hash, primary_role, created_at
+		SELECT id, email, password_hash, primary_role, created_at, COALESCE(email_verified, false)
 		FROM users WHERE id = $1
-	`, userID).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.PrimaryRole, &user.CreatedAt)
+	`, userID).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.PrimaryRole, &user.CreatedAt, &user.EmailVerified)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
