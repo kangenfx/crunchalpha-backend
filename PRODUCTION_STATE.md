@@ -155,3 +155,19 @@ docker run -d --name crunchalpha-backend \
 - **Image:** `crunchalpha-v3:production-202603281815`
 ### Frontend:
 - **Image:** `crunchalpha-frontend-v3:prod-202603290958`
+
+## 📋 CHANGES 2026-03-29 (Session 2)
+### Backend
+- feat: impersonate response tambah field role untuk redirect
+- fix: email_verified field di GetUserByEmail query
+### Frontend
+- feat: impersonate redirect sesuai role (investor→/investor, analyst→/analyst, trader→/trader)
+- feat: ImpersonateBanner pakai useState+useEffect agar reaktif
+- fix: duplicate return di ImpersonateBanner
+- fix: admin sidebar hapus Cashflow & User Growth (tidak ada route)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-03-29)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202603291539`
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202603291544`
