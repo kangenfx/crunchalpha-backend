@@ -61,9 +61,14 @@ func (h *Handler) ReceiveTrade(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save trade"})
 		return
 	}
-	// Trigger recalc saat trade closed
+	// Trigger copy engine saat trade open
+	if data.Status == "open" {
+		go h.repo.TriggerCopyEngine(accountID, &data)
+	}
+	// Trigger copy engine close + recalc saat trade closed
 	if data.Status == "closed" {
 		go h.repo.TriggerAlphaRankCalculation(accountID)
+		go h.repo.TriggerCopyEngineClose(accountID, data.Ticket)
 	}
 	c.JSON(http.StatusCreated, gin.H{
 		"ok":      true,
