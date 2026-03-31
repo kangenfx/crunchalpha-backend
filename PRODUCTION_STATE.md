@@ -199,3 +199,18 @@ docker run -d --name crunchalpha-backend \
 3. EA Keys management di Copy Settings frontend
 4. Trigger copy engine dari EA trader push ← NEXT PRIORITY
 5. Back button marketplace → kembali ke tab yang benar
+
+## 📋 CHANGES 2026-03-31 (Copy Engine)
+### Backend
+- feat: TriggerCopyEngine — dipanggil saat EA trader push status=open
+- feat: TriggerCopyEngineClose — dipanggil saat EA trader push status=closed
+- feat: AUM proportional lot calculation di engine
+- feat: Rejection checks: max positions, total alloc >100%, daily loss
+- fix: copy_subscriptions query — pakai follower_account_id JOIN trader_accounts
+- fix: INSERT copy_events — subquery via trader_accounts bukan investor_id langsung
+- Backend: crunchalpha-v3:production-202603310849
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-03-31 08:49)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202603310849`
