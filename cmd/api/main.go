@@ -19,6 +19,7 @@ import (
 
         "github.com/gin-gonic/gin"
         "github.com/gin-contrib/cors"
+	"crunchalpha-v3/internal/b2b"
 )
 
 func main() {
@@ -369,6 +370,19 @@ func main() {
 		adminRoutes.PUT("/trading-accounts/:id/ib-status", adminFeeCalc.UpdateIBStatus)
 	}
 
+
+	// B2B Routes (broker partner integration)
+	b2bRepo := b2b.NewRepository(db)
+	b2bHandler := b2b.NewHandler(b2bRepo)
+
+	// Public endpoint — white label config by domain
+	r.GET("/api/b2b/whitelabel", b2bHandler.GetWhiteLabelConfig)
+
+	// Admin only B2B routes
+	adminRoutes.GET("/b2b/brokers", b2bHandler.ListBrokers)
+	adminRoutes.POST("/b2b/brokers", b2bHandler.RegisterBroker)
+	adminRoutes.POST("/b2b/brokers/:broker_code/sync", b2bHandler.SyncBroker)
+	adminRoutes.POST("/b2b/whitelabel", b2bHandler.RegisterWhiteLabel)
 
 	log.Println("🚀 CrunchAlpha V3 Server starting on :8090")
         log.Println("📊 AlphaRank™ Engine: ACTIVE")
