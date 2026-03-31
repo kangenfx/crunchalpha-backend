@@ -171,3 +171,31 @@ docker run -d --name crunchalpha-backend \
 - **Image:** `crunchalpha-v3:production-202603291539`
 ### Frontend:
 - **Image:** `crunchalpha-frontend-v3:prod-202603291544`
+
+## 📋 CHANGES 2026-03-31
+### Backend
+- fix: copy-trader-subscribe — handle no_account error, fix enum 'active'→'ACTIVE'
+- fix: upsert user_allocations saat subscribe copy trader
+- Backend: crunchalpha-v3:production-202603310422
+
+### Frontend  
+- fix: copy trader modal — tampil warning "Link Account First" jika belum punya trader_account
+- fix: hapus step "Install EA" dari modal (platform yang handle)
+- Frontend: crunchalpha-frontend-v3:prod-202603310432
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-03-31)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202603310422`
+- **Deploy command:** `docker run --env-file /root/.env-crunchalpha ...`
+
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202603310432`
+
+## ⚠️ PENDING
+1. EA MT4 distribute ke publisher external
+2. Overleveraging flag formula review
+3. EA Keys management di Copy Settings frontend
+4. Trigger copy engine dari EA trader push ← NEXT PRIORITY
+5. Back button marketplace → kembali ke tab yang benar
