@@ -283,22 +283,48 @@ func (h *Handler) CopyTraderSubscribe(c *gin.Context) {
 		c.JSON(400, gin.H{"ok": false, "error": "traderAccountId required"}); return
 	}
 	lotMethod := req.LotMode
-	if lotMethod == "" { lotMethod = "FIXED" }
-	_, err := h.service.repo.DB.Exec(`
+	if lotMethod == "" { lotMethod = "AUM" }
+	lotSize := req.LotSize
+	if lotSize == 0 { lotSize = 0.01 }
+	maxLot := req.MaxLot
+	if maxLot == 0 { maxLot = 1.0 }
+
+	// Get investor own trader account (FK requirement for copy_subscriptions)
+	var followerAccountID string
+	dbErr := h.service.repo.DB.QueryRow(`
+		SELECT id::text FROM trader_accounts
+		WHERE user_id=$1::uuid AND status='active'
+		ORDER BY created_at ASC LIMIT 1`, uid).Scan(&followerAccountID)
+	if dbErr != nil || followerAccountID == "" {
+		c.JSON(400, gin.H{"ok": false, "error": "no_account", "message": "Link an MT5/MT4 account first. Go to Trader Dashboard → Add Account."}); return
+	}
+	if followerAccountID == req.TraderAccountID {
+		c.JSON(400, gin.H{"ok": false, "error": "Cannot copy your own account"}); return
+	}
+
+	_, dbErr = h.service.repo.DB.Exec(`
 		INSERT INTO copy_subscriptions
 			(id, follower_account_id, provider_account_id, lot_multiplier, max_lot, min_lot,
 			 copy_sl, copy_tp, status, lot_calculation_method, max_risk_percent, created_at, updated_at)
-		VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3, $4, 0.01, $5, $6, 'active', $7, $8, now(), now())
+		VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3, $4, 0.01, $5, $6, 'ACTIVE', $7, $8, now(), now())
 		ON CONFLICT (follower_account_id, provider_account_id) DO UPDATE SET
-			status='active', lot_multiplier=$3, max_lot=$4, copy_sl=$5, copy_tp=$6,
+			status='ACTIVE', lot_multiplier=$3, max_lot=$4, copy_sl=$5, copy_tp=$6,
 			lot_calculation_method=$7, max_risk_percent=$8, updated_at=now()`,
-		uid, req.TraderAccountID, req.LotSize, req.MaxLot,
+		followerAccountID, req.TraderAccountID, lotSize, maxLot,
 		req.CopySL, req.CopyTP, lotMethod, req.RiskPercent)
-	if err != nil {
-		c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return
+	if dbErr != nil {
+		c.JSON(500, gin.H{"ok": false, "error": "subscribe failed: " + dbErr.Error()}); return
 	}
+	// Upsert user_allocations for AUM tracking
+	h.service.repo.DB.Exec(`
+		INSERT INTO user_allocations
+			(user_id, trader_account_id, allocation_mode, allocation_value, max_risk_pct, max_positions, status, created_at, updated_at)
+		VALUES ($1::uuid, $2::uuid, 'PERCENT', 10, 5, 10, 'ACTIVE', now(), now())
+		ON CONFLICT (user_id, trader_account_id) DO UPDATE SET status='ACTIVE', updated_at=now()`,
+		uid, req.TraderAccountID)
 	c.JSON(200, gin.H{"ok": true, "message": "Subscribed to copy trader"})
 }
+
 
 // POST /api/investor/copy-trader-unsubscribe
 func (h *Handler) CopyTraderUnsubscribe(c *gin.Context) {
