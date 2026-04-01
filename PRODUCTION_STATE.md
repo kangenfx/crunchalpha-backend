@@ -214,3 +214,17 @@ docker run -d --name crunchalpha-backend \
 ### Backend:
 - **Container:** `crunchalpha-backend`
 - **Image:** `crunchalpha-v3:production-202603310849`
+
+## 📋 CHANGES 2026-04-01 (Risk Normalization)
+### Backend
+- feat: Risk Normalization Engine — Conservative/Balanced/Aggressive
+- feat: estimateSL dari trader history (avg_loss/avg_lots/pip_value)
+- feat: calcFinalLot = MIN(prop_lot, risk_lot) 
+- feat: simpan prop_lot, risk_lot, estimated_sl, final_lot ke copy_events
+- feat: DB migration — risk_level di investor_settings
+- Backend: crunchalpha-v3:production-202604010616
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-01)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604010616`
