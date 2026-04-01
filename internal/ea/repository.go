@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math"
+	"strings"
 )
 
 type AlphaRankCalculator interface {
@@ -169,6 +171,147 @@ func (r *Repository) SaveEquitySnapshot(accountID string, balance, equity float6
 	return err
 }
 
+
+// ─── Risk Level Mapping ───────────────────────────────────────────────────────
+type RiskLevelConfig struct {
+	MaxRiskPerTrade float64 // % of AUM per trade
+	MaxDD           float64 // % max drawdown
+}
+
+func getRiskLevelConfig(riskLevel string) RiskLevelConfig {
+	switch riskLevel {
+	case "conservative":
+		return RiskLevelConfig{MaxRiskPerTrade: 0.5, MaxDD: 5.0}
+	case "aggressive":
+		return RiskLevelConfig{MaxRiskPerTrade: 3.0, MaxDD: 20.0}
+	default: // balanced
+		return RiskLevelConfig{MaxRiskPerTrade: 1.5, MaxDD: 10.0}
+	}
+}
+
+// ─── Pip Value Estimation ─────────────────────────────────────────────────────
+func getPipValue(symbol string) float64 {
+	sym := strings.ToUpper(symbol)
+	switch {
+	case strings.Contains(sym, "XAU") || strings.Contains(sym, "GOLD"):
+		return 1.0 // $1 per pip per 0.01 lot for Gold
+	case strings.Contains(sym, "XAG"):
+		return 0.5
+	case strings.Contains(sym, "BTC"):
+		return 1.0
+	case strings.Contains(sym, "JPY"):
+		return 0.01 // JPY pairs
+	default:
+		return 1.0 // Most forex pairs
+	}
+}
+
+// ─── Estimated SL from trader history ────────────────────────────────────────
+// est_SL = avg_loss / (avg_lots × pip_value)
+func (r *Repository) estimateSL(traderAccountID, symbol string, currentLots float64) float64 {
+	var avgLoss, avgLots float64
+	r.db.QueryRow(`
+		SELECT
+			ABS(AVG(CASE WHEN profit < 0 THEN profit END)),
+			AVG(CASE WHEN profit < 0 THEN lots END)
+		FROM trades
+		WHERE account_id=$1::uuid
+		  AND symbol=$2
+		  AND status='closed'
+		  AND profit < 0
+		  AND lots > 0
+		LIMIT 50`,
+		traderAccountID, symbol).Scan(&avgLoss, &avgLots)
+
+	pipVal := getPipValue(symbol)
+
+	if avgLoss > 0 && avgLots > 0 && pipVal > 0 {
+		estSL := avgLoss / (avgLots * pipVal)
+		if estSL > 0 {
+			return estSL
+		}
+	}
+
+	// Fallback: fixed % per symbol type
+	sym := strings.ToUpper(symbol)
+	switch {
+	case strings.Contains(sym, "XAU") || strings.Contains(sym, "GOLD"):
+		return 1500.0 // ~15 pip Gold (1500 points)
+	case strings.Contains(sym, "BTC"):
+		return 500.0
+	case strings.Contains(sym, "JPY"):
+		return 0.5
+	default:
+		return 0.0030 // ~30 pip Forex
+	}
+}
+
+// ─── Final Lot Calculation ────────────────────────────────────────────────────
+type LotCalcResult struct {
+	PropLot     float64
+	RiskLot     float64
+	FinalLot    float64
+	EstimatedSL float64
+	RiskLevel   string
+}
+
+func (r *Repository) calcFinalLot(
+	traderAccountID string,
+	trade *TradeData,
+	aum float64,
+	traderEquity float64,
+	riskLevel string,
+	traderAvgLoss float64,
+) LotCalcResult {
+	cfg := getRiskLevelConfig(riskLevel)
+	pipVal := getPipValue(trade.Symbol)
+
+	// 1. Proportional lot
+	propLot := trade.Lots * (aum / traderEquity)
+
+	// 2. Estimate SL
+	var estSL float64
+	if trade.OpenPrice > 0 {
+		// Get from trader history
+		estSL = r.estimateSL(traderAccountID, trade.Symbol, trade.Lots)
+	}
+	if estSL <= 0 {
+		estSL = r.estimateSL(traderAccountID, trade.Symbol, trade.Lots)
+	}
+
+	// 3. Risk lot from risk level
+	// risk_lot = (AUM × max_risk_pct/100) / (SL × pip_value)
+	var riskLot float64
+	if estSL > 0 && pipVal > 0 {
+		maxRiskAmt := aum * cfg.MaxRiskPerTrade / 100.0
+		riskLot = maxRiskAmt / (estSL * pipVal)
+	} else {
+		// No SL estimate available — use conservative cap
+		riskLot = aum * cfg.MaxRiskPerTrade / 100.0 / 10.0
+	}
+
+	// 4. Final lot = MIN(prop_lot, risk_lot)
+	finalLot := math.Min(propLot, riskLot)
+
+	// 5. Round down to 2 decimal places
+	finalLot = math.Floor(finalLot*100) / 100
+	propLot = math.Floor(propLot*100) / 100
+	riskLot = math.Floor(riskLot*100) / 100
+
+	// 6. Minimum lot
+	if finalLot < 0.01 {
+		finalLot = 0.01
+	}
+
+	return LotCalcResult{
+		PropLot:     propLot,
+		RiskLot:     riskLot,
+		FinalLot:    finalLot,
+		EstimatedSL: estSL,
+		RiskLevel:   riskLevel,
+	}
+}
+
 // TriggerCopyEngine — dipanggil saat trader buka posisi baru
 // Generate copy_events untuk semua investor yang follow trader ini
 func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData) {
@@ -188,17 +331,22 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 		direction = 1
 	}
 
-	// Get all active investors following this trader via copy_subscriptions
-	// follower_account_id di copy_subscriptions adalah trader_account milik investor
-	// kita perlu join ke trader_accounts untuk dapat user_id investor
+	// Get avg loss dari trader history untuk estimasi SL
+	var traderAvgLoss float64
+	r.db.QueryRow(`
+		SELECT COALESCE(ABS(AVG(CASE WHEN profit < 0 THEN profit END)), 0)
+		FROM trades WHERE account_id=$1::uuid AND status='closed' AND profit < 0`,
+		traderAccountID).Scan(&traderAvgLoss)
+
+	// Get all active investors following this trader
 	rows, err := r.db.Query(`
 		SELECT
 			ta_inv.user_id::text,
 			ua.allocation_value,
-			ua.max_risk_pct,
 			ua.max_positions,
 			inv.investor_equity,
-			inv.max_daily_loss_pct
+			inv.max_daily_loss_pct,
+			COALESCE(inv.risk_level, 'balanced')
 		FROM copy_subscriptions cs
 		JOIN trader_accounts ta_inv ON ta_inv.id = cs.follower_account_id
 		JOIN user_allocations ua ON ua.user_id = ta_inv.user_id
@@ -219,24 +367,20 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 
 	count := 0
 	for rows.Next() {
-		var investorID string
-		var allocationPct, maxRiskPct, investorEquity, maxDailyLossPct float64
+		var investorID, riskLevel string
+		var allocationPct, investorEquity, maxDailyLossPct float64
 		var maxPositions int
-		if err := rows.Scan(&investorID, &allocationPct, &maxRiskPct, &maxPositions,
-			&investorEquity, &maxDailyLossPct); err != nil {
+		if err := rows.Scan(&investorID, &allocationPct, &maxPositions,
+			&investorEquity, &maxDailyLossPct, &riskLevel); err != nil {
 			continue
 		}
 
 		// AUM calculation
 		aum := investorEquity * allocationPct / 100.0
 
-		// Proportional lot: Lot = trader_lot × (AUM / trader_equity)
-		calculatedLot := trade.Lots * (aum / traderEquity)
-		// Round down to 2 decimal places
-		calculatedLot = float64(int(calculatedLot*100)) / 100
-		if calculatedLot < 0.01 {
-			calculatedLot = 0.01
-		}
+		// Risk-normalized lot calculation
+		lotResult := r.calcFinalLot(traderAccountID, trade, aum, traderEquity, riskLevel, traderAvgLoss)
+		calculatedLot := lotResult.FinalLot
 
 		// Rejection checks
 		reason := r.checkCopyRejection(investorID, calculatedLot, investorEquity, maxPositions, maxDailyLossPct)
@@ -252,6 +396,7 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 				 action, symbol, type, lots,
 				 sl, tp, provider_ticket, status, error,
 				 calculated_lot, investor_equity, aum_used, rejection_reason,
+				 prop_lot, risk_lot, estimated_sl, final_lot,
 				 created_at)
 			VALUES (
 				uuid_generate_v4(),
@@ -263,12 +408,14 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 				'OPEN', $3, $4, $5,
 				$6, $7, $8, $9, $10,
 				$5, $11, $12, $10,
+				$13, $14, $15, $16,
 				now()
 			)`,
 			investorID, traderAccountID,
 			trade.Symbol, direction, calculatedLot,
 			trade.OpenPrice, 0.0, trade.Ticket, status, nullStr(reason),
 			investorEquity, aum,
+			lotResult.PropLot, lotResult.RiskLot, lotResult.EstimatedSL, lotResult.FinalLot,
 		)
 		if err != nil {
 			log.Printf("[CopyEngine] Insert error investor %s: %v", investorID, err)
