@@ -510,6 +510,9 @@ func (h *Handler) PublicMarketplace(c *gin.Context) {
 		AlphaScore     float64 `json:"alphaScore"`
 		AlphaGrade     string  `json:"alphaGrade"`
 		CreatedAt      string  `json:"createdAt"`
+		AvgRR          float64 `json:"avgRR"`
+		CumulativeR    float64 `json:"cumulativeR"`
+		NetPips        float64 `json:"netPips"`
 	}
 
 	var items []SetItem
@@ -520,9 +523,13 @@ func (h *Handler) PublicMarketplace(c *gin.Context) {
 		var createdAtTime sql.NullTime
 		var dbAlphaScore float64
 		var dbAlphaGrade string
+		var avgRR, cumulativeR, netPips float64
 		rows.Scan(&it.ID, &it.Name, &it.Description, &it.AnalystID, &analystName,
 			&it.Subscribers, &it.TotalSignals, &it.WinningSignals,
-			&avgTpDist, &avgSlDist, &createdAtTime, &dbAlphaScore, &dbAlphaGrade)
+			&avgTpDist, &avgSlDist, &avgRR, &cumulativeR, &netPips, &createdAtTime, &dbAlphaScore, &dbAlphaGrade)
+		it.AvgRR = avgRR
+		it.CumulativeR = cumulativeR
+		it.NetPips = netPips
 		if analystName.Valid { it.AnalystName = analystName.String }
 		if createdAtTime.Valid { it.CreatedAt = createdAtTime.Time.Format("2006-01-02") }
 		// Use DB alpha score if available, else recalc

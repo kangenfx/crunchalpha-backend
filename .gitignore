@@ -3,3 +3,5 @@ crunchalpha-v3
 *.test
 vendor/
 .env
+api
+crunchalpha-v3
