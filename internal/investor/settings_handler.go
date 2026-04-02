@@ -34,6 +34,7 @@ func (h *Handler) GetSettings(c *gin.Context) {
 		MaxOpenTrades     int     `json:"maxOpenTrades"`
 		Mt5Account        string  `json:"mt5Account"`
 		EaKey             string  `json:"eaKey"`
+		RiskLevel         string  `json:"riskLevel"`
 		UpdatedAt         string  `json:"updatedAt"`
 	}
 
@@ -44,18 +45,19 @@ func (h *Handler) GetSettings(c *gin.Context) {
 		       COALESCE(signal_lot_mode,'FIXED'),
 		       copy_trader_enabled, trader_lot_size, trader_max_lot, trader_risk_percent,
 		       COALESCE(trader_lot_mode,'FIXED'),
-		       max_daily_loss_pct, max_open_trades, mt5_account, ea_key, updated_at
+		       max_daily_loss_pct, max_open_trades, mt5_account, ea_key,
+			       COALESCE(risk_level,'balanced'), updated_at
 		FROM investor_settings WHERE investor_id=$1::uuid`, uid).Scan(
 		&s.CopySignalEnabled, &s.SignalLotSize, &s.SignalMaxLot, &s.SignalRiskPct, &s.SignalLotMode,
 		&s.CopyTraderEnabled, &s.TraderLotSize, &s.TraderMaxLot, &s.TraderRiskPct, &s.TraderLotMode,
-		&s.MaxDailyLossPct, &s.MaxOpenTrades, &s.Mt5Account, &s.EaKey, &updatedAt)
+		&s.MaxDailyLossPct, &s.MaxOpenTrades, &s.Mt5Account, &s.EaKey, &s.RiskLevel, &updatedAt)
 
 	if err != nil {
 		// Return defaults if not found
 		s = Settings{
 			SignalLotSize: 0.01, SignalMaxLot: 0.10, SignalRiskPct: 1.0, SignalLotMode: "FIXED",
 			TraderLotSize: 0.01, TraderMaxLot: 0.10, TraderRiskPct: 1.0, TraderLotMode: "FIXED",
-			MaxDailyLossPct: 5.0, MaxOpenTrades: 10,
+			MaxDailyLossPct: 5.0, MaxOpenTrades: 10, RiskLevel: "balanced",
 		}
 	} else {
 		s.UpdatedAt = updatedAt.Format("2006-01-02 15:04")
@@ -82,6 +84,7 @@ func (h *Handler) SaveSettings(c *gin.Context) {
 		Mt5Account        *string  `json:"mt5Account"`
 		SignalLotMode     *string  `json:"signalLotMode"`
 		TraderLotMode     *string  `json:"traderLotMode"`
+		RiskLevel         *string  `json:"riskLevel"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"ok": false, "error": "invalid request"}); return
@@ -91,11 +94,11 @@ func (h *Handler) SaveSettings(c *gin.Context) {
 		INSERT INTO investor_settings
 			(investor_id, copy_signal_enabled, signal_lot_size, signal_max_lot, signal_risk_percent, signal_lot_mode,
 			 copy_trader_enabled, trader_lot_size, trader_max_lot, trader_risk_percent, trader_lot_mode,
-			 max_daily_loss_pct, max_open_trades, mt5_account, updated_at)
+			 max_daily_loss_pct, max_open_trades, mt5_account, risk_level, updated_at)
 		VALUES ($1::uuid,
 			COALESCE($2,false), COALESCE($3,0.01), COALESCE($4,0.10), COALESCE($5,1.0), COALESCE($13,'FIXED'),
 			COALESCE($6,false), COALESCE($7,0.01), COALESCE($8,0.10), COALESCE($9,1.0), COALESCE($14,'FIXED'),
-			COALESCE($10,5.0), COALESCE($11,10), COALESCE($12,''), now())
+			COALESCE($10,5.0), COALESCE($11,10), COALESCE($12,''), COALESCE($15,'balanced'), now())
 		ON CONFLICT (investor_id) DO UPDATE SET
 			copy_signal_enabled = COALESCE($2, investor_settings.copy_signal_enabled),
 			signal_lot_size     = COALESCE($3, investor_settings.signal_lot_size),
@@ -113,7 +116,7 @@ func (h *Handler) SaveSettings(c *gin.Context) {
 			updated_at          = now()`,
 		uid, req.CopySignalEnabled, req.SignalLotSize, req.SignalMaxLot, req.SignalRiskPct,
 		req.CopyTraderEnabled, req.TraderLotSize, req.TraderMaxLot, req.TraderRiskPct,
-		req.MaxDailyLossPct, req.MaxOpenTrades, req.Mt5Account, req.SignalLotMode, req.TraderLotMode)
+		req.MaxDailyLossPct, req.MaxOpenTrades, req.Mt5Account, req.SignalLotMode, req.TraderLotMode, req.RiskLevel)
 
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "save failed: "+err.Error()}); return }
 	c.JSON(200, gin.H{"ok": true, "message": "Settings saved"})
