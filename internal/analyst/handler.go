@@ -482,6 +482,9 @@ func (h *Handler) PublicMarketplace(c *gin.Context) {
 				THEN ABS(sig.tp::numeric - sig.entry::numeric) END), 0) as avg_tp_dist,
 			COALESCE(AVG(CASE WHEN sig.status='CLOSED_SL' AND sig.sl::numeric>0 AND sig.entry::numeric>0
 				THEN ABS(sig.entry::numeric - sig.sl::numeric) END), 0) as avg_sl_dist,
+			COALESCE(s.avg_rr, 0) as avg_rr,
+			COALESCE(s.cumulative_r, 0) as cumulative_r,
+			COALESCE(s.net_pips, 0) as net_pips,
 			s.created_at,
 			COALESCE(s.alpha_score, 0) as alpha_score,
 			COALESCE(s.alpha_grade, 'D') as alpha_grade
