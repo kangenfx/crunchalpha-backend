@@ -229,6 +229,7 @@ func main() {
         // EA Routes - Using API Key Authentication
         // Public marketplace (no auth)
         r.GET("/api/public/marketplace", analystHandler.PublicMarketplace)
+		r.GET("/api/public/brokers", func(c *gin.Context) { adminBrokerHandler.ListBrokers(c) })
 	r.GET("/api/public/traders", alpharankHandler.GetPublicTraders)
 	r.GET("/api/public/trader/:id", alpharankHandler.GetPublicTraderDetail)
 	r.GET("/api/public/analyst-profile/:setId", analystHandler.GetPublicAnalystProfile)
@@ -377,6 +378,9 @@ func main() {
 
 	// Public endpoint — white label config by domain
 	r.GET("/api/b2b/whitelabel", b2bHandler.GetWhiteLabelConfig)
+	// Public fee endpoint
+	publicFeeHandler := admin.NewPublicFeeHandler(db)
+	r.GET("/api/public/fees", publicFeeHandler.GetPublicFees)
 
 	// Admin only B2B routes
 	adminRoutes.GET("/b2b/brokers", b2bHandler.ListBrokers)
