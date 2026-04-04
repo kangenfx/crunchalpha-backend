@@ -80,6 +80,7 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 	for rows.Next() {
 		var alloc AllocationWithTraderInfo
 		var riskScore float64
+			var majorCount int
 		err := rows.Scan(
 			&alloc.TraderAccountID,
 			&alloc.TraderAccountNumber,
@@ -93,6 +94,7 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 			&alloc.AlphaScore,
 			&alloc.Grade,
 			&riskScore,
+			&majorCount,
 			&alloc.Status,
 		)
 		if err != nil {
