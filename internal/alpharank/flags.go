@@ -59,6 +59,8 @@ func detectNoStopLoss(trades []TradeData, maxDD float64) []RiskFlag {
 			Penalty:  10.0,
 			Title:    "No Stop Loss",
 			Desc:     fmt.Sprintf("%.0f%% trades without SL - DD controlled at %.2f%%", 100-slPct, maxDD),
+			SoftTitle: "Open-Exit Strategy",
+			SoftDesc:  "Trader manages exits without fixed stop loss — drawdown remains controlled.",
 		}}
 	} else if maxDD < 20 {
 		return []RiskFlag{{
@@ -67,6 +69,8 @@ func detectNoStopLoss(trades []TradeData, maxDD float64) []RiskFlag {
 			Penalty:  18.0,
 			Title:    "No Stop Loss",
 			Desc:     fmt.Sprintf("%.0f%% trades without SL - DD moderate at %.2f%%", 100-slPct, maxDD),
+			SoftTitle: "Unprotected Exit Risk",
+			SoftDesc:  "Limited use of stop loss with moderate drawdown — monitor closely.",
 		}}
 	}
 
@@ -76,6 +80,8 @@ func detectNoStopLoss(trades []TradeData, maxDD float64) []RiskFlag {
 		Penalty:  25.0,
 		Title:    "No Stop Loss",
 		Desc:     fmt.Sprintf("%.0f%% trades without SL - DD high at %.2f%%", 100-slPct, maxDD),
+		SoftTitle: "High Exit Risk",
+		SoftDesc:  "Trades without stop loss protection — significant drawdown exposure.",
 	}}
 }
 
@@ -130,6 +136,8 @@ func detectExcessivePositionSize(trades []TradeData, peakBalance float64) []Risk
 		Penalty:  15.0,
 		Title:    "Large Position Size",
 		Desc:     fmt.Sprintf("%.0f%% trades exceed safe lot size for balance ($%.0f)", excessivePct, peakBalance),
+		SoftTitle: "High Position Sizing",
+		SoftDesc:  "Position sizes above typical safe levels relative to account balance.",
 	}}
 }
 
@@ -183,6 +191,8 @@ func detectRevengeTrading(trades []TradeData) []RiskFlag {
 			Penalty:  15.0,
 			Title:    "Revenge Trading",
 			Desc:     fmt.Sprintf("Lot spike after loss confirmed %dx (same symbol)", confirmedRevenge),
+			SoftTitle: "Emotional Recovery Pattern",
+			SoftDesc:  "Signs of increased trading activity following losses.",
 		}}
 	}
 
@@ -193,6 +203,8 @@ func detectRevengeTrading(trades []TradeData) []RiskFlag {
 			Penalty:  8.0,
 			Title:    "Revenge Trading",
 			Desc:     fmt.Sprintf("Possible revenge trading detected %dx", confirmedRevenge),
+			SoftTitle: "Active Loss Recovery",
+			SoftDesc:  "Minor pattern of increased activity after drawdown periods.",
 		}}
 	}
 
@@ -254,6 +266,8 @@ func detectConsistencyVolatility(trades []TradeData) []RiskFlag {
 			Penalty:  8.0,
 			Title:    "High Consistency Volatility",
 			Desc:     fmt.Sprintf("Weekly variance CV=%.1f, %.0f%% loss weeks", cv, lossPct),
+			SoftTitle: "Flexible Position Sizing",
+			SoftDesc:  "Some variation in lot sizes — common in adaptive strategies.",
 		}}
 	}
 
@@ -264,6 +278,8 @@ func detectConsistencyVolatility(trades []TradeData) []RiskFlag {
 			Penalty:  4.0,
 			Title:    "High Weekly Variance",
 			Desc:     fmt.Sprintf("Weekly variance CV=%.1f but %.0f%% weeks profitable", cv, 100-lossPct),
+			SoftTitle: "Flexible Position Sizing",
+			SoftDesc:  "Some variation in lot sizes — common in adaptive strategies.",
 		}}
 	}
 
@@ -350,6 +366,8 @@ func detectLotInconsistency(trades []TradeData) []RiskFlag {
 				Penalty:  10.0,
 				Title:    "Lot Size Inconsistency",
 				Desc:     fmt.Sprintf("%s lot sizes vary %.0f%% (erratic sizing)", symbol, cv),
+				SoftTitle: "Adaptive Lot Sizing",
+				SoftDesc:  "Lot sizes vary — may reflect strategy adaptation to market conditions.",
 			}}
 		}
 	}
@@ -386,6 +404,8 @@ func detectMartingale(trades []TradeData) []RiskFlag {
 			Penalty:  30.0,
 			Title:    "Martingale Pattern",
 			Desc:     fmt.Sprintf("Lot doubling pattern detected (%dx consecutive)", maxConsecutive),
+			SoftTitle: "Progressive Position Strategy",
+			SoftDesc:  "Uses increasing position sizes after losses — high risk in adverse markets.",
 		}}
 	}
 
@@ -401,6 +421,8 @@ func detectExtremeDrawdown(maxDD float64) []RiskFlag {
 			Penalty:  25.0,
 			Title:    "Extreme Drawdown",
 			Desc:     fmt.Sprintf("Max drawdown %.1f%% is extremely high", maxDD),
+			SoftTitle: "High Capital Exposure Period",
+			SoftDesc:  "Account experienced significant drawdown — recovery required.",
 		}}
 	}
 	if maxDD >= 30 {
@@ -410,6 +432,8 @@ func detectExtremeDrawdown(maxDD float64) []RiskFlag {
 			Penalty:  15.0,
 			Title:    "High Drawdown",
 			Desc:     fmt.Sprintf("Max drawdown %.1f%% is high", maxDD),
+			SoftTitle: "Notable Drawdown Period",
+			SoftDesc:  "Moderate drawdown recorded — within recoverable range.",
 		}}
 	}
 	return nil
@@ -437,6 +461,8 @@ func detectStrategyChange(trades []TradeData) []RiskFlag {
 			Penalty:  15.0,
 			Title:    "Strategy Change Detected",
 			Desc:     fmt.Sprintf("Trading duration changed %.0f%% between periods", change),
+			SoftTitle: "Evolving Strategy",
+			SoftDesc:  "Trading approach has shifted — recent performance may not reflect history.",
 		}}
 	}
 
@@ -481,6 +507,8 @@ func detectLongFloatingLoss(trades []TradeData) []RiskFlag {
 			Penalty:  20.0,
 			Title:    "Long Floating Loss",
 			Desc:     fmt.Sprintf("%.0f%% trades held in loss >5 days", longFloatPct),
+			SoftTitle: "Extended Open Position",
+			SoftDesc:  "Holds losing positions for extended periods — floating risk present.",
 		}}
 	}
 	if longFloatPct > 10 {
@@ -490,6 +518,8 @@ func detectLongFloatingLoss(trades []TradeData) []RiskFlag {
 			Penalty:  8.0,
 			Title:    "Long Floating Loss",
 			Desc:     fmt.Sprintf("%.0f%% trades held in loss >5 days", longFloatPct),
+			SoftTitle: "Patience-Based Exit",
+			SoftDesc:  "Occasionally holds trades longer than average — monitor exposure.",
 		}}
 	}
 	return nil
@@ -516,6 +546,8 @@ func detectWeekendExposure(trades []TradeData) []RiskFlag {
 			Penalty:  10.0,
 			Title:    "Weekend Exposure",
 			Desc:     fmt.Sprintf("%.0f%% trades held over weekend (gap risk)", weekendPct),
+			SoftTitle: "Weekend Position Holder",
+			SoftDesc:  "Keeps positions open over weekends — exposed to gap risk.",
 		}}
 	}
 	return nil

@@ -68,7 +68,9 @@ type RiskFlag struct {
 	Severity string  `json:"severity"`
 	Penalty  float64 `json:"penalty"`
 	Title    string  `json:"title"`
-	Desc     string  `json:"desc"`
+	Desc      string  `json:"desc"`
+	SoftTitle string  `json:"soft_title"`
+	SoftDesc  string  `json:"soft_desc"`
 }
 
 // AlphaRankResult complete calculation result
