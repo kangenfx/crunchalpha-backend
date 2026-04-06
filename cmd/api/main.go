@@ -275,6 +275,7 @@ func main() {
 		investorRoutes.POST("/analyst-subscribe", investorHandler.SubscribeAnalystSet)
 		investorRoutes.POST("/analyst-unsubscribe", investorHandler.UnsubscribeAnalystSet)
 			investorRoutes.PUT("/analyst-subscription/:id/mode", investorHandler.UpdateSubscriptionMode)
+			investorRoutes.PUT("/analyst-subscription/:id/allocation", investorHandler.UpdateSubscriptionAllocation)
 		investorRoutes.GET("/analyst-feed", investorHandler.GetAnalystFeed)
 		investorRoutes.GET("/signal-orders", investorHandler.GetSignalOrders)
 		investorRoutes.GET("/settings", investorHandler.GetSettings)

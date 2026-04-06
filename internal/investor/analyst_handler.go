@@ -25,6 +25,7 @@ func (h *Handler) GetAnalystSets(c *gin.Context) {
 	rows, err := h.service.repo.DB.Query(`
 		SELECT ss.id, ss.name, ss.analyst_id,
 		       COALESCE(u.name, u.email, '') as analyst_name,
+		       COALESCE(s.allocation_pct, 0) as allocation_pct,
 		       COALESCE(sub.status,'') as sub_status,
 		       COALESCE(sub.auto_follow, false) as auto_follow,
 		       COALESCE(sub.started_at::text,'') as started_at,
@@ -73,7 +74,8 @@ func (h *Handler) GetAnalystSubscriptions(c *gin.Context) {
 	rows, err := h.service.repo.DB.Query(`
 		SELECT s.id, s.set_id, s.status, s.auto_follow, s.created_at,
 		       ss.name as set_name,
-		       COALESCE(u.name, u.email, '') as analyst_name
+		       COALESCE(u.name, u.email, '') as analyst_name,
+		       COALESCE(s.allocation_pct, 0) as allocation_pct
 		FROM analyst_subscriptions s
 		JOIN analyst_signal_sets ss ON ss.id = s.set_id
 		LEFT JOIN users u ON u.id = ss.analyst_id::uuid
@@ -83,19 +85,20 @@ func (h *Handler) GetAnalystSubscriptions(c *gin.Context) {
 	defer rows.Close()
 
 	type SubRow struct {
-		ID          string `json:"id"`
-		SetID       string `json:"setId"`
-		SetName     string `json:"setName"`
-		AnalystName string `json:"analystName"`
-		Status      string `json:"status"`
-		AutoFollow  bool   `json:"autoFollow"`
-		CreatedAt   string `json:"createdAt"`
+		ID            string  `json:"id"`
+		SetID         string  `json:"setId"`
+		SetName       string  `json:"setName"`
+		AnalystName   string  `json:"analystName"`
+		Status        string  `json:"status"`
+		AutoFollow    bool    `json:"autoFollow"`
+		CreatedAt     string  `json:"createdAt"`
+		AllocationPct float64 `json:"allocationPct"`
 	}
 	var subs []SubRow
 	for rows.Next() {
 		var s SubRow
 		var createdAt time.Time
-		rows.Scan(&s.ID, &s.SetID, &s.Status, &s.AutoFollow, &createdAt, &s.SetName, &s.AnalystName)
+		rows.Scan(&s.ID, &s.SetID, &s.Status, &s.AutoFollow, &createdAt, &s.SetName, &s.AnalystName, &s.AllocationPct)
 		s.CreatedAt = createdAt.Format("2006-01-02")
 		subs = append(subs, s)
 	}
@@ -656,6 +659,28 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 	c.JSON(200, gin.H{"ok":true,"copies":copies})
 }
 
+// PUT /api/investor/analyst-subscription/:id/allocation — set allocation pct
+func (h *Handler) UpdateSubscriptionAllocation(c *gin.Context) {
+	uid, ok := getUID(c)
+	if !ok { c.JSON(401, gin.H{"ok":false,"error":"unauthorized"}); return }
+	subID := c.Param("id")
+	var req struct {
+		AllocationPct float64 `json:"allocationPct"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"ok":false,"error":"invalid json"}); return
+	}
+	if req.AllocationPct < 0 || req.AllocationPct > 100 {
+		c.JSON(400, gin.H{"ok":false,"error":"allocation must be 0-100"}); return
+	}
+	_, err := h.service.repo.DB.Exec(`
+		UPDATE analyst_subscriptions
+		SET allocation_pct=$1
+		WHERE id=$2 AND investor_id=$3::uuid AND status='ACTIVE'`,
+		req.AllocationPct, subID, uid)
+	if err != nil { c.JSON(500, gin.H{"ok":false,"error":err.Error()}); return }
+	c.JSON(200, gin.H{"ok":true,"allocationPct":req.AllocationPct})
+}
 // PUT /api/investor/analyst-subscription/:id/mode — switch auto/manual
 func (h *Handler) UpdateSubscriptionMode(c *gin.Context) {
 	uid, ok := getUID(c)
