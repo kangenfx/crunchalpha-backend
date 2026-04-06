@@ -120,14 +120,25 @@ func (h *Handler) SubscribeAnalystSet(c *gin.Context) {
 	err := h.service.repo.DB.QueryRow(`SELECT analyst_id FROM analyst_signal_sets WHERE id=$1`, req.SetID).Scan(&analystID)
 	if err != nil { c.JSON(404, gin.H{"ok": false, "error": "signal set not found"}); return }
 
-	_, err = h.service.repo.DB.Exec(`INSERT INTO analyst_subscriptions
-		(investor_id, analyst_id, set_id, status, auto_follow, created_at, cancelled_at, started_at, expires_at)
-		VALUES ($1::uuid,$2,$3,'ACTIVE',$4,now(),NULL,now(),now() + interval '30 days')
-		ON CONFLICT (investor_id, set_id) DO UPDATE
-		SET status='ACTIVE', auto_follow=$4, cancelled_at=NULL, created_at=now(),
-		    started_at=now(), expires_at=now() + interval '30 days'`,
-		uid, analystID, req.SetID, req.AutoFollow)
-	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed"}); return }
+	// Update existing row jika ada (any status), kalau tidak ada baru insert
+	res, err := h.service.repo.DB.Exec(`UPDATE analyst_subscriptions
+		SET status='ACTIVE', auto_follow=$3, cancelled_at=NULL, created_at=now(),
+		    started_at=now(), expires_at=now() + interval '30 days'
+		WHERE id = (
+			SELECT id FROM analyst_subscriptions
+			WHERE investor_id=$1::uuid AND set_id=$2
+			ORDER BY created_at DESC LIMIT 1
+		)`,
+		uid, req.SetID, req.AutoFollow)
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed update: "+err.Error()}); return }
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		_, err = h.service.repo.DB.Exec(`INSERT INTO analyst_subscriptions
+			(investor_id, analyst_id, set_id, status, auto_follow, created_at, cancelled_at, started_at, expires_at)
+			VALUES ($1::uuid,$2::uuid,$3,'ACTIVE',$4,now(),NULL,now(),now() + interval '30 days')`,
+			uid, analystID, req.SetID, req.AutoFollow)
+		if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed insert: "+err.Error()}); return }
+	}
 	c.JSON(200, gin.H{"ok": true, "message": "Subscribed successfully"})
 }
 
