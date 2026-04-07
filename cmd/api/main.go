@@ -241,6 +241,12 @@ func main() {
         r.GET("/api/ea/download/mt5", func(c *gin.Context) {
                 c.FileAttachment("/app/ea/CrunchAlpha_Publisher_MT5.ex5", "CrunchAlpha_Publisher_MT5.ex5")
         })
+        r.GET("/api/ea/download/investor-mt5", func(c *gin.Context) {
+                c.FileAttachment("/app/ea/CrunchAlpha_Investor_MT5.ex5", "CrunchAlpha_Investor_MT5.ex5")
+        })
+        r.GET("/api/ea/download/investor-mt4", func(c *gin.Context) {
+                c.FileAttachment("/app/ea/CrunchAlpha_Investor_MT4.ex4", "CrunchAlpha_Investor_MT4.ex4")
+        })
 
         eaRoutesAPIKey := r.Group("/api/ea")
         eaRoutesAPIKey.Use(middleware.APIKeyAuth(apikeyRepo))
