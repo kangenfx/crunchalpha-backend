@@ -228,3 +228,33 @@ docker run -d --name crunchalpha-backend \
 ### Backend:
 - **Container:** `crunchalpha-backend`
 - **Image:** `crunchalpha-v3:production-202604010616`
+
+## 🎨 DESIGN SYSTEM (WAJIB DIIKUTI - FRONTEND)
+- **File:** `src/index.css` — single source of truth untuk semua styling
+- **Background:** `#0F172A` (base), `#1E2937` (surface), `#162033` (subtle)
+- **Border:** `#334155`
+- **Text:** `#F1F5F9` (primary), `#94A3B8` (muted), `#64748B` (faint)
+- **Accent:** `#3B82F6` (blue), hover `#2563EB`
+- **Success:** `#22C55E` | **Danger:** `#EF4444` | **Warning:** `#F59E0B`
+- **Font:** Inter (Google Fonts)
+- **Radius:** sm=4px, md=8px, lg=12px, xl=16px
+- **NO emoji** di seluruh aplikasi — gunakan SVG icon
+- **NO gradient** background — solid color only
+- **Branding:** "CrunchAlpha" (bukan CRUNCHALPHA), tagline "Risk Controlled Copy Trading"
+- **CSS variables prefix:** `--bg`, `--text-main`, `--accent`, `--border`, dll (lihat index.css)
+- Semua halaman baru HARUS pakai class dari `index.css` — jangan inline style kecuali terpaksa
+
+## 🎨 DESIGN SYSTEM (WAJIB DIIKUTI - FRONTEND)
+- **File:** `src/index.css` — single source of truth untuk semua styling
+- **Background:** `#0F172A` (base), `#1E2937` (surface), `#162033` (subtle)
+- **Border:** `#334155`
+- **Text:** `#F1F5F9` (primary), `#94A3B8` (muted), `#64748B` (faint)
+- **Accent:** `#3B82F6` (blue), hover `#2563EB`
+- **Success:** `#22C55E` | **Danger:** `#EF4444` | **Warning:** `#F59E0B`
+- **Font:** Inter (Google Fonts)
+- **Radius:** sm=4px, md=8px, lg=12px, xl=16px
+- **NO emoji** di seluruh aplikasi — gunakan SVG icon
+- **NO gradient** background — solid color only
+- **Branding:** "CrunchAlpha" (bukan CRUNCHALPHA), tagline "Risk Controlled Copy Trading"
+- **CSS variables prefix:** `--bg`, `--text-main`, `--accent`, `--border`, dll (lihat index.css)
+- Semua halaman baru HARUS pakai class dari `index.css` — jangan inline style kecuali terpaksa
