@@ -5,3 +5,4 @@ vendor/
 .env
 api
 crunchalpha-v3
+*.bak-*
