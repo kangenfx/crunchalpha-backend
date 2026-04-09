@@ -20,7 +20,10 @@ func (r *Repository) GetUserAccounts(userID string) ([]TraderAccount, error) {
 		SELECT id, user_id, COALESCE(nickname, account_number) as nickname, 
 		       broker, platform, COALESCE(currency, 'USD') as currency,
 		       account_number, account_type, status, updated_at, created_at,
-		       COALESCE(about, '') as about
+		       COALESCE(about, '') as about,
+		       COALESCE(ea_verified, false) as ea_verified,
+		       last_sync_at,
+		       ea_first_push_at
 		FROM trader_accounts
 		WHERE user_id = $1
 		ORDER BY 
@@ -46,12 +49,21 @@ func (r *Repository) GetUserAccounts(userID string) ([]TraderAccount, error) {
 			&acc.ID, &acc.UserID, &acc.Nickname, &acc.Broker,
 			&acc.Platform, &acc.Currency, &acc.AccountNumber,
 			&acc.AccountType, &acc.Status, &acc.UpdatedAt, &acc.CreatedAt,
-			&acc.About,
+			&acc.About, &acc.EaVerified, &acc.LastSyncAt, &acc.EaFirstPushAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 		
+		// Set connection status
+		now := time.Now()
+		if !acc.EaVerified || acc.LastSyncAt == nil {
+			acc.ConnectionStatus = "pending"
+		} else if now.Sub(*acc.LastSyncAt) > 24*time.Hour {
+			acc.ConnectionStatus = "disconnected"
+		} else {
+			acc.ConnectionStatus = "connected"
+		}
 		accounts = append(accounts, acc)
 	}
 

@@ -99,7 +99,9 @@ func (r *Repository) SyncTrade(accountID string, trade *TradeData) error {
 func (r *Repository) UpdateAccountBalance(accountID string, balance, equity float64) error {
 	query := `
 		UPDATE trader_accounts
-		SET balance = $1, equity = $2, last_sync_at = NOW(), updated_at = NOW()
+		SET balance = $1, equity = $2, last_sync_at = NOW(), updated_at = NOW(),
+		    ea_verified = true,
+		    ea_first_push_at = COALESCE(ea_first_push_at, NOW())
 		WHERE id = $3
 	`
 	_, err := r.db.Exec(query, balance, equity, accountID)
@@ -505,4 +507,18 @@ func (r *Repository) checkCopyRejection(investorID string, lot, investorEquity f
 func nullStr(s string) interface{} {
 	if s == "" { return nil }
 	return s
+}
+
+// VerifyEAAccountNumber — cross-check account number yang di-push EA vs yang didaftarkan
+func (r *Repository) VerifyEAAccountNumber(accountID, pushedAccountNumber string) error {
+var registeredNumber string
+err := r.db.QueryRow(`SELECT account_number FROM trader_accounts WHERE id=$1`, accountID).Scan(&registeredNumber)
+if err != nil { return err }
+if registeredNumber != pushedAccountNumber {
+// Mismatch — suspend account
+r.db.Exec(`UPDATE trader_accounts SET status='suspended', ea_verified=false WHERE id=$1`, accountID)
+return fmt.Errorf("account number mismatch: registered=%s pushed=%s", registeredNumber, pushedAccountNumber)
+}
+r.db.Exec(`UPDATE trader_accounts SET ea_account_number_confirmed=$1 WHERE id=$2`, pushedAccountNumber, accountID)
+return nil
 }

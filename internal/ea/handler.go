@@ -97,6 +97,11 @@ func (h *Handler) ReceiveAccount(c *gin.Context) {
 		return
 	}
 
+	// Verify account number match
+	if verErr := h.repo.VerifyEAAccountNumber(accountID, data.AccountNumber); verErr != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "account verification failed: " + verErr.Error()})
+		return
+	}
 	if err := h.repo.UpdateAccountBalance(accountID, data.Balance, data.Equity); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update account"})
 		return

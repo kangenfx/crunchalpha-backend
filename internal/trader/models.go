@@ -18,7 +18,11 @@ type TraderAccount struct {
 	Equity        float64   `json:"equity" db:"equity"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	About         string    `json:"about" db:"about"`
+	About            string     `json:"about" db:"about"`
+	EaVerified       bool       `json:"ea_verified" db:"ea_verified"`
+	LastSyncAt       *time.Time `json:"last_sync_at" db:"last_sync_at"`
+	EaFirstPushAt    *time.Time `json:"ea_first_push_at" db:"ea_first_push_at"`
+	ConnectionStatus string     `json:"connection_status" db:"-"`
 }
 
 // AccountsResponse for listing accounts
