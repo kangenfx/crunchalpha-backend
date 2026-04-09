@@ -399,5 +399,14 @@ func main() {
         log.Println("📊 AlphaRank™ Engine: ACTIVE")
         log.Println("🗄️  Database: Connected")
         log.Println("💼 Investor Module: ACTIVE")
+        // Background job: update connection_status setiap 5 menit
+        go func() {
+                ticker := time.NewTicker(5 * time.Minute)
+                defer ticker.Stop()
+                for range ticker.C {
+                        db.Exec(`UPDATE trader_accounts SET connection_status = CASE WHEN ea_verified = false OR last_sync_at IS NULL THEN 'pending' WHEN last_sync_at < NOW() - INTERVAL '24 hours' THEN 'disconnected' ELSE 'connected' END`)
+                }
+        }()
+
         r.Run(":8090")
 }

@@ -22,7 +22,7 @@ type TraderAccount struct {
 	EaVerified       bool       `json:"ea_verified" db:"ea_verified"`
 	LastSyncAt       *time.Time `json:"last_sync_at" db:"last_sync_at"`
 	EaFirstPushAt    *time.Time `json:"ea_first_push_at" db:"ea_first_push_at"`
-	ConnectionStatus string     `json:"connection_status" db:"-"`
+	ConnectionStatus string     `json:"connection_status" db:"connection_status"`
 }
 
 // AccountsResponse for listing accounts
