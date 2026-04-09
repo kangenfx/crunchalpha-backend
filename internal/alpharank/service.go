@@ -22,8 +22,8 @@ func (s *Service) CalculateForAccount(accountID string) error {
 		return fmt.Errorf("failed to get trades: %w", err)
 	}
 
-	if len(trades) < 10 {
-		return fmt.Errorf("insufficient trades: need at least 10, have %d", len(trades))
+	if len(trades) < 20 {
+		return fmt.Errorf("insufficient trades: need at least 20, have %d", len(trades))
 	}
 
 	var balance, equity float64
