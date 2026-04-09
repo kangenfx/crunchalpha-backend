@@ -50,7 +50,7 @@ func (r *Repository) GetUserAccounts(userID string) ([]TraderAccount, error) {
 			&acc.ID, &acc.UserID, &acc.Nickname, &acc.Broker,
 			&acc.Platform, &acc.Currency, &acc.AccountNumber,
 			&acc.AccountType, &acc.Status, &acc.UpdatedAt, &acc.CreatedAt,
-			&acc.About, &acc.EaVerified, &acc.LastSyncAt, &acc.EaFirstPushAt, &acc.ConnectionStatus,
+			&acc.About, &acc.EaVerified, &acc.ConnectionStatus, &acc.LastSyncAt, &acc.EaFirstPushAt,
 		)
 		if err != nil {
 			return nil, err
