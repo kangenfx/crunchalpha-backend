@@ -35,6 +35,7 @@ func (h *Handler) GetSettings(c *gin.Context) {
 		Mt5Account        string  `json:"mt5Account"`
 		EaKey             string  `json:"eaKey"`
 		RiskLevel         string  `json:"riskLevel"`
+		InvestorEquity    float64 `json:"investorEquity"`
 		UpdatedAt         string  `json:"updatedAt"`
 	}
 
@@ -50,7 +51,7 @@ func (h *Handler) GetSettings(c *gin.Context) {
 		FROM investor_settings WHERE investor_id=$1::uuid`, uid).Scan(
 		&s.CopySignalEnabled, &s.SignalLotSize, &s.SignalMaxLot, &s.SignalRiskPct, &s.SignalLotMode,
 		&s.CopyTraderEnabled, &s.TraderLotSize, &s.TraderMaxLot, &s.TraderRiskPct, &s.TraderLotMode,
-		&s.MaxDailyLossPct, &s.MaxOpenTrades, &s.Mt5Account, &s.EaKey, &s.RiskLevel, &updatedAt)
+		&s.MaxDailyLossPct, &s.MaxOpenTrades, &s.Mt5Account, &s.EaKey, &s.RiskLevel, &s.InvestorEquity, &updatedAt)
 
 	if err != nil {
 		// Return defaults if not found

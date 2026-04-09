@@ -72,7 +72,8 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 	where := `ar.symbol='ALL'
 		AND ar.alpha_score > 0
 		AND COALESCE(ar.total_trades_all,0) >= 10
-		AND ta.status='active'`
+		AND ta.status='active'
+			AND ta.ea_verified = true`
 
 	args := []interface{}{}
 	argN := 1

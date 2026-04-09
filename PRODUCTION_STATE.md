@@ -258,3 +258,68 @@ docker run -d --name crunchalpha-backend \
 - **Branding:** "CrunchAlpha" (bukan CRUNCHALPHA), tagline "Risk Controlled Copy Trading"
 - **CSS variables prefix:** `--bg`, `--text-main`, `--accent`, `--border`, dll (lihat index.css)
 - Semua halaman baru HARUS pakai class dari `index.css` — jangan inline style kecuali terpaksa
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-08)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-landing-fix2`
+- **Port:** 5176 (internal), via nginx https
+
+## 📋 CHANGES 2026-04-08
+### Frontend - Full Redesign Complete
+- feat: LandingPage — design system baru, no emoji, clean colors, semua teks non-data pakai text-muted
+- feat: AboutUs page — /about, founder story, clean layout
+- feat: ForgotPassword & ResetPassword — pakai auth-shell CSS classes, konsisten
+- fix: slogan "Risk Controlled Copy Trading" warna accent (biru) di semua navbar
+- fix: Hendri Saputro title — hapus CEO, jadi "Founder, CrunchAlpha"
+- fix: landing page section labels tidak warna-warni — pakai text-faint
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-09)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-profile`
+- **Port:** 5176 (internal), via nginx https
+
+## 📋 CHANGES 2026-04-09
+### Frontend - Dashboard & Profile Redesign
+- feat: TraderDashboard — no emoji, design system vars, clean tabs, pagination
+- feat: ProfilePage — clean form layout, readonly fields styled, design system
+- fix: Sidebar — hapus text-transform uppercase dari .sidebar-logo CSS
+- fix: index.css .sidebar-logo — letter-spacing 0.01em, no uppercase
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-09)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604090237`
+- **Port:** 5176 (internal), via nginx https
+- **Changes:** Mobile responsive, EA connection status display, design system seragam
+
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604090457`
+- **Changes:** connection_status dari DB, cron 5min, scan order fix, ea_verified filter
+
+## 📋 CHANGES 2026-04-09
+### Backend
+- feat: connection_status dari DB — cron update setiap 5 menit
+- fix: scan order mismatch — connection_status before last_sync_at
+- feat: ea_verified filter marketplace
+
+### Frontend
+- feat: EA connection status di Accounts tab (Connected/Disconnected/Pending EA)
+- feat: mobile responsive landing page
+- fix: design system seragam semua halaman
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-09 06:01)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604090601`
+- **Fix:** minimum trades AlphaRank naik dari 10 ke 20
+
+## 📋 CHANGES 2026-04-09 (Backend)
+- fix: minimum trades AlphaRank — 10 → 20
+- fix: marketplace filter — ea_verified + alpha_ranks exist
+
+## ⚠️ PENDING
+- feat: currency label di dashboard & marketplace — tampilkan CNT/USD/EUR sesuai akun broker, bukan hardcode USD
+- feat: marketplace filter — ea_verified=true AND alpha_ranks exist (20+ trades)
