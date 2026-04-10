@@ -62,6 +62,7 @@ func main() {
 	adminFeeHandler := admin.NewFeeHandler(db)
 	adminCashflowHandler := admin.NewCashflowHandler(db)
 	adminConfigHandler := admin.NewConfigHandler(db)
+	adminAffiliateHandler := admin.NewAffiliateHandler(db)
 	adminFeeCalc := admin.NewFeeCalculator(db)
 
 	// Admin Handlers
@@ -373,6 +374,11 @@ func main() {
 		adminRoutes.PUT("/config/fees/:key", adminConfigHandler.UpdateFeeConfig)
 		adminRoutes.GET("/config/affiliate-tiers", adminConfigHandler.ListAffiliateTiers)
 		adminRoutes.PUT("/config/affiliate-tiers/:id", adminConfigHandler.UpdateAffiliateTier)
+		adminRoutes.GET("/affiliates", adminAffiliateHandler.ListAffiliates)
+		adminRoutes.PUT("/affiliates/:id/commission", adminAffiliateHandler.SetCustomCommission)
+		adminRoutes.POST("/affiliates/:id/payout", adminAffiliateHandler.AddPayout)
+		adminRoutes.PUT("/affiliates/payout/:payout_id/mark-paid", adminAffiliateHandler.MarkPayoutPaid)
+		adminRoutes.PUT("/affiliate-config", adminAffiliateHandler.UpdateAffiliateConfig)
 		adminRoutes.GET("/config/docs", adminConfigHandler.GetDocs)
 		adminRoutes.GET("/fee-simulation", adminFeeCalc.SimulateFees)
 		adminRoutes.GET("/fee-simulation/all", adminFeeCalc.SimulateAllAccounts)
