@@ -323,3 +323,29 @@ docker run -d --name crunchalpha-backend \
 ## ⚠️ PENDING
 - feat: currency label di dashboard & marketplace — tampilkan CNT/USD/EUR sesuai akun broker, bukan hardcode USD
 - feat: marketplace filter — ea_verified=true AND alpha_ranks exist (20+ trades)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-10)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604100356`
+- **Port:** 8090 (internal), via nginx https
+
+## 📋 CHANGES 2026-04-10
+### Backend - Affiliate Admin Module
+- feat: affiliate_handler.go — admin affiliate management
+- feat: GET /api/admin/affiliates — list semua affiliate + stats + config
+- feat: PUT /api/admin/affiliates/:id/commission — set custom commission per affiliate
+- feat: POST /api/admin/affiliates/:id/payout — record payout
+- feat: PUT /api/admin/affiliates/payout/:payout_id/mark-paid — mark payout paid
+- feat: PUT /api/admin/affiliate-config — update mode (flat/tier) + flat_pct
+- db: ALTER affiliates ADD custom_commission_pct
+- db: INSERT platform_fee_config affiliate_mode=1, affiliate_flat_pct=10
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-clean-colors`
+
+## ⚠️ PENDING (Updated 2026-04-10)
+1. Earnings page trader & analyst — tunggu keputusan bisnis alur payout non-custodial
+2. Affiliate dashboard frontend redesign — baca commission dari API, sembunyikan tier kalau mode=flat
+3. AffiliateAdmin page — frontend admin management affiliate
+4. Tools page — hapus calculator, pindah API Keys ke tab Settings di TraderDashboard
