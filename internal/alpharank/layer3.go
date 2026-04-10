@@ -18,13 +18,15 @@ const (
 
 // Layer3Detail breakdown per modul — disimpan ke DB sebagai JSON
 type Layer3Detail struct {
-	BehaviorScore   float64 `json:"behavior_score"`
-	VolatilityScore float64 `json:"volatility_score"`
-	DDScore         float64 `json:"dd_score"`
+	BehaviorScore   float64  `json:"behavior_score"`
+	VolatilityScore float64  `json:"volatility_score"`
+	DDScore         float64  `json:"dd_score"`
 	BehaviorReasons []string `json:"behavior_reasons"`
 	VolReasons      []string `json:"vol_reasons"`
 	DDReasons       []string `json:"dd_reasons"`
 	RegimeDetected  string   `json:"regime_detected"`
+	SystemMode      string   `json:"system_mode"`
+	SoftReasons     []string `json:"soft_reasons"`
 	CalculatedAt    string   `json:"calculated_at"`
 }
 
@@ -83,6 +85,11 @@ func CalculateLayer3(metrics AccountMetrics, maxDrawdownPct float64, activeFlags
 		status = Layer3Watch
 		reason = buildReason(behaviorReasons, volReasons, ddReasons, "WATCH")
 	}
+
+	systemMode := GetSystemMode(multiplier)
+	softReasons := GetSoftReasons(detail.BehaviorReasons, detail.VolReasons, detail.DDReasons)
+	detail.SystemMode = systemMode
+	detail.SoftReasons = softReasons
 
 	return Layer3Result{
 		Multiplier: multiplier,
@@ -369,4 +376,76 @@ func SaveLayer3ToDB(db *sql.DB, accountID string, result Layer3Result) error {
 		AND symbol = 'ALL'
 	`, result.Multiplier, string(result.Status), result.Reason, detailJSON, accountID)
 	return err
+}
+
+// GetSystemMode — convert multiplier ke user-friendly mode
+func GetSystemMode(multiplier float64) string {
+	switch {
+	case multiplier >= 0.90:
+		return "FULL_ACTIVE"
+	case multiplier >= 0.75:
+		return "MONITORING"
+	case multiplier >= 0.55:
+		return "DEFENSIVE"
+	default:
+		return "PROTECTED"
+	}
+}
+
+// GetSystemModeMessage — investor-friendly message
+func GetSystemModeMessage(mode string, reasons []string) string {
+	switch mode {
+	case "FULL_ACTIVE":
+		return "System running at full capacity"
+	case "MONITORING":
+		return "System detecting early signals — position size slightly adjusted"
+	case "DEFENSIVE":
+		return "Unusual patterns detected — system reducing exposure to protect your capital"
+	default:
+		return "High risk detected — system has reduced position size to minimum to protect your funds"
+	}
+}
+
+// GetSoftReasons — convert technical reasons ke investor-friendly language
+func GetSoftReasons(behaviorReasons, volReasons, ddReasons []string) []string {
+	softMap := map[string]string{
+		"Lot size spike: recent avg 2.5x+ baseline":  "Unusual position sizing detected",
+		"Lot size elevated: recent avg 1.8x baseline": "Position size above normal range",
+		"Win rate dropped 30%+ from baseline":         "Recent performance declining significantly",
+		"Win rate dropped 20%+ from baseline":         "Recent performance below historical average",
+		"Recent trades: 70%+ losses without SL":       "Limited risk protection on recent trades",
+		"Recent trades: 50%+ losses without SL":       "Limited risk protection on recent trades",
+		"Highly erratic lot sizing (CV >= 1.0)":       "Inconsistent trading behavior",
+		"Inconsistent lot sizing (CV >= 0.6)":         "Slightly inconsistent trading behavior",
+		"Market volatility 2.5x+ above baseline":      "Extreme market conditions detected",
+		"Market volatility 1.8x above baseline":       "High market volatility detected",
+		"Market volatility 1.4x above baseline":       "Elevated market volatility",
+		"Recent loss streak: 5+ consecutive losses":   "Recent performance declining",
+		"Recent loss streak: 3+ consecutive losses":   "Short-term performance under pressure",
+		"Drawdown >= 50% — critical protection active": "Significant drawdown detected",
+		"Drawdown >= 35% — significant risk reduction": "Elevated drawdown level",
+		"Drawdown >= 25% — moderate risk reduction":    "Moderate drawdown detected",
+		"Drawdown >= 15% — mild risk reduction":        "Mild drawdown present",
+		"5+ active risk flags detected":               "Multiple risk indicators active",
+		"3+ active risk flags detected":               "Several risk indicators active",
+		"Active risk flags present":                   "Risk indicator active",
+	}
+
+	seen := map[string]bool{}
+	var soft []string
+	all := append(append(behaviorReasons, volReasons...), ddReasons...)
+	for _, r := range all {
+		msg, ok := softMap[r]
+		if !ok {
+			msg = r
+		}
+		if !seen[msg] {
+			seen[msg] = true
+			soft = append(soft, msg)
+		}
+		if len(soft) >= 3 {
+			break
+		}
+	}
+	return soft
 }
