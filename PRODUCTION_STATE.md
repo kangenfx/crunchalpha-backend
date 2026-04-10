@@ -373,3 +373,18 @@ docker run -d --name crunchalpha-backend \
 1. Earnings page trader & analyst — tunggu keputusan bisnis alur payout non-custodial
 2. Filter admin dari affiliate list — admin tidak boleh jadi affiliate
 3. Tools page — hapus calculator, pindah API Keys ke tab Settings di TraderDashboard
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-10 05:45)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604100538`
+- **Changes:** fee_handler — GetDefaultFees dari DB, FeeOverride tambah rebate_share_pct, affiliate_commission_pct, subscription_fee_monthly
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-fee-override`
+- **Changes:** TabFees — default values dari API, form tambah rebate/affiliate/subscription fields
+
+## ⚠️ PENDING (Updated 2026-04-10 05:45)
+1. Earnings page trader & analyst — tunggu keputusan bisnis
+2. Filter admin dari affiliate list
+3. Tools page cleanup
