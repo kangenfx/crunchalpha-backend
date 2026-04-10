@@ -349,3 +349,27 @@ docker run -d --name crunchalpha-backend \
 2. Affiliate dashboard frontend redesign — baca commission dari API, sembunyikan tier kalau mode=flat
 3. AffiliateAdmin page — frontend admin management affiliate
 4. Tools page — hapus calculator, pindah API Keys ke tab Settings di TraderDashboard
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-10 04:45)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-affiliate-admin`
+- **Changes:** Affiliate dashboard real data from DB, AffiliateAdmin tab in AdminDashboard
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604100432`
+- **Changes:** GetAffiliateOverview — commissionPct, affiliateMode, isCustomCommission from DB
+
+## 📋 CHANGES 2026-04-10
+### Affiliate System
+- feat: affiliate_handler.go — admin list, custom commission, payout, config endpoints
+- feat: GetAffiliateOverview — return commissionPct + affiliateMode + isCustomCommission
+- feat: AffiliateDashboard.jsx — commission from DB, tier hidden on flat mode
+- feat: AdminDashboard — tab Affiliates: summary, config, per-affiliate commission override, payout recording
+- db: ALTER affiliates ADD custom_commission_pct
+- db: INSERT platform_fee_config affiliate_mode=1, affiliate_flat_pct=10
+
+## ⚠️ PENDING (Updated 2026-04-10)
+1. Earnings page trader & analyst — tunggu keputusan bisnis alur payout non-custodial
+2. Filter admin dari affiliate list — admin tidak boleh jadi affiliate
+3. Tools page — hapus calculator, pindah API Keys ke tab Settings di TraderDashboard
