@@ -94,7 +94,12 @@ func (s *Service) CalculateForAccount(accountID string) error {
 	s.SaveMonthlyPerformance(accountID, metrics.Trades)
 	s.SaveWeeklyPerformance(accountID, metrics.Trades)
 
-	return s.saveAlphaRankWithMetrics(accountID, &result, len(trades), metrics.MaxDrawdownPct, &metrics)
+	err = s.saveAlphaRankWithMetrics(accountID, &result, len(trades), metrics.MaxDrawdownPct, &metrics)
+	if err != nil {
+		return err
+	}
+	go s.CalculateAndSaveLayer3(accountID, &metrics, metrics.MaxDrawdownPct)
+	return nil
 }
 
 func (s *Service) getTradesForAccount(accountID string) ([]TradeData, error) {
@@ -775,4 +780,22 @@ func GetRiskLevelFromCounts(critical, major, minor int, alphaScore float64) stri
 		return "LOW"
 	}
 	return "MEDIUM"
+}
+
+// CalculateAndSaveLayer3 — dipanggil setelah saveAlphaRankWithMetrics
+// Baca data dari metrics (sudah di memory), simpan ke DB
+func (s *Service) CalculateAndSaveLayer3(accountID string, metrics *AccountMetrics, maxDrawdownPct float64) error {
+	if metrics == nil {
+		return nil
+	}
+
+	// Hitung active flags dari DB
+	var activeFlags int
+	s.db.QueryRow(`
+		SELECT COUNT(*) FROM alpha_flags
+		WHERE account_id = $1 AND is_active = true
+	`, accountID).Scan(&activeFlags)
+
+	result := CalculateLayer3(*metrics, maxDrawdownPct, activeFlags)
+	return SaveLayer3ToDB(s.db, accountID, result)
 }

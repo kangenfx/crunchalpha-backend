@@ -82,6 +82,21 @@ func (e *CopyTraderEngine) generateCopyEvent(
 ) {
 	aum := investorEquity * allocationPct / 100.0
 	calculatedLot := pos.Lots * (aum / pos.TraderEquity)
+
+	// Layer 3: baca multiplier dari DB (zero on-the-fly)
+	var layer3Multiplier float64 = 1.0
+	e.db.QueryRow(`
+		SELECT COALESCE(layer3_multiplier, 1.0)
+		FROM alpha_ranks
+		WHERE account_id = $1 AND symbol = 'ALL'
+	`, pos.TraderAccountID).Scan(&layer3Multiplier)
+	if layer3Multiplier < 0.30 {
+		layer3Multiplier = 0.30
+	}
+	if layer3Multiplier > 1.00 {
+		layer3Multiplier = 1.00
+	}
+	calculatedLot = calculatedLot * layer3Multiplier
 	calculatedLot = math.Floor(calculatedLot*100) / 100
 	if calculatedLot < 0.01 {
 		calculatedLot = 0.01
