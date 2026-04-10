@@ -865,7 +865,20 @@ func (h *Handler) GetAffiliateOverview(c *gin.Context) {
 		SELECT COALESCE(SUM(amount_usd),0) FROM affiliate_payouts
 		WHERE affiliate_id=$1::uuid AND status='PENDING'`, affID).Scan(&pendingPayout)
 
-	// Tier info
+	// Affiliate config from DB
+	var affiliateMode float64
+	var flatPct float64
+	var customPct *float64
+	h.service.repo.DB.QueryRow(`SELECT value FROM platform_fee_config WHERE key='affiliate_mode'`).Scan(&affiliateMode)
+	h.service.repo.DB.QueryRow(`SELECT value FROM platform_fee_config WHERE key='affiliate_flat_pct'`).Scan(&flatPct)
+	h.service.repo.DB.QueryRow(`SELECT custom_commission_pct FROM affiliates WHERE id=$1::uuid`, affID).Scan(&customPct)
+
+	commissionPct := flatPct
+	if customPct != nil {
+		commissionPct = *customPct
+	}
+
+	// Tier info (used only when mode=tier)
 	tierPct := map[string]float64{"BRONZE":3,"SILVER":5,"GOLD":7,"PLATINUM":10}
 	nextTier := map[string]string{"BRONZE":"SILVER","SILVER":"GOLD","GOLD":"PLATINUM","PLATINUM":"PLATINUM"}
 	nextReq := map[string]string{
@@ -874,6 +887,7 @@ func (h *Handler) GetAffiliateOverview(c *gin.Context) {
 		"GOLD":"50 referrals + $150k EUM",
 		"PLATINUM":"Top tier achieved",
 	}
+	_ = tierPct
 
 	c.JSON(200, gin.H{
 		"ok": true,
@@ -888,6 +902,9 @@ func (h *Handler) GetAffiliateOverview(c *gin.Context) {
 			"totalPayout": totalPayout,
 			"pendingPayout": pendingPayout,
 			"referralLink": "https://crunchalpha.com/register?ref=" + code,
+			"commissionPct": commissionPct,
+			"affiliateMode": affiliateMode,
+			"isCustomCommission": customPct != nil,
 		},
 	})
 }
