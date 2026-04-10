@@ -1,6 +1,7 @@
 package trader
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"time"
 	"database/sql"
@@ -101,6 +102,15 @@ func (r *Repository) CreateDummyAccount(userID, nickname, broker, platform strin
 		CreatedAt:     now,
 	}
 
+	// Check duplicate account_number across all users
+	var existingUserID string
+	checkErr := r.db.QueryRow(`SELECT user_id FROM trader_accounts WHERE account_number = $1 LIMIT 1`, acc.AccountNumber).Scan(&existingUserID)
+	if checkErr == nil {
+		if existingUserID == acc.UserID {
+			return nil, fmt.Errorf("account %s already registered in your account", acc.AccountNumber)
+		}
+		return nil, fmt.Errorf("account number %s already registered by another user", acc.AccountNumber)
+	}
 	// Use 'provider' as the role (from the enum), not 'master'
 	err := r.db.QueryRow(`
 		INSERT INTO trader_accounts 

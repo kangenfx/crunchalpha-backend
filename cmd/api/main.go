@@ -158,6 +158,7 @@ func main() {
                 })
                 traderRoutes.GET("/alpharank-perpair", traderHandler.GetAlphaRankPerPair)
                 traderRoutes.GET("/trades", traderHandler.GetTrades)
+			traderRoutes.GET("/earnings", traderHandler.GetEarnings)
                 traderRoutes.GET("/monthly-performance", traderHandler.GetMonthlyPerformance)
                 traderRoutes.GET("/weekly-performance", traderHandler.GetWeeklyPerformance)
 			traderRoutes.GET("/account-summary", traderHandler.GetAccountSummary)
