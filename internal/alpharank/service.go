@@ -256,7 +256,8 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		}
 	}
 
-	// Loop events - DD = loss / balance_before_trade
+	// ── DD Layer 1: Closed peak-to-trough ──────────────────────────
+	// peak direset setiap WD — DD sebelum WD sudah tersimpan via GREATEST di DB
 	runningBalance := initialDeposit
 	for _, event := range events {
 		switch event.EventType {
@@ -267,35 +268,50 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 			}
 		case "withdrawal":
 			runningBalance -= event.Amount
-		case "trade":
-			// DD opsi 1: per-trade DD = abs(loss) / balance_before
-			if event.Amount < 0 && runningBalance > 0 {
-				dd1 := (math.Abs(event.Amount) / runningBalance) * 100
-				if dd1 > maxDD {
-					maxDD = dd1
-				}
+			// Reset peak ke runningBalance setelah WD
+			// DD sebelum WD sudah persist di DB via GREATEST — tidak hilang
+			if runningBalance < peakBalance {
+				peakBalance = runningBalance
 			}
+		case "trade":
 			runningBalance += event.Amount
 			if runningBalance > peakBalance {
 				peakBalance = runningBalance
+			} else if peakBalance > 0 {
+				dd := (peakBalance - runningBalance) / peakBalance * 100
+				if dd > maxDD {
+					maxDD = dd
+				}
 			}
-			// DD opsi 3: total net P&L / total deposit (handle MC/martingale multi-trade)
-			// Dihitung setelah loop selesai, lihat di bawah
 		}
 	}
 
-	// DD opsi 3: abs(total closed net P&L) / totalDeposit (handle MC/martingale)
-	if totalDeposits > 0 && totalProfit < 0 {
-		dd3 := math.Abs(totalProfit) / totalDeposits * 100
-		if dd3 > maxDD {
-			maxDD = dd3
+	// ── DD Layer 2: Equity vs peak (floating loss saat ini) ──────────
+	if peakBalance > 0 && equity < peakBalance {
+		ddEquity := (peakBalance - equity) / peakBalance * 100
+		if ddEquity > maxDD {
+			maxDD = ddEquity
 		}
 	}
-	// DD opsi 2: Floating DD = abs(equity drop) / balance
-	if balance > 0 && equity < balance {
-		floatingDD := (balance - equity) / balance * 100
-		if floatingDD > maxDD {
-			maxDD = floatingDD
+
+	// ── DD Layer 3: Min equity per trade (dari DB) ───────────────────
+	// min_equity = equity terendah selama trade open (dikirim EA v2.0)
+	minEqRows, minEqErr := s.db.Query(`
+		SELECT COALESCE(MIN(min_equity), 0) FROM trades
+		WHERE account_id = $1
+		  AND status = 'closed'
+		  AND min_equity > 0
+	`, accountID)
+	if minEqErr == nil {
+		defer minEqRows.Close()
+		if minEqRows.Next() {
+			var minEq float64
+			if minEqRows.Scan(&minEq) == nil && peakBalance > 0 && minEq > 0 && minEq < peakBalance {
+				ddMinEq := (peakBalance - minEq) / peakBalance * 100
+				if ddMinEq > maxDD {
+					maxDD = ddMinEq
+				}
+			}
 		}
 	}
 

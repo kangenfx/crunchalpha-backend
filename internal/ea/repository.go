@@ -37,19 +37,27 @@ func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 		INSERT INTO trades (
 			account_id, ticket, symbol, type, lots,
 			open_price, close_price, profit, swap, commission,
-			open_time, close_time, status, created_at
+			open_time, close_time, status,
+			sl, tp, min_equity, equity_at_open,
+			created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-			to_timestamp($11), to_timestamp($12), $13, NOW())
+			to_timestamp($11), to_timestamp($12), $13,
+			$14, $15, $16, $17,
+			NOW())
 		ON CONFLICT (account_id, ticket)
 		DO UPDATE SET
-			close_price = EXCLUDED.close_price,
-			profit = EXCLUDED.profit,
-			swap = EXCLUDED.swap,
-			commission = EXCLUDED.commission,
-			close_time = EXCLUDED.close_time,
-				status = EXCLUDED.status,
-				lots = EXCLUDED.lots
-			WHERE trades.status != 'closed' OR EXCLUDED.status = 'open'
+			close_price    = EXCLUDED.close_price,
+			profit         = EXCLUDED.profit,
+			swap           = EXCLUDED.swap,
+			commission     = EXCLUDED.commission,
+			close_time     = EXCLUDED.close_time,
+			status         = EXCLUDED.status,
+			lots           = EXCLUDED.lots,
+			sl             = EXCLUDED.sl,
+			tp             = EXCLUDED.tp,
+			min_equity     = CASE WHEN EXCLUDED.min_equity > 0 THEN EXCLUDED.min_equity ELSE trades.min_equity END,
+			equity_at_open = CASE WHEN EXCLUDED.equity_at_open > 0 THEN EXCLUDED.equity_at_open ELSE trades.equity_at_open END
+		WHERE trades.status != 'closed' OR EXCLUDED.status = 'open'
 	`
 
 	var closeTime int64
@@ -61,6 +69,7 @@ func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 		accountID, trade.Ticket, trade.Symbol, trade.Type, trade.Lots,
 		trade.OpenPrice, trade.ClosePrice, trade.Profit, trade.Swap, trade.Commission,
 		trade.OpenTime, closeTime, trade.Status,
+		trade.SL, trade.TP, trade.MinEquity, trade.EquityAtOpen,
 	)
 
 	return err
@@ -71,18 +80,26 @@ func (r *Repository) SyncTrade(accountID string, trade *TradeData) error {
 			INSERT INTO trades (
 				account_id, ticket, symbol, type, lots,
 				open_price, close_price, profit, swap, commission,
-				open_time, close_time, status, created_at
+				open_time, close_time, status,
+				sl, tp, min_equity, equity_at_open,
+				created_at
 			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-				to_timestamp($11), to_timestamp($12), $13, NOW())
+				to_timestamp($11), to_timestamp($12), $13,
+				$14, $15, $16, $17,
+				NOW())
 			ON CONFLICT (account_id, ticket)
 			DO UPDATE SET
-				close_price = EXCLUDED.close_price,
-				profit = EXCLUDED.profit,
-				swap = EXCLUDED.swap,
-				commission = EXCLUDED.commission,
-				close_time = EXCLUDED.close_time,
-				status = EXCLUDED.status,
-				lots = EXCLUDED.lots
+				close_price    = EXCLUDED.close_price,
+				profit         = EXCLUDED.profit,
+				swap           = EXCLUDED.swap,
+				commission     = EXCLUDED.commission,
+				close_time     = EXCLUDED.close_time,
+				status         = EXCLUDED.status,
+				lots           = EXCLUDED.lots,
+				sl             = EXCLUDED.sl,
+				tp             = EXCLUDED.tp,
+				min_equity     = CASE WHEN EXCLUDED.min_equity > 0 THEN EXCLUDED.min_equity ELSE trades.min_equity END,
+				equity_at_open = CASE WHEN EXCLUDED.equity_at_open > 0 THEN EXCLUDED.equity_at_open ELSE trades.equity_at_open END
 	`
 	var closeTime int64
 	if trade.CloseTime > 0 {
@@ -92,6 +109,7 @@ func (r *Repository) SyncTrade(accountID string, trade *TradeData) error {
 		accountID, trade.Ticket, trade.Symbol, trade.Type, trade.Lots,
 		trade.OpenPrice, trade.ClosePrice, trade.Profit, trade.Swap, trade.Commission,
 		trade.OpenTime, closeTime, trade.Status,
+		trade.SL, trade.TP, trade.MinEquity, trade.EquityAtOpen,
 	)
 	return err
 }
@@ -105,6 +123,26 @@ func (r *Repository) UpdateAccountBalance(accountID string, balance, equity floa
 		WHERE id = $3
 	`
 	_, err := r.db.Exec(query, balance, equity, accountID)
+	return err
+}
+
+func (r *Repository) UpdateAccountFull(accountID string, data *AccountData) error {
+	query := `
+		UPDATE trader_accounts
+		SET balance = $1, equity = $2,
+		    margin = $3, free_margin = $4,
+		    floating_profit = $5, open_lots = $6, open_positions = $7,
+		    last_sync_at = NOW(), updated_at = NOW(),
+		    ea_verified = true,
+		    ea_first_push_at = COALESCE(ea_first_push_at, NOW())
+		WHERE id = $8
+	`
+	_, err := r.db.Exec(query,
+		data.Balance, data.Equity,
+		data.Margin, data.FreeMargin,
+		data.FloatingProfit, data.OpenLots, data.OpenPositions,
+		accountID,
+	)
 	return err
 }
 

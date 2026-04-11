@@ -28,17 +28,24 @@ type TradeData struct {
 	Commission    float64 `json:"commission,omitempty"`
 	OpenTime      int64   `json:"open_time,omitempty"`
 	CloseTime     int64   `json:"close_time,omitempty"`
-	Timestamp     int64   `json:"timestamp" binding:"required"`
+	Timestamp     int64   `json:"timestamp,omitempty"`
 	Status        string  `json:"status" binding:"required"`
+	SL            float64 `json:"sl,omitempty"`
+	TP            float64 `json:"tp,omitempty"`
+	MinEquity     float64 `json:"min_equity,omitempty"`
+	EquityAtOpen  float64 `json:"equity_at_open,omitempty"`
 }
 
 type AccountData struct {
-	AccountNumber string  `json:"account_number" binding:"required"`
-	Balance       float64 `json:"balance" binding:"required"`
-	Equity        float64 `json:"equity" binding:"required"`
-	Margin        float64 `json:"margin"`
-	FreeMargin    float64 `json:"free_margin"`
-	Timestamp     int64   `json:"timestamp" binding:"required"`
+	AccountNumber  string  `json:"account_number" binding:"required"`
+	Balance        float64 `json:"balance" binding:"required"`
+	Equity         float64 `json:"equity" binding:"required"`
+	Margin         float64 `json:"margin"`
+	FreeMargin     float64 `json:"free_margin"`
+	FloatingProfit float64 `json:"floating_profit"`
+	OpenLots       float64 `json:"open_lots"`
+	OpenPositions  int     `json:"open_positions"`
+	Timestamp      int64   `json:"timestamp,omitempty"`
 }
 
 func (h *Handler) ReceiveTrade(c *gin.Context) {
@@ -102,7 +109,7 @@ func (h *Handler) ReceiveAccount(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "account verification failed: " + verErr.Error()})
 		return
 	}
-	if err := h.repo.UpdateAccountBalance(accountID, data.Balance, data.Equity); err != nil {
+	if err := h.repo.UpdateAccountFull(accountID, &data); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update account"})
 		return
 	}
