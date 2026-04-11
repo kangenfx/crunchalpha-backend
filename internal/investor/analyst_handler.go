@@ -400,13 +400,20 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 		Platform   string  `json:"platform"`
 		AlphaScore float64 `json:"alphaScore"`
 		Grade      string  `json:"grade"`
+			RiskLevel        string  `json:"riskLevel"`
+			Layer3Multiplier float64 `json:"layer3Multiplier"`
+			Layer3Status     string  `json:"layer3Status"`
+			Layer3SystemMode string  `json:"layer3SystemMode"`
+			Layer3Reason     string  `json:"layer3Reason"`
 	}
 	var subs []SubRow
 	for rows.Next() {
 		var s SubRow
 		if err := rows.Scan(&s.ID,&s.TraderID,&s.Status,&s.LotMode,&s.LotSize,&s.MaxLot,
 			&s.RiskPct,&s.CopySL,&s.CopyTP,&s.CreatedAt,&s.TraderName,&s.Broker,&s.Platform,
-			&s.AlphaScore,&s.Grade); err != nil { continue }
+			&s.AlphaScore,&s.Grade,
+                        &s.RiskLevel,&s.Layer3Multiplier,&s.Layer3Status,
+                        &s.Layer3SystemMode,&s.Layer3Reason); err != nil { continue }
 		subs = append(subs, s)
 	}
 	if subs == nil { subs = []SubRow{} }
