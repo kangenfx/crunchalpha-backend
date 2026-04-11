@@ -23,6 +23,10 @@ type AllocationWithTraderInfo struct {
 	AlphaScore          float64 `json:"alpha_score"`
 	Grade               string  `json:"grade"`
 	RiskLevel           string  `json:"risk_level"`
+	Layer3Multiplier    float64 `json:"layer3_multiplier"`
+	Layer3Status        string  `json:"layer3_status"`
+	Layer3SystemMode    string  `json:"layer3_system_mode"`
+	Layer3SoftReasons   string  `json:"layer3_soft_reasons"`
 	Status              string  `json:"status"`
 }
 

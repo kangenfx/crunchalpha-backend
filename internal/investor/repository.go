@@ -95,12 +95,17 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 			&alloc.Grade,
 			&riskScore,
 			&majorCount,
+			&alloc.RiskLevel,
+			&alloc.Layer3Multiplier,
+			&alloc.Layer3Status,
+			&alloc.Layer3SystemMode,
+			&alloc.Layer3SoftReasons,
 			&alloc.Status,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning allocation: %w", err)
 		}
-			alloc.RiskLevel = "MEDIUM" // default, tidak ada flags data di allocation query
+			// RiskLevel dari DB — MEDIUM" // default, tidak ada flags data di allocation query
 		allocations = append(allocations, alloc)
 	}
 	if err = rows.Err(); err != nil {
