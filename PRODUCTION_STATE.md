@@ -434,3 +434,18 @@ docker run -d --name crunchalpha-backend \
 - fix: SubRow struct — tambah Layer3 fields (RiskLevel, Layer3Multiplier, Layer3Status, Layer3SystemMode, Layer3Reason)
 - feat: GET /api/trader/earnings — earnings summary + per-investor breakdown
 - fix: duplicate account_number check — block register akun yang sudah terdaftar user lain
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-11)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604110229`
+- **Changes:** audit log — logAudit helper, catat impersonate/suspend/reset_password/force_verify/delete_user
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604110134`
+
+## ⚠️ PENDING (Updated 2026-04-11)
+1. Earnings page trader & analyst — tunggu keputusan bisnis
+2. Filter admin dari affiliate list
+3. Tools page cleanup
+4. Audit log untuk fee config change + fee override add/delete
