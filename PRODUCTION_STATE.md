@@ -449,3 +449,42 @@ docker run -d --name crunchalpha-backend \
 2. Filter admin dari affiliate list
 3. Tools page cleanup
 4. Audit log untuk fee config change + fee override add/delete
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-11)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604110734` (sesuai timestamp)
+- **Changes:**
+  - Layer 3 Elite System Intelligence — LIVE
+  - allocation repository fix — layer3 fields di SELECT
+  - copy-trader-subscriptions — layer3 fields exposed
+  - detailed_handler — zero on-the-fly, all from DB
+
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604110734`
+- **Changes:**
+  - Layer3Badge di CopyTradersTab — system mode, multiplier, reason
+  - Sidebar fix — desktop always visible, mobile drawer
+  - MainLayout simplified
+
+## ⚠️ PENDING (Updated 2026-04-11)
+1. Earnings page trader & analyst — tunggu keputusan bisnis
+2. Affiliate dashboard redesign dark theme
+3. Tools page — hapus calculator, pindah API Keys ke Settings
+4. Input broker account form — cursor lose focus tiap ketik (re-render issue)
+5. Layer3Badge di 5177 test — verify tampilan di production
+
+## 🔑 FRONTEND DEPLOY PROCEDURE (WAJIB)
+Setiap perubahan frontend HARUS ikuti urutan ini:
+1. Edit source di `/var/www/crunchalpha-frontend-v3-SRC/src/`
+2. `cd /var/www/crunchalpha-frontend-v3-SRC`
+3. `npm run build` — compile React ke dist/
+4. `docker build -t crunchalpha-frontend-v3:test-xxx .` — build image
+5. Test di port 5177
+6. Verify tampilan di browser
+7. `docker build -t crunchalpha-frontend-v3:prod-YYYYMMDDHHMM .`
+8. Deploy production
+9. `git add -A && git commit`
+
+⚠️ JANGAN skip `npm run build` — Docker COPY dist/, bukan src/
