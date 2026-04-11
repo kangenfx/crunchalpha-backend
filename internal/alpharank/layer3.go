@@ -105,7 +105,7 @@ func calculateBehaviorScore(metrics AccountMetrics) (float64, []string) {
 	score := 1.0
 	var reasons []string
 
-	if len(metrics.Trades) < 10 {
+	if len(metrics.Trades) < 40 {
 		return 1.0, nil
 	}
 
@@ -218,7 +218,7 @@ func calculateVolatilityScore(metrics AccountMetrics) (float64, []string, string
 	var reasons []string
 	regime := "NORMAL"
 
-	if len(metrics.Trades) < 10 {
+	if len(metrics.Trades) < 40 {
 		return 1.0, nil, regime
 	}
 
