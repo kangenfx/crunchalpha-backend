@@ -422,3 +422,15 @@ docker run -d --name crunchalpha-backend \
   - Layer 3 soft_reasons: investor-friendly language
   - detailed_handler: zero on-the-fly, all from DB
   - API: layer3.multiplier, status, reason, detail, system_mode, soft_reasons
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-11)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604110159`
+- **Changes:** fix SubRow Layer3 fields, earnings endpoint, duplicate account check
+
+## 📋 CHANGES 2026-04-11
+### Backend
+- fix: SubRow struct — tambah Layer3 fields (RiskLevel, Layer3Multiplier, Layer3Status, Layer3SystemMode, Layer3Reason)
+- feat: GET /api/trader/earnings — earnings summary + per-investor breakdown
+- fix: duplicate account_number check — block register akun yang sudah terdaftar user lain
