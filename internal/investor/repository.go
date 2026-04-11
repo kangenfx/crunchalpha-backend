@@ -62,6 +62,11 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 			COALESCE(ar.grade, 'N/A') as grade,
 			COALESCE(ar.critical_count, 0) as critical_count,
 		COALESCE(ar.major_count, 0) as major_count,
+			COALESCE(ar.risk_level, 'MEDIUM') as risk_level,
+			COALESCE(ar.layer3_multiplier, 1.0) as layer3_multiplier,
+			COALESCE(ar.layer3_status, 'NEUTRAL') as layer3_status,
+			COALESCE(ar.layer3_detail->>'system_mode', 'FULL_ACTIVE') as layer3_system_mode,
+			COALESCE(ar.layer3_reason, '') as layer3_reason,
 			ua.status
 		FROM user_allocations ua
 		LEFT JOIN trader_accounts ta ON ta.id = ua.trader_account_id

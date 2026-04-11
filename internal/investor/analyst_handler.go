@@ -375,7 +375,12 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 			cs.copy_sl, cs.copy_tp, cs.created_at::text,
 			COALESCE(u.name, ta.nickname, ta.account_number) as trader_name,
 			COALESCE(ta.broker,'') as broker, COALESCE(ta.platform::text,'') as platform,
-			COALESCE(ar.alpha_score,0) as alpha_score, COALESCE(ar.grade,'') as grade
+			COALESCE(ar.alpha_score,0) as alpha_score, COALESCE(ar.grade,'') as grade,
+			COALESCE(ar.risk_level,'MEDIUM') as risk_level,
+			COALESCE(ar.layer3_multiplier,1.0) as layer3_multiplier,
+			COALESCE(ar.layer3_status,'NEUTRAL') as layer3_status,
+			COALESCE(ar.layer3_detail->>'system_mode','FULL_ACTIVE') as layer3_system_mode,
+			COALESCE(ar.layer3_reason,'') as layer3_reason
 		FROM copy_subscriptions cs
 		LEFT JOIN trader_accounts ta ON ta.id = cs.provider_account_id
 		LEFT JOIN users u ON u.id = ta.user_id
