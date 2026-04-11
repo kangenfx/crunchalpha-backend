@@ -86,11 +86,24 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User updated"})
 }
 
+// logAudit writes an audit log entry
+func (h *UserHandler) logAudit(c *gin.Context, adminID, eventType, eventAction, targetID, note string) {
+	ip := c.ClientIP()
+	ua := c.Request.UserAgent()
+	meta := `{"target_id":"` + targetID + `","note":"` + note + `"}`
+	h.DB.Exec(`
+		INSERT INTO audit_logs (id, user_id, event_type, event_action, ip_address, user_agent, metadata, status, created_at)
+		VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, $5, $6::jsonb, 'success', NOW())
+	`, adminID, eventType, eventAction, ip, ua, meta)
+}
+
 // POST /api/admin/users/:id/verify — force verify email
 func (h *UserHandler) ForceVerifyEmail(c *gin.Context) {
 	id := c.Param("id")
 	_, err := h.DB.Exec(`UPDATE users SET email_verified=true, updated_at=NOW() WHERE id=$1`, id)
 	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
+	adminID, _ := c.Get("user_id")
+	h.logAudit(c, adminID.(string), "user", "force_verify_email", id, "")
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Email verified"})
 }
 
@@ -107,6 +120,8 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": "hash failed"}); return }
 	_, err = h.DB.Exec(`UPDATE users SET password_hash=$1, updated_at=NOW() WHERE id=$2`, string(hash), id)
 	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
+	adminID, _ := c.Get("user_id")
+	h.logAudit(c, adminID.(string), "user", "reset_password", id, "")
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Password reset"})
 }
 
@@ -123,6 +138,8 @@ func (h *UserHandler) SuspendUser(c *gin.Context) {
 	if req.Suspend { status = "suspended" }
 	_, err := h.DB.Exec(`UPDATE users SET status=$1, updated_at=NOW() WHERE id=$2`, status, id)
 	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
+	adminID, _ := c.Get("user_id")
+	h.logAudit(c, adminID.(string), "user", "suspend_user", id, status)
 	c.JSON(http.StatusOK, gin.H{"success": true, "status": status})
 }
 
@@ -143,6 +160,8 @@ func (h *UserHandler) ImpersonateUser(c *gin.Context) {
 		VALUES ($1, $2::uuid, NOW() + INTERVAL '15 minutes', NOW())
 	`, token, id)
 	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token: " + err.Error()}); return }
+	adminID, _ := c.Get("user_id")
+	h.logAudit(c, adminID.(string), "user", "impersonate", id, email)
 	c.JSON(http.StatusOK, gin.H{"success": true, "token": token, "email": email, "expires_in": "15 minutes"})
 }
 
@@ -150,6 +169,8 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 	_, err := h.DB.Exec(`DELETE FROM users WHERE id=$1`, id)
 	if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
+	adminID, _ := c.Get("user_id")
+	h.logAudit(c, adminID.(string), "user", "delete_user", id, "")
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted"})
 }
 

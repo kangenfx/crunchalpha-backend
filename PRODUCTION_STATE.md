@@ -388,3 +388,37 @@ docker run -d --name crunchalpha-backend \
 1. Earnings page trader & analyst — tunggu keputusan bisnis
 2. Filter admin dari affiliate list
 3. Tools page cleanup
+
+## 📋 CHANGES 2026-04-10
+### Layer 3 Elite System Intelligence
+- feat: layer3.go — 3 modul risk engine baru
+- feat: Modul 1 Behavior Shift — lot spike, win rate drop, SL skip, erratic sizing
+- feat: Modul 2 Market Regime — volatility proxy dari trade data, loss streak
+- feat: Modul 3 Adaptive DD Scaling — DD tiers + active flags penalty
+- feat: Final multiplier = M1 × M2 × M3, cap 0.30–1.00, zero on-the-fly
+- feat: Auto-apply ke copy lot di copy_trader_engine (baca dari DB)
+- db: alpha_ranks tambah layer3_multiplier, layer3_status, layer3_reason, layer3_detail, layer3_calculated_at
+- note: investor tidak bisa override Layer 3 — sistem proteksi final
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-10)
+### Backend:
+- **Image:** crunchalpha-v3:production-$(date +%Y%m%d%H%M)
+- **Changes:** Layer 3 Elite System Intelligence live
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-10 Layer3 Complete)
+### Backend:
+- **Image:** crunchalpha-v3:production-$(date +%Y%m%d%H%M)
+- **Changes:**
+  - Layer 3 system_mode: FULL_ACTIVE / MONITORING / DEFENSIVE / PROTECTED
+  - Layer 3 soft_reasons: investor-friendly language
+  - detailed_handler: zero on-the-fly, all from DB
+  - API: layer3.multiplier, status, reason, detail, system_mode, soft_reasons
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-10 Layer3 Complete)
+### Backend:
+- **Image:** crunchalpha-v3:production-$(date +%Y%m%d%H%M)
+- **Changes:**
+  - Layer 3 system_mode: FULL_ACTIVE / MONITORING / DEFENSIVE / PROTECTED
+  - Layer 3 soft_reasons: investor-friendly language
+  - detailed_handler: zero on-the-fly, all from DB
+  - API: layer3.multiplier, status, reason, detail, system_mode, soft_reasons

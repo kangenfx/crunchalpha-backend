@@ -114,7 +114,10 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		       COALESCE(ar.total_trades_all,0), COALESCE(ar.profit_factor,0),
 		       COALESCE(u.name, ta.nickname, ta.account_number) as trader_name,
 		       COALESCE(ar.risk_level,'MEDIUM') as risk_level,
-		       COALESCE(ta.about,'') as about
+		       COALESCE(ta.about,'') as about,
+                       COALESCE(ar.layer3_multiplier,1.0) as layer3_multiplier,
+                       COALESCE(ar.layer3_status,'NEUTRAL') as layer3_status,
+                       COALESCE(ar.layer3_reason,'') as layer3_reason
 		FROM alpha_ranks ar
 		JOIN trader_accounts ta ON ta.id = ar.account_id
 		LEFT JOIN users u ON u.id = ta.user_id
@@ -138,6 +141,9 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		WinRate      float64 `json:"winRate"`
 		MaxDD        float64 `json:"maxDD"`
 		ROI          float64 `json:"roi"`
+		Layer3Multiplier float64 `json:"layer3Multiplier"`
+		Layer3Status     string  `json:"layer3Status"`
+		Layer3Reason     string  `json:"layer3Reason"`
 		NetPnl       float64 `json:"netPnl"`
 		TotalTrades  int     `json:"totalTrades"`
 		ProfitFactor float64 `json:"profitFactor"`
@@ -150,7 +156,8 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		rows.Scan(&t.ID, &t.Nickname, &t.Broker, &t.Platform,
 			&t.AlphaScore, &t.Grade, &t.WinRate, &t.MaxDD,
 			&t.ROI, &t.NetPnl, &t.TotalTrades, &t.ProfitFactor,
-			&t.TraderName, &t.RiskLevel, &t.Strategy)
+			&t.TraderName, &t.RiskLevel, &t.Strategy,
+                    &t.Layer3Multiplier, &t.Layer3Status, &t.Layer3Reason)
 		traders = append(traders, t)
 	}
 	if traders == nil { traders = []TraderRow{} }
@@ -231,6 +238,9 @@ func (h *Handler) GetPublicTraderDetail(c *gin.Context) {
 		Scalability   float64
 		FlagsJSON     []byte
 		PillarsJSON   []byte
+                Layer3Multiplier float64
+                Layer3Status     string
+                Layer3Reason     string
 	}
 	h.service.db.QueryRow(`
 		SELECT alpha_score, grade, COALESCE(tier,''), win_rate, profit_factor,
@@ -240,7 +250,8 @@ func (h *Handler) GetPublicTraderDetail(c *gin.Context) {
 		       COALESCE(risk_reward,0), COALESCE(expectancy,0),
 		       COALESCE(roi,0), COALESCE(risk_level,'MEDIUM'),
 		       COALESCE(survivability_score,0), COALESCE(scalability_score,0),
-		       COALESCE(risk_flags,'[]'::jsonb), COALESCE(pillars,'[]'::jsonb)
+		       COALESCE(risk_flags,'[]'::jsonb), COALESCE(pillars,'[]'::jsonb),
+                       COALESCE(layer3_multiplier,1.0), COALESCE(layer3_status,'NEUTRAL'), COALESCE(layer3_reason,'')
 		FROM alpha_ranks WHERE account_id=$1::uuid AND symbol='ALL'
 	`, accountID).Scan(
 		&allStats.AlphaScore, &allStats.Grade, &allStats.Tier,
@@ -252,6 +263,7 @@ func (h *Handler) GetPublicTraderDetail(c *gin.Context) {
 		&allStats.Roi, &allStats.RiskLevel,
 		&allStats.Survivability, &allStats.Scalability,
 		&allStats.FlagsJSON, &allStats.PillarsJSON,
+                &allStats.Layer3Multiplier, &allStats.Layer3Status, &allStats.Layer3Reason,
 	)
 
 	// Parse flags - tampilkan
@@ -295,6 +307,9 @@ func (h *Handler) GetPublicTraderDetail(c *gin.Context) {
 		"expectancy":    allStats.Expectancy,
 		"roi":           allStats.Roi,
 		"riskLevel":     allStats.RiskLevel,
+                "layer3Multiplier": allStats.Layer3Multiplier,
+                "layer3Status":     allStats.Layer3Status,
+                "layer3Reason":     allStats.Layer3Reason,
 		"survivability": allStats.Survivability,
 		"scalability":   allStats.Scalability,
 		"flags":         flags,
