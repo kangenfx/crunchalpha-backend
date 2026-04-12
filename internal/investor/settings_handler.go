@@ -3,6 +3,7 @@ package investor
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -51,7 +52,7 @@ func (h *Handler) GetSettings(c *gin.Context) {
 		FROM investor_settings WHERE investor_id=$1::uuid`, uid).Scan(
 		&s.CopySignalEnabled, &s.SignalLotSize, &s.SignalMaxLot, &s.SignalRiskPct, &s.SignalLotMode,
 		&s.CopyTraderEnabled, &s.TraderLotSize, &s.TraderMaxLot, &s.TraderRiskPct, &s.TraderLotMode,
-		&s.MaxDailyLossPct, &s.MaxOpenTrades, &s.Mt5Account, &s.EaKey, &s.RiskLevel, &s.InvestorEquity, &updatedAt)
+		&s.MaxDailyLossPct, &s.MaxOpenTrades, &s.Mt5Account, &s.EaKey, &s.RiskLevel, &updatedAt)
 
 	if err != nil {
 		// Return defaults if not found
@@ -90,6 +91,11 @@ func (h *Handler) SaveSettings(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"ok": false, "error": "invalid request"}); return
 	}
+	if req.RiskLevel != nil {
+		log.Printf("[Settings] riskLevel: %s", *req.RiskLevel)
+	} else {
+		log.Printf("[Settings] riskLevel: nil")
+	}
 
 	_, err := h.service.repo.DB.Exec(`
 		INSERT INTO investor_settings
@@ -114,6 +120,7 @@ func (h *Handler) SaveSettings(c *gin.Context) {
 			max_daily_loss_pct  = COALESCE($10, investor_settings.max_daily_loss_pct),
 			max_open_trades     = COALESCE($11, investor_settings.max_open_trades),
 			mt5_account         = COALESCE($12, investor_settings.mt5_account),
+			risk_level          = COALESCE($15, investor_settings.risk_level),
 			updated_at          = now()`,
 		uid, req.CopySignalEnabled, req.SignalLotSize, req.SignalMaxLot, req.SignalRiskPct,
 		req.CopyTraderEnabled, req.TraderLotSize, req.TraderMaxLot, req.TraderRiskPct,
