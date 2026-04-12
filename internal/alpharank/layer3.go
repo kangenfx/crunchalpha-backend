@@ -208,6 +208,11 @@ func calculateBehaviorScore(metrics AccountMetrics) (float64, []string) {
 	if score > 1.0 {
 		score = 1.0
 	}
+	// Guard: kalau DD < 10%, behavior min 0.75 (trader konservatif)
+	if metrics.MaxDrawdownPct < 10 && score < 0.75 {
+		score = 0.75
+		reasons = append(reasons, "Low DD — behavior floor applied")
+	}
 	return math.Round(score*10000) / 10000, reasons
 }
 

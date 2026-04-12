@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"time"
 )
@@ -603,6 +604,8 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 // buildMetricsForSymbol - same as buildMetrics but DD only calculated for specific symbol
 // Uses ALL trades for accurate running balance, but only counts DD for target symbol
 func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades []TradeData, allTrades []TradeData, balance, equity, totalDeposits, totalWithdrawals float64) AccountMetrics {
+	// DEBUG
+	log.Printf("[DD-DEBUG] symbol=%s allTrades=%d symbolTrades=%d totalDeposits=%.2f", symbol, len(allTrades), len(symbolTrades), totalDeposits)
 	// Calculate symbol-specific stats from symbolTrades only
 	var grossProfit, grossLoss float64
 	var winningTrades, losingTrades int
@@ -687,7 +690,7 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 	// Loop events - DD only for target symbol loss
 	runningBalance := initialDeposit
 	maxDD := 0.0
-	peakBalance := 0.0
+	peakBalance := initialDeposit // init dari initialDeposit, bukan 0
 
 	for _, event := range events {
 		switch event.EventType {
@@ -699,27 +702,20 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 		case "withdrawal":
 			runningBalance -= event.Amount
 		case "trade":
-			// Only calculate DD for target symbol loss
-			if event.Symbol == symbol && event.Amount < 0 && runningBalance > 0 {
-				dd := (math.Abs(event.Amount) / runningBalance) * 100
-				if dd > maxDD {
-					maxDD = dd
-				}
-			}
 			runningBalance += event.Amount
 			if runningBalance > peakBalance {
 				peakBalance = runningBalance
 			}
+			// DD per-pair: pakai peak global, hitung setiap saat (bukan hanya saat symbol match)
+			if peakBalance > 0 && runningBalance < peakBalance {
+				dd := (peakBalance - runningBalance) / peakBalance * 100
+				if dd > maxDD {
+					maxDD = dd
+				}
+			}
 		}
 	}
-
-	// DD opsi 3: abs(total closed net P&L) / totalDeposit (handle MC/martingale)
-	if totalDeposits > 0 && totalProfit < 0 {
-		dd3 := math.Abs(totalProfit) / totalDeposits * 100
-		if dd3 > maxDD {
-			maxDD = dd3
-		}
-	}
+	log.Printf("[DD-DEBUG] symbol=%s initialDeposit=%.2f peakBalance=%.2f maxDD=%.2f", symbol, initialDeposit, peakBalance, maxDD)
 	// DD opsi 2: Floating DD = abs(equity drop) / balance per-pair = abs(floating_profit_pair) / balance
 	// Konsisten untuk 1 pair maupun multi-pair (proporsional dari balance)
 	var symbolFloatingProfit float64
