@@ -488,3 +488,25 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 9. `git add -A && git commit`
 
 ⚠️ JANGAN skip `npm run build` — Docker COPY dist/, bukan src/
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-12)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604121232`
+- **Changes:**
+  - Layer 3 behavior guard: DD < 10% → behavior floor 0.75
+  - Layer 3 threshold: min 40 trades untuk behavior & volatility check
+  - Layer 3 false positive fixed: trader bagus tidak ter-reduce
+  - Recalculate semua akun aktif — hasil valid
+
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604110833`
+- **Changes:** Layer3Badge live di CopyTradersTab
+
+## ⚠️ PENDING (Updated 2026-04-12)
+1. Earnings page trader & analyst — tunggu keputusan bisnis
+2. Affiliate dashboard redesign dark theme
+3. Tools page — hapus calculator, pindah API Keys ke Settings
+4. Input broker account form — cursor lose focus tiap ketik (re-render issue)
+5. Layer 3 — recalculate otomatis periodik (sekarang hanya saat EA push)
