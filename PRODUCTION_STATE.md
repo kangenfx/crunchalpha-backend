@@ -554,3 +554,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - InvestorDashboard tab bar scrollable, grid 1fr 1fr → auto-fit
   - AnalystDashboard tab bar scrollable
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-12 v16)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-mobile-v16`
+- **Changes:**
+  - Hapus semua emoji dari 24 files — no emoji policy enforced
+  - Investor settings risk level buttons flex-wrap mobile
+  - Investor & analyst tab bar scrollable
+  - Copy traders card stats flex-wrap
