@@ -415,5 +415,30 @@ func main() {
                 }
         }()
 
+        // Background job: recalculate Layer 3 setiap 6 jam
+        go func() {
+                ticker := time.NewTicker(6 * time.Hour)
+                defer ticker.Stop()
+                for range ticker.C {
+                        rows, err := db.Query(`SELECT id::text FROM trader_accounts WHERE status='active'`)
+                        if err != nil {
+                                log.Printf("[Layer3Cron] query error: %v", err)
+                                continue
+                        }
+                        count := 0
+                        for rows.Next() {
+                                var accountID string
+                                if err := rows.Scan(&accountID); err != nil {
+                                        continue
+                                }
+                                if err := alpharankService.CalculateForAccount(accountID); err == nil {
+                                        count++
+                                }
+                        }
+                        rows.Close()
+                        log.Printf("[Layer3Cron] Recalculated %d accounts", count)
+                }
+        }()
+
         r.Run(":8090")
 }
