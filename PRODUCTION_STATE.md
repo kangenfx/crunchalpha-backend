@@ -573,3 +573,25 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - AnalystDashboard signal sets table scrollable mobile
   - Header buttons flex-wrap
   - Remove remaining emoji
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-12 16:30)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604121339`
+- **Changes:**
+  - fix: per-pair DD — peak-to-trough (Layer1) + equity vs peak (Layer2) + floating per symbol (Layer2b)
+  - fix: per-pair peakBalance init dari initialDeposit bukan 0
+  - fix: per-pair DD pakai peak global bukan per-symbol
+  - debug log DD-DEBUG ditambah sementara
+  - DB: alpha_ranks per-pair max_drawdown_pct direset (one-time fix formula lama)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-mobile-v18`
+- **Changes:** Mobile responsive fixes — analyst/investor dashboard, no emoji
+
+## ⚠️ PENDING (Updated 2026-04-12)
+1. Earnings page trader & analyst — tunggu keputusan bisnis
+2. Filter admin dari affiliate list
+3. API Keys management di tab Accounts trader dashboard
+4. Hapus DD-DEBUG log setelah per-pair DD verified benar
+5. EA MT4 verify — reset GlobalVariable LastTicket
