@@ -510,3 +510,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 3. Tools page — hapus calculator, pindah API Keys ke Settings
 4. Input broker account form — cursor lose focus tiap ketik (re-render issue)
 5. Layer 3 — recalculate otomatis periodik (sekarang hanya saat EA push)
+
+## 📋 CHANGES 2026-04-12 (Layer 3 Cron)
+### Backend - Layer 3 Periodic Recalculate
+- feat: cron goroutine setiap 6 jam — recalculate Layer 3 semua akun aktif
+- Layer 3 tidak lagi hanya update saat EA push
+- Log: [Layer3Cron] Recalculated N accounts
+- Image: crunchalpha-v3:production-202604121300 (sesuai timestamp)
