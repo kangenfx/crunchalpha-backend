@@ -517,3 +517,15 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - Layer 3 tidak lagi hanya update saat EA push
 - Log: [Layer3Cron] Recalculated N accounts
 - Image: crunchalpha-v3:production-202604121300 (sesuai timestamp)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-12)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-mobile-v9`
+- **Port:** 5176 (internal), via nginx https
+- **Changes:**
+  - Mobile sidebar drawer — hamburger menu, slide dari kiri, overlay close
+  - Sign out button di dalam sidebar nav
+  - Landing page clean colors — problem/solution section no colored background
+  - Topbar mobile — CrunchAlpha brand + hamburger
+  - CSS mobile fix — app-sidebar drawer pattern
