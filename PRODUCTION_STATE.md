@@ -564,3 +564,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - Investor settings risk level buttons flex-wrap mobile
   - Investor & analyst tab bar scrollable
   - Copy traders card stats flex-wrap
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-12 v17)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-mobile-v17`
+- **Changes:**
+  - AnalystDashboard signal sets table scrollable mobile
+  - Header buttons flex-wrap
+  - Remove remaining emoji
