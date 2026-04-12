@@ -537,3 +537,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - Dashboard grids responsive — auto-fit minmax, no horizontal overflow
   - TraderDashboard, InvestorDashboard, AnalystDashboard all fixed
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-12 final)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-mobile-v11`
+- **Changes:**
+  - TraderDashboard tab bar scrollable di mobile
+  - Header flex-wrap — account selector tidak overflow
+  - Dashboard grids semua responsive auto-fit
