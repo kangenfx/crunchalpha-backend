@@ -529,3 +529,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - Landing page clean colors — problem/solution section no colored background
   - Topbar mobile — CrunchAlpha brand + hamburger
   - CSS mobile fix — app-sidebar drawer pattern
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-12 late)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-mobile-v10`
+- **Changes:**
+  - Dashboard grids responsive — auto-fit minmax, no horizontal overflow
+  - TraderDashboard, InvestorDashboard, AnalystDashboard all fixed
