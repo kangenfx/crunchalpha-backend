@@ -274,6 +274,12 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 			if runningBalance < peakBalance {
 				peakBalance = runningBalance
 			}
+			// Kalau runningBalance negatif (WD lebih besar dari balance saat itu)
+			// ini berarti data sync tidak real-time — set peak ke 0, biarkan trades rebuild peak
+			if peakBalance < 0 {
+				peakBalance = 0
+				runningBalance = 0
+			}
 		case "trade":
 			runningBalance += event.Amount
 			if runningBalance > peakBalance {
@@ -287,9 +293,12 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		}
 	}
 
-	// ── DD Layer 2: Equity vs peak (floating loss saat ini) ──────────
-	if peakBalance > 0 && equity < peakBalance {
-		ddEquity := (peakBalance - equity) / peakBalance * 100
+	// ── DD Layer 2: Normalized equity vs peak ───────────────────────
+	// normalizedEquity = equity + totalWithdrawals
+	// Handle kasus trader withdraw semua — DD tidak inflate ke 99%
+	normalizedEquity := equity + totalWithdrawals
+	if peakBalance > 0 && normalizedEquity < peakBalance {
+		ddEquity := (peakBalance - normalizedEquity) / peakBalance * 100
 		if ddEquity > maxDD {
 			maxDD = ddEquity
 		}
@@ -716,13 +725,14 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 		}
 	}
 	log.Printf("[DD-DEBUG] symbol=%s initialDeposit=%.2f peakBalance=%.2f maxDD=%.2f equity=%.2f", symbol, initialDeposit, peakBalance, maxDD, equity)
-	// Layer 2: equity vs peak — pakai peakBalance yang sudah dihitung
-	if peakBalance > 0 && equity < peakBalance {
-		ddEquity := (peakBalance - equity) / peakBalance * 100
+	// Layer 2: normalized equity vs peak
+	normalizedEquity := equity + totalWithdrawals
+	if peakBalance > 0 && normalizedEquity < peakBalance {
+		ddEquity := (peakBalance - normalizedEquity) / peakBalance * 100
 		if ddEquity > maxDD {
 			maxDD = ddEquity
 		}
-		log.Printf("[DD-DEBUG] Layer2 symbol=%s equity=%.2f peak=%.2f ddEquity=%.2f", symbol, equity, peakBalance, ddEquity)
+		log.Printf("[DD-DEBUG] Layer2 symbol=%s normEquity=%.2f peak=%.2f ddEquity=%.2f", symbol, normalizedEquity, peakBalance, ddEquity)
 	}
 	// Layer 2b: floating per symbol
 	var symbolFloatingProfit float64
