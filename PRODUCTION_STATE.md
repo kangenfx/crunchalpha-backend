@@ -639,3 +639,19 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Image:** `crunchalpha-frontend-v3:prod-202604130523`
 - **Changes:**
   - Landing page desktop nav — Sign out muncul saat sudah login
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-13 08:30)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604130829`
+- **Changes:**
+  - fix: SaveTrade hapus WHERE status constraint — sl/tp/min_equity bisa update di closed trades
+  - fix: MT4 EA v3.0 always full sync on init (reset LastTicket=0)
+  - DD-DEBUG log masih aktif (hapus setelah verified)
+
+## ⚠️ PENDING (Updated 2026-04-13)
+1. Earnings page — tunggu keputusan bisnis
+2. Filter admin dari affiliate list
+3. API Keys di tab Accounts trader dashboard
+4. Hapus DD-DEBUG log setelah verified
+5. Currency cent normalization (akun cent tampil dalam USD)
