@@ -624,3 +624,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - Analyst summary tab grid responsive — 1fr 320px → auto-fit minmax(280px)
   - AlphaScore banner flex-wrap mobile
   - Signal sets table scrollable
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-13 05:13)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604130513`
+- **Changes:**
+  - Hamburger menu hidden di desktop, muncul hanya di mobile
+  - X button sidebar hidden di desktop
