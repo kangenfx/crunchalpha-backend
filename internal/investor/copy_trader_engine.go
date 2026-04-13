@@ -99,7 +99,9 @@ func (e *CopyTraderEngine) generateCopyEvent(
 	calculatedLot = calculatedLot * layer3Multiplier
 	calculatedLot = math.Floor(calculatedLot*100) / 100
 	if calculatedLot < 0.01 {
-		calculatedLot = 0.01
+		// Reject — jangan naikan ke minimum, itu berbahaya (lot tidak proporsional)
+		log.Printf("[CopyEngine] Lot too small (%.4f) for investor %s — skipping", calculatedLot, investorID)
+		return
 	}
 	reason := e.checkRejection(investorID, calculatedLot, investorEquity, maxPositions, maxDailyLossPct)
 	status := "PENDING"

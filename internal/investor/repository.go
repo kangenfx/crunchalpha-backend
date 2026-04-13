@@ -50,6 +50,7 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 	query := `
 		SELECT
 			ua.trader_account_id,
+			COALESCE(u.name, ta.nickname, ta.account_number, '') as trader_name,
 			COALESCE(ta.account_number, '') as account_number,
 			COALESCE(ta.broker, '') as broker,
 			COALESCE(ta.platform::text, '') as platform,
@@ -70,6 +71,7 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 			ua.status
 		FROM user_allocations ua
 		LEFT JOIN trader_accounts ta ON ta.id = ua.trader_account_id
+		LEFT JOIN users u ON u.id = ta.user_id
 		LEFT JOIN alpha_ranks ar ON ar.account_id = ua.trader_account_id
 			AND ar.symbol = 'ALL'
 		WHERE ua.user_id = $1 AND ua.status = 'ACTIVE'
@@ -88,6 +90,7 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 			var majorCount int
 		err := rows.Scan(
 			&alloc.TraderAccountID,
+			&alloc.TraderName,
 			&alloc.TraderAccountNumber,
 			&alloc.Broker,
 			&alloc.Platform,

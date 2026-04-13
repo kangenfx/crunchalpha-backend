@@ -12,6 +12,7 @@ type UserInfo struct {
 // AllocationWithTraderInfo - allocation with real trader data from DB
 type AllocationWithTraderInfo struct {
 	TraderAccountID     string  `json:"trader_account_id"`
+	TraderName          string  `json:"name"`
 	TraderAccountNumber string  `json:"trader_account_number"`
 	Broker              string  `json:"broker"`
 	Platform            string  `json:"platform"`
