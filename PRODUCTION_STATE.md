@@ -595,3 +595,23 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 3. API Keys management di tab Accounts trader dashboard
 4. Hapus DD-DEBUG log setelah per-pair DD verified benar
 5. EA MT4 verify — reset GlobalVariable LastTicket
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-13)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604121656`
+- **Changes:**
+  - fix: DD Layer2 normalized equity = equity + totalWithdrawals
+  - fix: withdrawal reset peak, guard peakBalance < 0
+  - fix: per-pair DD = global DD untuk single-pair account
+  - verified: SarMt5 DD 3.8%, GoldCentrum per-pair 48.13%
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-mobile-v18`
+
+## ⚠️ PENDING (Updated 2026-04-13)
+1. Earnings page trader & analyst — tunggu keputusan bisnis
+2. Filter admin dari affiliate list
+3. API Keys management di tab Accounts trader dashboard
+4. Hapus DD-DEBUG log dari service.go setelah verified
+5. EA MT4 verify data masuk DB
