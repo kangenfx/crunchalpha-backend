@@ -655,3 +655,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 3. API Keys di tab Accounts trader dashboard
 4. Hapus DD-DEBUG log setelah verified
 5. Currency cent normalization (akun cent tampil dalam USD)
+
+## 📋 EA STATUS FINAL (2026-04-13)
+- EA MT5 Publisher v3.1: HTTP Direct, SL/TP from cache, min_equity tracking ✅
+- EA MT4 Publisher v3.0: HTTP Direct, SL/TP, min_equity tracking ✅
+- Verified: sl/tp/min_equity masuk DB saat trade close
+- DD Layer3 (min_equity) aktif untuk trade baru ke depan
