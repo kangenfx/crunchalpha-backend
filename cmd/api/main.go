@@ -164,6 +164,7 @@ func main() {
                 traderRoutes.GET("/weekly-performance", traderHandler.GetWeeklyPerformance)
 			traderRoutes.GET("/account-summary", traderHandler.GetAccountSummary)
 			traderRoutes.GET("/my-followers", traderHandler.GetMyFollowers)
+                traderRoutes.GET("/fee-earnings", investorHandler.GetTraderFeeEarnings)
                 traderRoutes.DELETE("/accounts/:account_id", traderHandler.DeleteAccountHandler)
 		// Recalculate all accounts for current user
 		traderRoutes.POST("/recalculate-all", func(c *gin.Context) {
@@ -305,6 +306,8 @@ func main() {
 		investorRoutes.POST("/settings", investorHandler.SaveSettings)
 		investorRoutes.POST("/settings/generate-key", investorHandler.GenerateEAKey)
 		investorRoutes.GET("/copy-trade-history", investorHandler.GetCopyTradeHistory)
+                investorRoutes.GET("/fee-status", investorHandler.GetFeeStatus)
+                investorRoutes.GET("/invoices", investorHandler.GetInvoices)
 		investorRoutes.GET("/ea-keys", investorHandler.GetEAKeys)
 		investorRoutes.POST("/ea-keys", investorHandler.GenerateEAKeyForAccount)
 		investorRoutes.DELETE("/ea-keys/:id", investorHandler.DeleteEAKey)
@@ -382,6 +385,7 @@ func main() {
 		adminRoutes.GET("/config/docs", adminConfigHandler.GetDocs)
 		adminRoutes.GET("/fee-simulation", adminFeeCalc.SimulateFees)
 		adminRoutes.GET("/fee-simulation/all", adminFeeCalc.SimulateAllAccounts)
+                adminRoutes.POST("/invoices/:id/mark-paid", investorHandler.AdminMarkInvoicePaid)
 		adminRoutes.PUT("/trading-accounts/:id/ib-status", adminFeeCalc.UpdateIBStatus)
 	}
 
@@ -406,6 +410,22 @@ func main() {
         log.Println("📊 AlphaRank™ Engine: ACTIVE")
         log.Println("🗄️  Database: Connected")
         log.Println("💼 Investor Module: ACTIVE")
+        // Background job: fee engine — check overdue & monthly close
+        go func() {
+                feeEngine := investor.NewFeeEngine(db)
+                ticker := time.NewTicker(1 * time.Hour)
+                defer ticker.Stop()
+                for range ticker.C {
+                        // Apply overdue restrictions
+                        feeEngine.ApplyOverdueRestrictions()
+                        // Monthly close on day 1
+                        now := time.Now()
+                        if now.Day() == 1 && now.Hour() == 0 {
+                                feeEngine.MonthlyClosePeriods()
+                        }
+                }
+        }()
+
         // Background job: update connection_status setiap 5 menit
         go func() {
                 ticker := time.NewTicker(5 * time.Minute)

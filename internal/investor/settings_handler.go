@@ -189,3 +189,81 @@ func hashEAKey(k string) string {
 	_ = import_sha
 	return k // store plaintext for now, hash later
 }
+
+// AutoAllocate — hitung dan save allocation berdasarkan AlphaScore trader
+func (h *Handler) AutoAllocate(c *gin.Context) {
+uid, ok := getUID(c)
+if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+
+// Get semua active subscriptions investor
+rows, err := h.service.repo.DB.Query(`
+SELECT cs.provider_account_id::text, COALESCE(ar.alpha_score, 0) as alpha_score
+FROM copy_subscriptions cs
+LEFT JOIN alpha_ranks ar ON ar.account_id = cs.provider_account_id AND ar.symbol = 'ALL'
+LEFT JOIN trader_accounts ta ON ta.id = cs.provider_account_id
+WHERE ta.user_id != $1::uuid
+AND cs.follower_account_id IN (
+SELECT id FROM trader_accounts WHERE user_id = $1::uuid AND status = 'active'
+)
+AND cs.status = 'ACTIVE'
+`, uid)
+if err != nil { c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return }
+defer rows.Close()
+
+type TraderAlloc struct {
+TraderID   string
+AlphaScore float64
+}
+var traders []TraderAlloc
+totalScore := 0.0
+for rows.Next() {
+var t TraderAlloc
+rows.Scan(&t.TraderID, &t.AlphaScore)
+if t.AlphaScore <= 0 { t.AlphaScore = 1.0 } // min score 1
+traders = append(traders, t)
+totalScore += t.AlphaScore
+}
+
+if len(traders) == 0 {
+c.JSON(200, gin.H{"ok": false, "error": "No active traders to allocate"})
+return
+}
+
+// Hitung % per trader berdasarkan AlphaScore
+// Round ke integer, pastikan total = 100
+allocations := make([]map[string]interface{}, 0)
+remaining := 100
+for i, t := range traders {
+var pct int
+if i == len(traders)-1 {
+pct = remaining // last trader gets remainder
+} else {
+pct = int(t.AlphaScore / totalScore * 100)
+if pct < 1 { pct = 1 }
+}
+remaining -= pct
+allocations = append(allocations, map[string]interface{}{
+"trader_account_id": t.TraderID,
+"pct":               pct,
+"alpha_score":       t.AlphaScore,
+})
+}
+
+// Save ke DB
+for _, a := range allocations {
+h.service.repo.DB.Exec(`
+INSERT INTO user_allocations (user_id, trader_account_id, allocation_mode, allocation_value, status, updated_at)
+VALUES ($1::uuid, $2::uuid, 'PERCENT', $3, 'ACTIVE', NOW())
+ON CONFLICT (user_id, trader_account_id)
+DO UPDATE SET allocation_value = $3, updated_at = NOW()
+`, uid, a["trader_account_id"], a["pct"])
+}
+
+// Save allocation_mode = AUTO di settings
+h.service.repo.DB.Exec(`
+UPDATE investor_settings SET allocation_mode = 'AUTO', updated_at = NOW()
+WHERE investor_id = $1::uuid
+`, uid)
+
+c.JSON(200, gin.H{"ok": true, "allocations": allocations, "message": "Auto allocation applied"})
+}

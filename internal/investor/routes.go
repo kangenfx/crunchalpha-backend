@@ -15,6 +15,7 @@ func RegisterRoutes(r *gin.RouterGroup, db *sql.DB) {
 	r.GET("/portfolio", handler.GetPortfolio)
 	r.GET("/allocations", handler.GetAllocations)
 	r.POST("/allocations", handler.SetAllocation)
+	r.POST("/auto-allocate", handler.AutoAllocate)
 	r.POST("/subscribe", handler.Subscribe)
 	r.GET("/subscriptions", handler.GetSubscriptions)
 	r.GET("/traders", handler.GetTraderList)

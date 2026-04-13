@@ -57,7 +57,6 @@ func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 			tp             = EXCLUDED.tp,
 			min_equity     = CASE WHEN EXCLUDED.min_equity > 0 THEN EXCLUDED.min_equity ELSE trades.min_equity END,
 			equity_at_open = CASE WHEN EXCLUDED.equity_at_open > 0 THEN EXCLUDED.equity_at_open ELSE trades.equity_at_open END
-		WHERE trades.status != 'closed' OR EXCLUDED.status = 'open'
 	`
 
 	var closeTime int64
