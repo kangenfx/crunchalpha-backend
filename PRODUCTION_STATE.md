@@ -615,3 +615,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 3. API Keys management di tab Accounts trader dashboard
 4. Hapus DD-DEBUG log dari service.go setelah verified
 5. EA MT4 verify data masuk DB
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-13 05:05)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604130505`
+- **Changes:**
+  - Analyst summary tab grid responsive — 1fr 320px → auto-fit minmax(280px)
+  - AlphaScore banner flex-wrap mobile
+  - Signal sets table scrollable
