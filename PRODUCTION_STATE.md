@@ -632,3 +632,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - Hamburger menu hidden di desktop, muncul hanya di mobile
   - X button sidebar hidden di desktop
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-13 05:23)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604130523`
+- **Changes:**
+  - Landing page desktop nav — Sign out muncul saat sudah login
