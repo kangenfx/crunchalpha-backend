@@ -160,6 +160,8 @@ func main() {
                 traderRoutes.GET("/alpharank-perpair", traderHandler.GetAlphaRankPerPair)
                 traderRoutes.GET("/trades", traderHandler.GetTrades)
 			traderRoutes.GET("/earnings", traderHandler.GetEarnings)
+                    traderRoutes.POST("/earnings/withdraw", traderHandler.RequestWithdraw)
+                    traderRoutes.GET("/earnings/withdrawals", traderHandler.GetWithdrawals)
                 traderRoutes.GET("/monthly-performance", traderHandler.GetMonthlyPerformance)
                 traderRoutes.GET("/weekly-performance", traderHandler.GetWeeklyPerformance)
 			traderRoutes.GET("/account-summary", traderHandler.GetAccountSummary)
@@ -329,6 +331,9 @@ func main() {
 	{
 		analystRoutes.GET("/dashboard", analystHandler.Dashboard)
 		analystRoutes.GET("/signal-sets", analystHandler.ListSignalSets)
+        analystRoutes.GET("/earnings", analystHandler.GetEarnings)
+        analystRoutes.POST("/earnings/withdraw", analystHandler.RequestWithdraw)
+        analystRoutes.GET("/earnings/withdrawals", analystHandler.GetWithdrawals)
 		analystRoutes.POST("/signal-sets", analystHandler.CreateSignalSet)
 		analystRoutes.GET("/signals", analystHandler.ListSignals)
 		analystRoutes.POST("/signals", analystHandler.CreateSignal)
