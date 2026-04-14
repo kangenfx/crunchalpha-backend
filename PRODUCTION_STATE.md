@@ -680,3 +680,21 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - SMTP_USER=resend
 - SMTP_FROM=noreply@crunchalpha.com
 - SMTP_PASS=re_CXt3D9BE_47scGRGR2DD84WWdayHo6Ksb
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-14)
+### Backend:
+- **Image:** crunchalpha-v3:production-202604140437
+- **Changes:**
+  - feat: POST /api/investor/auto-allocate — AlphaScore-based proportional allocation
+  - fix: route registered in main.go
+  - fix: copy engine reject lot < 0.01 — prevents disproportionate position
+  - fix: settings GET scan mismatch — risk_level now saved & read correctly
+  - feat: trader name exposed in allocation API
+
+### Frontend:
+- **Image:** crunchalpha-frontend-v3:prod-202604140500
+- **Changes:**
+  - feat: Auto/Manual allocation toggle di CopyTradersTab
+  - fix: allocation save validation > 100%
+  - fix: progress bar hijau di bawah slider — dihapus
+  - fix: analyst dashboard missing closing div
