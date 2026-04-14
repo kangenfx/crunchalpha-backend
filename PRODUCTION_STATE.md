@@ -698,3 +698,19 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: allocation save validation > 100%
   - fix: progress bar hijau di bawah slider — dihapus
   - fix: analyst dashboard missing closing div
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-14)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604140637`
+- **Changes:** Earnings dashboard — trader & analyst earnings endpoint, withdraw request, monthly chart, DB table earnings_withdrawals
+
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604140640`
+- **Changes:** TraderEarnings & AnalystEarnings — real API (no dummy), withdraw form, monthly chart, per-investor/subscriber table, withdrawal history
+
+## ⚠️ PENDING (Updated 2026-04-14)
+1. Earnings page — admin panel untuk approve/reject withdrawal request
+2. Affiliate dashboard redesign dark theme
+3. Tools page — pindah API Keys ke Settings tab
