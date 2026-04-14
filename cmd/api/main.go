@@ -275,6 +275,7 @@ func main() {
                 investorRoutes.GET("/portfolio", investorHandler.GetPortfolio)
                 investorRoutes.GET("/allocations", investorHandler.GetAllocations)
                 investorRoutes.POST("/allocations", investorHandler.SetAllocation)
+                investorRoutes.POST("/auto-allocate", investorHandler.AutoAllocate)
                 investorRoutes.POST("/subscribe", investorHandler.Subscribe)
                 investorRoutes.GET("/subscriptions", investorHandler.GetSubscriptions)
 		investorRoutes.GET("/traders", investorHandler.GetTraderList)

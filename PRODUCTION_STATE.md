@@ -667,3 +667,16 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - EA MT4 Publisher v3.0: HTTP Direct, SL/TP, min_equity tracking ✅
 - Verified: sl/tp/min_equity masuk DB saat trade close
 - DD Layer3 (min_equity) aktif untuk trade baru ke depan
+
+## 🔑 BACKEND ENV (WAJIB SAAT DOCKER RUN)
+- DB_HOST=crunchalpha-postgres
+- DB_USER=alpha_user
+- DB_PASSWORD=alpha_password
+- DB_NAME=crunchalpha
+- RESEND_API_KEY=re_CXt3D9BE_47scGRGR2DD84WWdayHo6Ksb
+- EMAIL_MODE=smtp
+- SMTP_HOST=smtp.resend.com
+- SMTP_PORT=465
+- SMTP_USER=resend
+- SMTP_FROM=noreply@crunchalpha.com
+- SMTP_PASS=re_CXt3D9BE_47scGRGR2DD84WWdayHo6Ksb
