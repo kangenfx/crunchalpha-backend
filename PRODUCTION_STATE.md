@@ -714,3 +714,29 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 1. Earnings page — admin panel untuk approve/reject withdrawal request
 2. Affiliate dashboard redesign dark theme
 3. Tools page — pindah API Keys ke Settings tab
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-15)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-tools`
+- **Port:** 5176 (internal), via nginx https
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604151350`
+- **Changes:** DD formula revision
+
+## 📋 CHANGES 2026-04-15
+### Frontend
+- feat: Tools page redesign — tab layout, EA setup collapsible, Accounts tab
+### Backend
+- fix: DD formula revision — production-202604151350
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-15)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604151350`
+- **Fix:** analyst-subscriptions API return alphaScore & alphaGrade
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150913`
+- **Changes:** Copy Analyst parity — alphaScore, AUM, Smart Insights sama dengan Copy Traders tab
