@@ -56,7 +56,8 @@ func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 			sl             = EXCLUDED.sl,
 			tp             = EXCLUDED.tp,
 			min_equity     = CASE WHEN EXCLUDED.min_equity > 0 THEN EXCLUDED.min_equity ELSE trades.min_equity END,
-			equity_at_open = CASE WHEN EXCLUDED.equity_at_open > 0 THEN EXCLUDED.equity_at_open ELSE trades.equity_at_open END
+			equity_at_open = CASE WHEN EXCLUDED.equity_at_open > 0 THEN EXCLUDED.equity_at_open ELSE trades.equity_at_open END,
+				open_time = CASE WHEN EXCLUDED.open_time > '2000-01-01' THEN EXCLUDED.open_time ELSE trades.open_time END
 	`
 
 	var closeTime int64
@@ -98,7 +99,8 @@ func (r *Repository) SyncTrade(accountID string, trade *TradeData) error {
 				sl             = EXCLUDED.sl,
 				tp             = EXCLUDED.tp,
 				min_equity     = CASE WHEN EXCLUDED.min_equity > 0 THEN EXCLUDED.min_equity ELSE trades.min_equity END,
-				equity_at_open = CASE WHEN EXCLUDED.equity_at_open > 0 THEN EXCLUDED.equity_at_open ELSE trades.equity_at_open END
+				equity_at_open = CASE WHEN EXCLUDED.equity_at_open > 0 THEN EXCLUDED.equity_at_open ELSE trades.equity_at_open END,
+				open_time = CASE WHEN EXCLUDED.open_time > '2000-01-01' THEN EXCLUDED.open_time ELSE trades.open_time END
 	`
 	var closeTime int64
 	if trade.CloseTime > 0 {
