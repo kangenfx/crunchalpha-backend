@@ -16,7 +16,7 @@
 ### Backend:
 - **Image:** `crunchalpha-v3:production-202603270205`
 ### Frontend:
-- **Image:** `crunchalpha-frontend-v3:prod-202603260931`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
 ## 📋 CHANGES 2026-03-27 (Performance Chart)
 ### Frontend
@@ -27,7 +27,7 @@
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-27)
 ### Frontend:
-- **Image:** `crunchalpha-frontend-v3:prod-202603270345`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
 ## 📋 CHANGES 2026-03-28
 ### Backend
@@ -45,7 +45,7 @@
 ### Backend:
 - **Image:** `crunchalpha-v3:production-202603281246`
 ### Frontend:
-- **Image:** `crunchalpha-frontend-v3:prod-202603281254`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
 ## 📋 CHANGES 2026-03-27
 ### Backend
@@ -57,7 +57,7 @@
 ### Frontend
 - fix: AddAccountModal — onClose sebelum alert, support onAccountAdded prop
 - fix: double notification bug setelah add account resolved
-- Frontend: crunchalpha-frontend-v3:prod-202603270345
+- Frontend: crunchalpha-frontend-v3:prod-202604150205
 
 ## 📋 CHANGES 2026-03-28
 ### Backend
@@ -66,7 +66,7 @@
 
 ### Frontend
 - fix: AddAccountModal — close before alert, support onAccountAdded prop
-- Frontend: crunchalpha-frontend-v3:prod-202603281359
+- Frontend: crunchalpha-frontend-v3:prod-202604150205
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-28)
 ### Backend:
@@ -77,7 +77,7 @@
 
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202603281359`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 - **Port:** 5176 (internal), via nginx https
 - **URL:** https://crunchalpha.com
 
@@ -102,7 +102,7 @@
 - feat: pagination UI (muncul jika >12 traders)
 - feat: empty state jika tidak ada hasil filter
 - fix: card data fields — support camelCase dari backend baru
-- Frontend: crunchalpha-frontend-v3:prod-202603281516
+- Frontend: crunchalpha-frontend-v3:prod-202604150205
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-28)
 ### Backend:
@@ -111,7 +111,7 @@
 
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202603281516`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
 ## ⚠️ PENDING
 1. EA MT4 distribute ke publisher external
@@ -154,7 +154,7 @@ docker run -d --name crunchalpha-backend \
 ### Backend:
 - **Image:** `crunchalpha-v3:production-202603281815`
 ### Frontend:
-- **Image:** `crunchalpha-frontend-v3:prod-202603290958`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
 ## 📋 CHANGES 2026-03-29 (Session 2)
 ### Backend
@@ -170,7 +170,7 @@ docker run -d --name crunchalpha-backend \
 ### Backend:
 - **Image:** `crunchalpha-v3:production-202603291539`
 ### Frontend:
-- **Image:** `crunchalpha-frontend-v3:prod-202603291544`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
 ## 📋 CHANGES 2026-03-31
 ### Backend
@@ -181,7 +181,7 @@ docker run -d --name crunchalpha-backend \
 ### Frontend  
 - fix: copy trader modal — tampil warning "Link Account First" jika belum punya trader_account
 - fix: hapus step "Install EA" dari modal (platform yang handle)
-- Frontend: crunchalpha-frontend-v3:prod-202603310432
+- Frontend: crunchalpha-frontend-v3:prod-202604150205
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-31)
 ### Backend:
@@ -191,7 +191,7 @@ docker run -d --name crunchalpha-backend \
 
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202603310432`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
 ## ⚠️ PENDING
 1. EA MT4 distribute ke publisher external
@@ -290,7 +290,7 @@ docker run -d --name crunchalpha-backend \
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-09)
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202604090237`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 - **Port:** 5176 (internal), via nginx https
 - **Changes:** Mobile responsive, EA connection status display, design system seragam
 
@@ -442,7 +442,7 @@ docker run -d --name crunchalpha-backend \
 - **Changes:** audit log — logAudit helper, catat impersonate/suspend/reset_password/force_verify/delete_user
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202604110134`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
 ## ⚠️ PENDING (Updated 2026-04-11)
 1. Earnings page trader & analyst — tunggu keputusan bisnis
@@ -462,7 +462,7 @@ docker run -d --name crunchalpha-backend \
 
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202604110734`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 - **Changes:**
   - Layer3Badge di CopyTradersTab — system mode, multiplier, reason
   - Sidebar fix — desktop always visible, mobile drawer
@@ -483,7 +483,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 4. `docker build -t crunchalpha-frontend-v3:test-xxx .` — build image
 5. Test di port 5177
 6. Verify tampilan di browser
-7. `docker build -t crunchalpha-frontend-v3:prod-YYYYMMDDHHMM .`
+7. `docker build -t crunchalpha-frontend-v3:prod-202604150205YYYYMMDDHHMM .`
 8. Deploy production
 9. `git add -A && git commit`
 
@@ -501,7 +501,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202604110833`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 - **Changes:** Layer3Badge live di CopyTradersTab
 
 ## ⚠️ PENDING (Updated 2026-04-12)
@@ -619,7 +619,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-13 05:05)
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202604130505`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 - **Changes:**
   - Analyst summary tab grid responsive — 1fr 320px → auto-fit minmax(280px)
   - AlphaScore banner flex-wrap mobile
@@ -628,7 +628,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-13 05:13)
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202604130513`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 - **Changes:**
   - Hamburger menu hidden di desktop, muncul hanya di mobile
   - X button sidebar hidden di desktop
@@ -636,7 +636,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-13 05:23)
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202604130523`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 - **Changes:**
   - Landing page desktop nav — Sign out muncul saat sudah login
 
@@ -692,7 +692,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - feat: trader name exposed in allocation API
 
 ### Frontend:
-- **Image:** crunchalpha-frontend-v3:prod-202604140500
+- **Image:** crunchalpha-frontend-v3:prod-202604150205
 - **Changes:**
   - feat: Auto/Manual allocation toggle di CopyTradersTab
   - fix: allocation save validation > 100%
@@ -702,12 +702,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-14)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604140637`
+- **Image:** `crunchalpha-v3:production-202604150230`
 - **Changes:** Earnings dashboard — trader & analyst earnings endpoint, withdraw request, monthly chart, DB table earnings_withdrawals
 
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202604140640`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 - **Changes:** TraderEarnings & AnalystEarnings — real API (no dummy), withdraw form, monthly chart, per-investor/subscriber table, withdrawal history
 
 ## ⚠️ PENDING (Updated 2026-04-14)
