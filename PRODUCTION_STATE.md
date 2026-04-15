@@ -740,3 +740,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-frontend-v3`
 - **Image:** `crunchalpha-frontend-v3:prod-202604150913`
 - **Changes:** Copy Analyst parity — alphaScore, AUM, Smart Insights sama dengan Copy Traders tab
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-15 09:35)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604150935`
+- **Fix:** rebuild dist — alphaScore & AUM visible di Copy Analyst cards
+
+## 🔑 FRONTEND BUILD WORKFLOW (WAJIB)
+- SELALU jalankan `npm run build` di `/var/www/crunchalpha-frontend-v3-SRC` SEBELUM docker build
+- Tanpa npm run build, dist/ masih bundle lama dan patch tidak masuk ke image
