@@ -75,7 +75,9 @@ func (h *Handler) GetAnalystSubscriptions(c *gin.Context) {
 		SELECT s.id, s.set_id, s.status, s.auto_follow, s.created_at,
 		       ss.name as set_name,
 		       COALESCE(u.name, u.email, '') as analyst_name,
-		       COALESCE(s.allocation_pct, 0) as allocation_pct
+		       COALESCE(s.allocation_pct, 0) as allocation_pct,
+		       COALESCE(ss.alpha_score, 0) as alpha_score,
+		       COALESCE(ss.alpha_grade, 'D') as alpha_grade
 		FROM analyst_subscriptions s
 		JOIN analyst_signal_sets ss ON ss.id = s.set_id
 		LEFT JOIN users u ON u.id = ss.analyst_id::uuid
@@ -93,12 +95,14 @@ func (h *Handler) GetAnalystSubscriptions(c *gin.Context) {
 		AutoFollow    bool    `json:"autoFollow"`
 		CreatedAt     string  `json:"createdAt"`
 		AllocationPct float64 `json:"allocationPct"`
+		AlphaScore    float64 `json:"alphaScore"`
+		AlphaGrade    string  `json:"alphaGrade"`
 	}
 	var subs []SubRow
 	for rows.Next() {
 		var s SubRow
 		var createdAt time.Time
-		rows.Scan(&s.ID, &s.SetID, &s.Status, &s.AutoFollow, &createdAt, &s.SetName, &s.AnalystName, &s.AllocationPct)
+		rows.Scan(&s.ID, &s.SetID, &s.Status, &s.AutoFollow, &createdAt, &s.SetName, &s.AnalystName, &s.AllocationPct, &s.AlphaScore, &s.AlphaGrade)
 		s.CreatedAt = createdAt.Format("2006-01-02")
 		subs = append(subs, s)
 	}
@@ -678,6 +682,8 @@ func (h *Handler) UpdateSubscriptionAllocation(c *gin.Context) {
 	subID := c.Param("id")
 	var req struct {
 		AllocationPct float64 `json:"allocationPct"`
+		AlphaScore    float64 `json:"alphaScore"`
+		AlphaGrade    string  `json:"alphaGrade"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"ok":false,"error":"invalid json"}); return
