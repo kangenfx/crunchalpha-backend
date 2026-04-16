@@ -91,7 +91,7 @@ func main() {
         })
 
         // Rate limit configs
-        loginLimit := ratelimit.Config{MaxAttempts: 5, Window: 5 * time.Minute}
+        loginLimit := ratelimit.Config{MaxAttempts: 10, Window: 15 * time.Minute}
         registerLimit := ratelimit.Config{MaxAttempts: 3, Window: 1 * time.Hour}
 
         // Public auth routes
@@ -438,7 +438,20 @@ func main() {
                 ticker := time.NewTicker(5 * time.Minute)
                 defer ticker.Stop()
                 for range ticker.C {
-                        db.Exec(`UPDATE trader_accounts SET connection_status = CASE WHEN ea_verified = false OR last_sync_at IS NULL THEN 'pending' WHEN last_sync_at < NOW() - INTERVAL '24 hours' THEN 'disconnected' ELSE 'connected' END`)
+                        // Sync last_sync_at untuk investor accounts (follower) dari investor_ea_keys
+                        db.Exec(`UPDATE trader_accounts ta
+                                SET last_sync_at = iek.last_equity_at,
+                                    ea_verified  = true
+                                FROM investor_ea_keys iek
+                                WHERE iek.investor_id = ta.user_id
+                                  AND iek.mt5_account  = ta.account_number
+                                  AND ta.role          = 'follower'
+                                  AND iek.last_equity_at IS NOT NULL`)
+                        // Update connection_status semua accounts
+                        db.Exec(`UPDATE trader_accounts SET connection_status = CASE
+                                WHEN ea_verified = false OR last_sync_at IS NULL THEN 'pending'
+                                WHEN last_sync_at < NOW() - INTERVAL '24 hours' THEN 'disconnected'
+                                ELSE 'connected' END`)
                 }
         }()
 
