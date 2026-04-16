@@ -759,3 +759,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - fix: investor_settings.investor_equity = SUM(equity) dari semua EA keys investor
 - db: ALTER investor_ea_keys ADD balance, margin, free_margin, floating, open_lots, open_positions
 - Backend: crunchalpha-v3:production-202604160XXX
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-16)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604160818`
+- **Changes:** Overview portfolio allocation — analyst subs muncul, traderName fix, badge SIGNAL untuk analyst
