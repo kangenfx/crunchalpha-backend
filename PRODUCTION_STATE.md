@@ -779,3 +779,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - fix: akun 20686862 (InvAlpha2) role diubah provider → follower (business rule: 1 akun = 1 role)
 - fix: investor_settings.mt5_account diisi untuk link EA key ke settings
 - rule: account_number tidak boleh double role (provider + follower)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-16 investor-fix)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604161100` (sesuai timestamp)
+- **Fix:** generateKey otomatis isi mt5Account dari accounts[0] saat generate EA key
+
+## 📋 CHANGES 2026-04-16 (Frontend)
+- fix: generateKey — mt5Account tidak lagi kosong, ambil dari broker account pertama yang terdaftar
