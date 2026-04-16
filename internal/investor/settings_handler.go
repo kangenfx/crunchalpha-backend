@@ -150,7 +150,7 @@ func (h *Handler) GenerateEAKey(c *gin.Context) {
 
 // GET /api/ea/investor/settings — EA pulls config
 func (h *Handler) EAGetSettings(c *gin.Context) {
-	investorID := c.GetHeader("X-Investor-ID")
+	investorID := getEAInvestorID(c)
 	if investorID == "" { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
 
 	var s struct {

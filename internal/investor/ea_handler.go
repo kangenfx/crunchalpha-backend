@@ -14,7 +14,7 @@ import (
 func (h *Handler) EAGetPendingSignals(c *gin.Context) {
 	// For now use X-Investor-ID header for testing
 	// Later replace with EA key auth
-	investorID := c.GetHeader("X-Investor-ID")
+	investorID := getEAInvestorID(c)
 	if investorID == "" {
 		c.JSON(401, gin.H{"ok": false, "error": "missing investor id"})
 		return
@@ -76,7 +76,7 @@ func (h *Handler) EAGetPendingSignals(c *gin.Context) {
 // POST /api/ea/investor/order-update
 // EA reports order status back to backend
 func (h *Handler) EAOrderUpdate(c *gin.Context) {
-	investorID := c.GetHeader("X-Investor-ID")
+	investorID := getEAInvestorID(c)
 	if investorID == "" {
 		c.JSON(401, gin.H{"ok": false, "error": "missing investor id"})
 		return

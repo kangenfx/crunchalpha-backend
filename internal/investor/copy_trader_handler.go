@@ -7,7 +7,7 @@ import (
 // GET /api/ea/investor/pending-copy-trades
 // EA investor poll copy trade events yang perlu dieksekusi
 func (h *Handler) EAGetPendingCopyTrades(c *gin.Context) {
-	investorID := c.GetHeader("X-Investor-ID")
+	investorID := getEAInvestorID(c)
 	if investorID == "" {
 		c.JSON(401, gin.H{"ok": false, "error": "missing investor id"})
 		return
@@ -24,7 +24,7 @@ func (h *Handler) EAGetPendingCopyTrades(c *gin.Context) {
 // POST /api/ea/investor/copy-trade-update
 // EA report hasil eksekusi copy trade
 func (h *Handler) EACopyTradeUpdate(c *gin.Context) {
-	investorID := c.GetHeader("X-Investor-ID")
+	investorID := getEAInvestorID(c)
 	if investorID == "" {
 		c.JSON(401, gin.H{"ok": false, "error": "missing investor id"})
 		return
@@ -56,31 +56,34 @@ func (h *Handler) EACopyTradeUpdate(c *gin.Context) {
 // POST /api/ea/investor/push-equity
 // EA investor push equity terkini ke backend (untuk AUM calculation)
 func (h *Handler) EAPushEquity(c *gin.Context) {
-	investorID := c.GetHeader("X-Investor-ID")
+	investorID := getEAInvestorID(c)
 	if investorID == "" {
-		c.JSON(401, gin.H{"ok": false, "error": "missing investor id"})
+		c.JSON(401, gin.H{"ok": false, "error": "unauthorized"})
 		return
 	}
 	var req struct {
-		Equity  float64 `json:"equity"`
-		Balance float64 `json:"balance"`
+		Equity        float64 `json:"equity"`
+		Balance       float64 `json:"balance"`
+		Margin        float64 `json:"margin"`
+		FreeMargin    float64 `json:"free_margin"`
+		Floating      float64 `json:"floating_profit"`
+		OpenLots      float64 `json:"open_lots"`
+		OpenPositions int     `json:"open_positions"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.Equity <= 0 {
 		c.JSON(400, gin.H{"ok": false, "error": "invalid equity"})
 		return
 	}
-	_, err := h.service.repo.DB.Exec(
-		`INSERT INTO investor_settings (investor_id, investor_equity, updated_at)
-		 VALUES ($1::uuid, $2, now())
-		 ON CONFLICT (investor_id) DO UPDATE SET
-		   investor_equity = $2,
-		   updated_at = now()`,
-		investorID, req.Equity)
-	if err != nil {
-		c.JSON(500, gin.H{"ok": false, "error": "failed to update equity"})
-		return
+	keyID, _ := c.Get("ea_key_id")
+	if keyID != nil && keyID.(string) != "" {
+		h.service.repo.DB.Exec(
+			`UPDATE investor_ea_keys SET equity=$1, balance=$2, margin=$3, free_margin=$4, floating=$5, open_lots=$6, open_positions=$7, last_equity_at=now() WHERE id=$8`,
+			req.Equity, req.Balance, req.Margin, req.FreeMargin, req.Floating, req.OpenLots, req.OpenPositions, keyID)
 	}
-	c.JSON(200, gin.H{"ok": true, "message": "equity updated", "equity": req.Equity})
+	h.service.repo.DB.Exec(
+		`UPDATE investor_settings SET investor_equity=(SELECT COALESCE(SUM(equity),0) FROM investor_ea_keys WHERE investor_id=$1::uuid), updated_at=now() WHERE investor_id=$1::uuid`,
+		investorID)
+	c.JSON(200, gin.H{"ok": true, "equity": req.Equity})
 }
 
 // GET /api/investor/copy-trade-history

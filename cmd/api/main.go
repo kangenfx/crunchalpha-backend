@@ -318,6 +318,7 @@ func main() {
 
         // EA Investor routes
         eaInvestorRoutes := r.Group("/api/ea/investor")
+	eaInvestorRoutes.Use(investor.EAMiddleware(db))
         eaInvestorRoutes.GET("/pending-signals", investorHandler.EAGetPendingSignals)
         eaInvestorRoutes.POST("/order-update", investorHandler.EAOrderUpdate)
         eaInvestorRoutes.GET("/settings", investorHandler.EAGetSettings)
