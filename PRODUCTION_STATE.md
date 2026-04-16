@@ -14,7 +14,7 @@
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-27)
 ### Backend:
-- **Image:** `crunchalpha-v3:production-202603270205`
+- **Image:** `crunchalpha-v3:production-202604160220
 ### Frontend:
 - **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
@@ -43,7 +43,7 @@
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-28)
 ### Backend:
-- **Image:** `crunchalpha-v3:production-202603281246`
+- **Image:** `crunchalpha-v3:production-202604160220
 ### Frontend:
 - **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
@@ -52,7 +52,7 @@
 - feat: pagination trade history — tambah offset/limit/total di endpoint trader & investor
 - feat: add nickname/about edit, strategy field tampil di dashboard & marketplace
 - feat: weekly/monthly chart tambah currency symbol dan cumulative ROI %
-- Backend: crunchalpha-v3:production-202603270825
+- Backend: crunchalpha-v3:production-202604160220
 
 ### Frontend
 - fix: AddAccountModal — onClose sebelum alert, support onAccountAdded prop
@@ -62,7 +62,7 @@
 ## 📋 CHANGES 2026-03-28
 ### Backend
 - feat: pagination trade history di trader dashboard dan marketplace trader profile
-- Backend: crunchalpha-v3:production-202603281246
+- Backend: crunchalpha-v3:production-202604160220
 
 ### Frontend
 - fix: AddAccountModal — close before alert, support onAccountAdded prop
@@ -71,7 +71,7 @@
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-28)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202603281246`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Port:** 8090 (internal), via nginx https
 - **Git:** master branch
 
@@ -94,7 +94,7 @@
 - feat: filter: min 10 trades, alpha_score > 0, status active
 - feat: sort: alphaScore, roi, win_rate, profit_factor, net_pnl, drawdown, trades
 - feat: filter params: risk, platform, search, page, limit
-- Backend: crunchalpha-v3:production-202603281514
+- Backend: crunchalpha-v3:production-202604160220
 
 ### Frontend
 - feat: MarketplacePage Copy Traders — server-side filter+sort+pagination
@@ -107,7 +107,7 @@
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-28)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202603281514`
+- **Image:** `crunchalpha-v3:production-202604160220
 
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
@@ -130,7 +130,7 @@ docker run -d --name crunchalpha-backend \
   --restart unless-stopped \
   --health-cmd="wget -qO- http://localhost:8090/health || exit 1" \
   --health-interval=30s \
-  crunchalpha-v3:production-YYYYMMDDHHMM
+  crunchalpha-v3:production-202604160220
 ```
 ⚠️ JANGAN deploy tanpa --env-file, email akan pakai mock mode!
 
@@ -152,7 +152,7 @@ docker run -d --name crunchalpha-backend \
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-29)
 ### Backend:
-- **Image:** `crunchalpha-v3:production-202603281815`
+- **Image:** `crunchalpha-v3:production-202604160220
 ### Frontend:
 - **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
@@ -168,7 +168,7 @@ docker run -d --name crunchalpha-backend \
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-29)
 ### Backend:
-- **Image:** `crunchalpha-v3:production-202603291539`
+- **Image:** `crunchalpha-v3:production-202604160220
 ### Frontend:
 - **Image:** `crunchalpha-frontend-v3:prod-202604150205`
 
@@ -176,7 +176,7 @@ docker run -d --name crunchalpha-backend \
 ### Backend
 - fix: copy-trader-subscribe — handle no_account error, fix enum 'active'→'ACTIVE'
 - fix: upsert user_allocations saat subscribe copy trader
-- Backend: crunchalpha-v3:production-202603310422
+- Backend: crunchalpha-v3:production-202604160220
 
 ### Frontend  
 - fix: copy trader modal — tampil warning "Link Account First" jika belum punya trader_account
@@ -186,7 +186,7 @@ docker run -d --name crunchalpha-backend \
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-31)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202603310422`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Deploy command:** `docker run --env-file /root/.env-crunchalpha ...`
 
 ### Frontend:
@@ -208,12 +208,12 @@ docker run -d --name crunchalpha-backend \
 - feat: Rejection checks: max positions, total alloc >100%, daily loss
 - fix: copy_subscriptions query — pakai follower_account_id JOIN trader_accounts
 - fix: INSERT copy_events — subquery via trader_accounts bukan investor_id langsung
-- Backend: crunchalpha-v3:production-202603310849
+- Backend: crunchalpha-v3:production-202604160220
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-03-31 08:49)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202603310849`
+- **Image:** `crunchalpha-v3:production-202604160220
 
 ## 📋 CHANGES 2026-04-01 (Risk Normalization)
 ### Backend
@@ -222,12 +222,12 @@ docker run -d --name crunchalpha-backend \
 - feat: calcFinalLot = MIN(prop_lot, risk_lot) 
 - feat: simpan prop_lot, risk_lot, estimated_sl, final_lot ke copy_events
 - feat: DB migration — risk_level di investor_settings
-- Backend: crunchalpha-v3:production-202604010616
+- Backend: crunchalpha-v3:production-202604160220
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-01)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604010616`
+- **Image:** `crunchalpha-v3:production-202604160220
 
 ## 🎨 DESIGN SYSTEM (WAJIB DIIKUTI - FRONTEND)
 - **File:** `src/index.css` — single source of truth untuk semua styling
@@ -296,7 +296,7 @@ docker run -d --name crunchalpha-backend \
 
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604090457`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:** connection_status dari DB, cron 5min, scan order fix, ea_verified filter
 
 ## 📋 CHANGES 2026-04-09
@@ -313,7 +313,7 @@ docker run -d --name crunchalpha-backend \
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-09 06:01)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604090601`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Fix:** minimum trades AlphaRank naik dari 10 ke 20
 
 ## 📋 CHANGES 2026-04-09 (Backend)
@@ -327,7 +327,7 @@ docker run -d --name crunchalpha-backend \
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-10)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604100356`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Port:** 8090 (internal), via nginx https
 
 ## 📋 CHANGES 2026-04-10
@@ -357,7 +357,7 @@ docker run -d --name crunchalpha-backend \
 - **Changes:** Affiliate dashboard real data from DB, AffiliateAdmin tab in AdminDashboard
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604100432`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:** GetAffiliateOverview — commissionPct, affiliateMode, isCustomCommission from DB
 
 ## 📋 CHANGES 2026-04-10
@@ -377,7 +377,7 @@ docker run -d --name crunchalpha-backend \
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-10 05:45)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604100538`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:** fee_handler — GetDefaultFees dari DB, FeeOverride tambah rebate_share_pct, affiliate_commission_pct, subscription_fee_monthly
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
@@ -402,12 +402,12 @@ docker run -d --name crunchalpha-backend \
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-10)
 ### Backend:
-- **Image:** crunchalpha-v3:production-$(date +%Y%m%d%H%M)
+- **Image:** crunchalpha-v3:production-202604160220
 - **Changes:** Layer 3 Elite System Intelligence live
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-10 Layer3 Complete)
 ### Backend:
-- **Image:** crunchalpha-v3:production-$(date +%Y%m%d%H%M)
+- **Image:** crunchalpha-v3:production-202604160220
 - **Changes:**
   - Layer 3 system_mode: FULL_ACTIVE / MONITORING / DEFENSIVE / PROTECTED
   - Layer 3 soft_reasons: investor-friendly language
@@ -416,7 +416,7 @@ docker run -d --name crunchalpha-backend \
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-10 Layer3 Complete)
 ### Backend:
-- **Image:** crunchalpha-v3:production-$(date +%Y%m%d%H%M)
+- **Image:** crunchalpha-v3:production-202604160220
 - **Changes:**
   - Layer 3 system_mode: FULL_ACTIVE / MONITORING / DEFENSIVE / PROTECTED
   - Layer 3 soft_reasons: investor-friendly language
@@ -426,7 +426,7 @@ docker run -d --name crunchalpha-backend \
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-11)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604110159`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:** fix SubRow Layer3 fields, earnings endpoint, duplicate account check
 
 ## 📋 CHANGES 2026-04-11
@@ -438,7 +438,7 @@ docker run -d --name crunchalpha-backend \
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-11)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604110229`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:** audit log — logAudit helper, catat impersonate/suspend/reset_password/force_verify/delete_user
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
@@ -453,7 +453,7 @@ docker run -d --name crunchalpha-backend \
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-11)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604110734` (sesuai timestamp)
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:**
   - Layer 3 Elite System Intelligence — LIVE
   - allocation repository fix — layer3 fields di SELECT
@@ -492,7 +492,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-12)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604121232`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:**
   - Layer 3 behavior guard: DD < 10% → behavior floor 0.75
   - Layer 3 threshold: min 40 trades untuk behavior & volatility check
@@ -516,7 +516,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - feat: cron goroutine setiap 6 jam — recalculate Layer 3 semua akun aktif
 - Layer 3 tidak lagi hanya update saat EA push
 - Log: [Layer3Cron] Recalculated N accounts
-- Image: crunchalpha-v3:production-202604121300 (sesuai timestamp)
+- Image: crunchalpha-v3:production-202604160220
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-12)
 ### Frontend:
@@ -577,7 +577,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-12 16:30)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604121339`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:**
   - fix: per-pair DD — peak-to-trough (Layer1) + equity vs peak (Layer2) + floating per symbol (Layer2b)
   - fix: per-pair peakBalance init dari initialDeposit bukan 0
@@ -599,7 +599,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-13)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604121656`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:**
   - fix: DD Layer2 normalized equity = equity + totalWithdrawals
   - fix: withdrawal reset peak, guard peakBalance < 0
@@ -643,7 +643,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-13 08:30)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604130829`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:**
   - fix: SaveTrade hapus WHERE status constraint — sl/tp/min_equity bisa update di closed trades
   - fix: MT4 EA v3.0 always full sync on init (reset LastTicket=0)
@@ -683,7 +683,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-14)
 ### Backend:
-- **Image:** crunchalpha-v3:production-202604140437
+- **Image:** crunchalpha-v3:production-202604160220
 - **Changes:**
   - feat: POST /api/investor/auto-allocate — AlphaScore-based proportional allocation
   - fix: route registered in main.go
@@ -702,7 +702,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-14)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604150230`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:** Earnings dashboard — trader & analyst earnings endpoint, withdraw request, monthly chart, DB table earnings_withdrawals
 
 ### Frontend:
@@ -722,7 +722,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Port:** 5176 (internal), via nginx https
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604151350`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Changes:** DD formula revision
 
 ## 📋 CHANGES 2026-04-15
@@ -734,7 +734,7 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🐳 CURRENT PRODUCTION (Updated 2026-04-15)
 ### Backend:
 - **Container:** `crunchalpha-backend`
-- **Image:** `crunchalpha-v3:production-202604151350`
+- **Image:** `crunchalpha-v3:production-202604160220
 - **Fix:** analyst-subscriptions API return alphaScore & alphaGrade
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
@@ -750,3 +750,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ## 🔑 FRONTEND BUILD WORKFLOW (WAJIB)
 - SELALU jalankan `npm run build` di `/var/www/crunchalpha-frontend-v3-SRC` SEBELUM docker build
 - Tanpa npm run build, dist/ masih bundle lama dan patch tidak masuk ke image
+
+## 📋 CHANGES 2026-04-16
+### Backend - EA Investor Auth Fix
+- fix: EAMiddleware (X-EA-Key) dipasang di semua /api/ea/investor/* routes
+- fix: semua EA handlers ganti X-Investor-ID legacy → getEAInvestorID() (support keduanya)
+- fix: EAPushEquity upgrade — simpan 7 fields: equity, balance, margin, free_margin, floating, open_lots, open_positions ke investor_ea_keys
+- fix: investor_settings.investor_equity = SUM(equity) dari semua EA keys investor
+- db: ALTER investor_ea_keys ADD balance, margin, free_margin, floating, open_lots, open_positions
+- Backend: crunchalpha-v3:production-202604160XXX
