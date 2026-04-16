@@ -788,3 +788,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 
 ## 📋 CHANGES 2026-04-16 (Frontend)
 - fix: generateKey — mt5Account tidak lagi kosong, ambil dari broker account pertama yang terdaftar
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-16 15:17)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604161517`
+- **Changes:** EA key section di TraderDashboard — generate, list, delete EA keys per account
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604161455`
+- **Changes:** trader EA keys CRUD API, DD metrics historical peak, rate limiter cleanup
