@@ -765,3 +765,17 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-frontend-v3`
 - **Image:** `crunchalpha-frontend-v3:prod-202604160818`
 - **Changes:** Overview portfolio allocation — analyst subs muncul, traderName fix, badge SIGNAL untuk analyst
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-16)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604160847`
+- **Fix:** investor connection_status — cron sync last_sync_at dari investor_ea_keys untuk role=follower accounts
+
+## 📋 CHANGES 2026-04-16
+### Backend - Investor Connection Status Fix
+- fix: cron 5min tambah sync last_sync_at & ea_verified untuk follower accounts dari investor_ea_keys
+- fix: trader_accounts role=follower kini auto-update connection_status = connected saat EA investor push equity
+- fix: akun 20686862 (InvAlpha2) role diubah provider → follower (business rule: 1 akun = 1 role)
+- fix: investor_settings.mt5_account diisi untuk link EA key ke settings
+- rule: account_number tidak boleh double role (provider + follower)
