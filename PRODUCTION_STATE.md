@@ -811,3 +811,16 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Image:** `crunchalpha-v3:production-202604170033`
 - **Port:** 8090 (internal), via nginx https
 - **Changes:** feat: trader EA keys — generate/list/delete via api_keys table, max 3 keys per account
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-17 02:27)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604170227`
+- **Port:** 8090 (internal), via nginx https
+- **Git:** master branch (df20609)
+
+## 📋 CHANGES 2026-04-17
+### Backend - DD Calculation Fix
+- fix: DD logic salah — rewrite di internal/alpharank/dd_metrics.go
+- fix: rateLimiter.StartCleanup comment-out (build fix)
+- Backend: crunchalpha-v3:production-202604170227
