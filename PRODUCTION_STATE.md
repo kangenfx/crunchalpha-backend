@@ -824,3 +824,16 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - fix: DD logic salah — rewrite di internal/alpharank/dd_metrics.go
 - fix: rateLimiter.StartCleanup comment-out (build fix)
 - Backend: crunchalpha-v3:production-202604170227
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-17 07:53)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604170753`
+
+## 📋 CHANGES 2026-04-17
+### Backend
+- fix: DD calculation logic fix
+- fix: investor routes — tambah copy-trader-unsubscribe, analyst-unsubscribe, analyst-subscriptions, analyst-feed, analyst-subscribe, ea-keys GET/POST/DELETE
+- fix: investor connection_status — cron sync dari investor_ea_keys untuk role=follower
+- fix: akun 20686862 role provider → follower (business rule: 1 akun = 1 role)
+- fix: generateKey investor — mt5Account otomatis dari accounts[0]
