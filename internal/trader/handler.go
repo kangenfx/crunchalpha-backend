@@ -1,6 +1,7 @@
 package trader
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 
@@ -11,12 +12,14 @@ import (
 type Handler struct {
 	alpharankService *alpharank.Service
 	service *Service
+	DB *sql.DB
 }
 
-func NewHandler(service *Service, alpharankService *alpharank.Service) *Handler {
+func NewHandler(service *Service, alpharankService *alpharank.Service, db *sql.DB) *Handler {
 	return &Handler{
 		service:          service,
 		alpharankService: alpharankService,
+		DB:               db,
 	}
 }
 

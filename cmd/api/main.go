@@ -39,7 +39,7 @@ func main() {
 	alpharankService := alpharank.NewService(db)
 
         traderService := trader.NewService(db)
-        traderHandler := trader.NewHandler(traderService, alpharankService)
+        traderHandler := trader.NewHandler(traderService, alpharankService, db)
 
         // API Key Handler
         apikeyRepo := apikey.NewRepository(db)
@@ -71,6 +71,7 @@ func main() {
         investorHandler := investor.NewHandler(investorService)
 
         rateLimiter := ratelimit.NewLimiter(db)
+	rateLimiter.StartCleanup(15 * time.Minute)
 
         r := gin.Default()
 
@@ -168,6 +169,9 @@ func main() {
 			traderRoutes.GET("/my-followers", traderHandler.GetMyFollowers)
                 traderRoutes.GET("/fee-earnings", investorHandler.GetTraderFeeEarnings)
                 traderRoutes.DELETE("/accounts/:account_id", traderHandler.DeleteAccountHandler)
+			traderRoutes.GET("/ea-keys", traderHandler.GetTraderEAKeys)
+			traderRoutes.POST("/ea-keys", traderHandler.GenerateTraderEAKey)
+			traderRoutes.DELETE("/ea-keys/:id", traderHandler.DeleteTraderEAKey)
 		// Recalculate all accounts for current user
 		traderRoutes.POST("/recalculate-all", func(c *gin.Context) {
 			userID := c.GetString("user_id")
