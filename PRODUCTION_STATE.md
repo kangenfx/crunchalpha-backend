@@ -804,3 +804,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-frontend-v3`
 - **Image:** `crunchalpha-frontend-v3:prod-202604162334`
 - **Changes:** EAKeySection trader — UI disamakan dengan investor (simple: status + generate new key)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-17)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604170033`
+- **Port:** 8090 (internal), via nginx https
+- **Changes:** feat: trader EA keys — generate/list/delete via api_keys table, max 3 keys per account
