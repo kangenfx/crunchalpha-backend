@@ -852,3 +852,18 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - fix: hapus GREATEST di upsert alpha_ranks — DD bisa turun
 - result: account 6a725323 DD 49.18% → 17.90% ✅
 - Backend: crunchalpha-v3:production-202604170824
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-17 08:46)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604170846`
+- **Port:** 8090 (internal), via nginx https
+- **Git:** master branch
+
+## 📋 CHANGES 2026-04-17 (DD Fix — Withdrawal)
+### Backend - DD Exclude Withdrawal
+- fix: withdrawal exclude dari DD events — WD adalah profit diambil, bukan loss
+- fix: DD hanya dari deposit + closed trades
+- result: account 13038460 DD 100% → 5.09% ✅
+- result: account 20661475 DD 17.90% ✅
+- Backend: crunchalpha-v3:production-202604170846
