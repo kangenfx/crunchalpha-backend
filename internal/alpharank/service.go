@@ -53,6 +53,10 @@ func (s *Service) CalculateForAccount(accountID string) error {
 	`, accountID).Scan(&totalWithdrawals)
 
 	metrics := s.buildMetrics(accountID, trades, balance, equity, totalDeposits, totalWithdrawals)
+	// DD dari DB — zero on-the-fly
+	if ddMax, _ := s.UpdateDrawdownMetrics(accountID, equity, totalWithdrawals); ddMax > 0 {
+		metrics.MaxDrawdownPct = ddMax
+	}
 	calculator := NewCalculator()
 	result := calculator.Calculate(metrics)
 
@@ -171,8 +175,6 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		winningTrades int
 		losingTrades  int
 		totalProfit   float64
-		maxDD         float64
-		peakBalance   float64
 		startDate     time.Time
 		endDate       time.Time
 	)
@@ -211,129 +213,20 @@ func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, eq
 		initialDeposit = balance
 	}
 
-	maxDD = 0.0
-	peakBalance = initialDeposit
+        // Baca maxDD dan peakBalance dari DB (dihitung oleh dd_metrics.go saat EA push)
+        var maxDD, peakBalance float64
+        s.db.QueryRow(`
+                SELECT COALESCE(max_drawdown_pct, 0), COALESCE(peak_equity, 0)
+                FROM alpha_ranks
+                WHERE account_id = $1 AND symbol = 'ALL'
+        `, accountID).Scan(&maxDD, &peakBalance)
+        if peakBalance <= 0 {
+                peakBalance = totalDeposits
+        }
+        if peakBalance <= 0 {
+                peakBalance = balance
+        }
 
-	// DD calculation: loop all events (deposits/withdrawals/trades) ordered by time
-	// DD per trade = abs(loss) / balance_before_trade
-	type Event struct {
-		EventTime time.Time
-		EventType string
-		Amount    float64
-	}
-	var events []Event
-
-	// Add deposit/withdrawal events
-	depRows, depErr := s.db.Query(`
-		SELECT transaction_type, amount, created_at
-		FROM account_transactions
-		WHERE account_id = $1
-		ORDER BY created_at ASC
-	`, accountID)
-	if depErr == nil {
-		defer depRows.Close()
-		for depRows.Next() {
-			var txType string
-			var amount float64
-			var createdAt time.Time
-			if err := depRows.Scan(&txType, &amount, &createdAt); err == nil {
-				events = append(events, Event{EventTime: createdAt, EventType: txType, Amount: amount})
-			}
-		}
-	}
-
-	// Add trade close events
-	for _, trade := range trades {
-		net := trade.Profit + trade.Swap + trade.Commission
-		events = append(events, Event{EventTime: trade.CloseTime, EventType: "trade", Amount: net})
-	}
-
-	// Sort events by time (bubble sort)
-	for i := 0; i < len(events); i++ {
-		for j := i + 1; j < len(events); j++ {
-			if events[j].EventTime.Before(events[i].EventTime) {
-				events[i], events[j] = events[j], events[i]
-			}
-		}
-	}
-
-	// ── DD Layer 1: Closed peak-to-trough ──────────────────────────
-	// peak direset setiap WD — DD sebelum WD sudah tersimpan via GREATEST di DB
-	runningBalance := initialDeposit
-	for _, event := range events {
-		switch event.EventType {
-		case "deposit":
-			runningBalance += event.Amount
-			if runningBalance > peakBalance {
-				peakBalance = runningBalance
-			}
-		case "withdrawal":
-			runningBalance -= event.Amount
-			// Reset peak ke runningBalance setelah WD
-			// DD sebelum WD sudah persist di DB via GREATEST — tidak hilang
-			if runningBalance < peakBalance {
-				peakBalance = runningBalance
-			}
-			// Kalau runningBalance negatif (WD lebih besar dari balance saat itu)
-			// ini berarti data sync tidak real-time — set peak ke 0, biarkan trades rebuild peak
-			if peakBalance < 0 {
-				peakBalance = 0
-				runningBalance = 0
-			}
-		case "trade":
-			runningBalance += event.Amount
-			if runningBalance > peakBalance {
-				peakBalance = runningBalance
-			} else if peakBalance > 0 {
-				dd := (peakBalance - runningBalance) / peakBalance * 100
-				if dd > maxDD {
-					maxDD = dd
-				}
-			}
-		}
-	}
-
-	// ── DD Layer 2: Normalized equity vs peak ───────────────────────
-	// normalizedEquity = equity + totalWithdrawals
-	// Handle kasus trader withdraw semua — DD tidak inflate ke 99%
-	normalizedEquity := equity + totalWithdrawals
-	if peakBalance > 0 && normalizedEquity < peakBalance {
-		ddEquity := (peakBalance - normalizedEquity) / peakBalance * 100
-		if ddEquity > maxDD {
-			maxDD = ddEquity
-		}
-	}
-
-	// ── DD Layer 3: Min equity per trade (dari DB) ───────────────────
-	// min_equity = equity terendah selama trade open (dikirim EA v2.0)
-	minEqRows, minEqErr := s.db.Query(`
-		SELECT COALESCE(MIN(min_equity), 0) FROM trades
-		WHERE account_id = $1
-		  AND status = 'closed'
-		  AND min_equity > 0
-	`, accountID)
-	if minEqErr == nil {
-		defer minEqRows.Close()
-		if minEqRows.Next() {
-			var minEq float64
-			if minEqRows.Scan(&minEq) == nil && peakBalance > 0 && minEq > 0 && minEq < peakBalance {
-				ddMinEq := (peakBalance - minEq) / peakBalance * 100
-				if ddMinEq > maxDD {
-					maxDD = ddMinEq
-				}
-			}
-		}
-	}
-
-	// Cap DD at 100%
-	if maxDD > 100 {
-		maxDD = 100
-	}
-
-	// Peak balance
-	if totalDeposits > peakBalance {
-		peakBalance = totalDeposits
-	}
 
 	// Derived metrics
 	avgWin := 0.0
@@ -583,7 +476,7 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 				critical_count = EXCLUDED.critical_count,
 				major_count = EXCLUDED.major_count,
 				minor_count = EXCLUDED.minor_count,
-				max_drawdown_pct = GREATEST(alpha_ranks.max_drawdown_pct, EXCLUDED.max_drawdown_pct),
+				max_drawdown_pct = EXCLUDED.max_drawdown_pct,
 				pillars = EXCLUDED.pillars,
 					net_pnl = EXCLUDED.net_pnl,
 					win_rate = EXCLUDED.win_rate,
