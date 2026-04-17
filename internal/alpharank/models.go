@@ -15,7 +15,8 @@ type TradeData struct {
 	TakeProfit float64
 	Profit     float64
 	Commission float64
-	Swap       float64
+	Swap          float64
+	BalanceAtOpen float64 // balance saat trade dibuka, diisi saat EA running realtime
 }
 
 // EquitySnapshot represents equity at a point in time

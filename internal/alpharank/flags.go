@@ -19,7 +19,7 @@ func DetectRiskFlags(metrics AccountMetrics) []RiskFlag {
 	}
 
 	flags = append(flags, detectNoStopLoss(metrics.Trades, metrics.MaxDrawdownPct)...)
-	flags = append(flags, detectExcessivePositionSize(metrics.Trades, peakBalance)...)
+	flags = append(flags, detectExcessivePositionSize(metrics.Trades, peakBalance, metrics.MaxDrawdownPct)...)
 	flags = append(flags, detectRevengeTrading(metrics.Trades)...)
 	flags = append(flags, detectConsistencyVolatility(metrics.Trades)...)
 	// flags = append(flags, detectHighCorrelation(metrics.Trades)...) // REMOVED: Owner request
@@ -86,7 +86,7 @@ func detectNoStopLoss(trades []TradeData, maxDD float64) []RiskFlag {
 }
 
 // CRITICAL: Overleveraging - Use peak balance
-func detectExcessivePositionSize(trades []TradeData, peakBalance float64) []RiskFlag {
+func detectExcessivePositionSize(trades []TradeData, peakBalance float64, maxDD float64) []RiskFlag {
 	if len(trades) == 0 || peakBalance <= 0 {
 		return nil
 	}
@@ -120,25 +120,52 @@ func detectExcessivePositionSize(trades []TradeData, peakBalance float64) []Risk
 		return nil
 	}
 
-	if excessivePct > 30 || maxRatio > 5.0 {
+
+	highDD := maxDD > 20.0
+	highPct := excessivePct > 30.0
+
+	switch {
+	case highPct && highDD:
 		return []RiskFlag{{
-			FlagType: "EXCESSIVE_POSITION_SIZE",
-			Severity: "CRITICAL",
-			Penalty:  25.0,
-			Title:    "Excessive Position Size",
-			Desc:     fmt.Sprintf("%.0f%% trades use lot size too large for balance ($%.0f)", excessivePct, peakBalance),
+			FlagType:  "EXCESSIVE_POSITION_SIZE",
+			Severity:  "CRITICAL",
+			Penalty:   25.0,
+			Title:     "Excessive Position Size",
+			Desc:      fmt.Sprintf("%.0f%% trades use lot size too large for balance ($%.0f)", excessivePct, peakBalance),
+			SoftTitle: "High Position Sizing",
+			SoftDesc:  "Position sizes significantly above safe levels with high drawdown risk.",
+		}}
+	case highPct && !highDD:
+		return []RiskFlag{{
+			FlagType:  "EXCESSIVE_POSITION_SIZE",
+			Severity:  "MAJOR",
+			Penalty:   15.0,
+			Title:     "Excessive Position Size",
+			Desc:      fmt.Sprintf("%.0f%% trades use lot size too large for balance ($%.0f) - DD controlled at %.1f%%", excessivePct, peakBalance, maxDD),
+			SoftTitle: "High Position Sizing",
+			SoftDesc:  "Position sizes above safe levels, but drawdown remains controlled.",
+		}}
+	case !highPct && highDD:
+		return []RiskFlag{{
+			FlagType:  "EXCESSIVE_POSITION_SIZE",
+			Severity:  "MAJOR",
+			Penalty:   15.0,
+			Title:     "Large Position Size",
+			Desc:      fmt.Sprintf("%.0f%% trades exceed safe lot size for balance ($%.0f)", excessivePct, peakBalance),
+			SoftTitle: "High Position Sizing",
+			SoftDesc:  "Some position sizes above safe levels with elevated drawdown.",
+		}}
+	default:
+		return []RiskFlag{{
+			FlagType:  "EXCESSIVE_POSITION_SIZE",
+			Severity:  "MINOR",
+			Penalty:   8.0,
+			Title:     "Large Position Size",
+			Desc:      fmt.Sprintf("%.0f%% trades exceed safe lot size for balance ($%.0f) - DD controlled at %.1f%%", excessivePct, peakBalance, maxDD),
+			SoftTitle: "Slightly High Position Sizing",
+			SoftDesc:  "Position sizes slightly above typical safe levels, drawdown well controlled.",
 		}}
 	}
-
-	return []RiskFlag{{
-		FlagType: "EXCESSIVE_POSITION_SIZE",
-		Severity: "MAJOR",
-		Penalty:  15.0,
-		Title:    "Large Position Size",
-		Desc:     fmt.Sprintf("%.0f%% trades exceed safe lot size for balance ($%.0f)", excessivePct, peakBalance),
-		SoftTitle: "High Position Sizing",
-		SoftDesc:  "Position sizes above typical safe levels relative to account balance.",
-	}}
 }
 
 // MAJOR: Revenge Trading - Per symbol, confirmed with outcome
