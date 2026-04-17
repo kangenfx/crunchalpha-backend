@@ -71,7 +71,7 @@ func main() {
         investorHandler := investor.NewHandler(investorService)
 
         rateLimiter := ratelimit.NewLimiter(db)
-	rateLimiter.StartCleanup(15 * time.Minute)
+	// rateLimiter.StartCleanup(15 * time.Minute)
 
         r := gin.Default()
 

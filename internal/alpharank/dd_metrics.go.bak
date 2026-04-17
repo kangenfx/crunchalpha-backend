@@ -1,0 +1,55 @@
+package alpharank
+
+import "log"
+
+// UpdateDrawdownMetrics dipanggil setiap EA push
+func (s *Service) UpdateDrawdownMetrics(accountID string, equity, totalWithdrawals float64) error {
+	normalizedEquity := equity + totalWithdrawals
+
+	// Hitung historical peak dari running balance trades
+	var historicalPeak float64
+	err := s.db.QueryRow(`
+		WITH initial_deposit AS (
+			SELECT COALESCE(SUM(amount), 0) as deposit
+			FROM account_transactions
+			WHERE account_id = $1 AND transaction_type = 'deposit'
+		),
+		running AS (
+			SELECT
+				(SELECT deposit FROM initial_deposit) +
+				SUM(profit + swap + commission) OVER (ORDER BY close_time ROWS UNBOUNDED PRECEDING) as running_balance
+			FROM trades
+			WHERE account_id = $1 AND status = 'closed'
+			ORDER BY close_time
+		)
+		SELECT COALESCE(MAX(running_balance), 0) FROM running
+	`, accountID).Scan(&historicalPeak)
+	if err != nil {
+		log.Printf("[DD] historicalPeak query failed for %s: %v", accountID, err)
+		historicalPeak = 0
+	}
+
+	_, err = s.db.Exec(`
+		UPDATE alpha_ranks SET
+			peak_equity  = GREATEST(COALESCE(peak_equity, 0), $2, $3),
+			last_equity  = $3,
+			current_dd   = CASE
+				WHEN GREATEST(COALESCE(peak_equity, 0), $2, $3) > 0
+				THEN (GREATEST(COALESCE(peak_equity, 0), $2, $3) - $3)
+				     / GREATEST(COALESCE(peak_equity, 0), $2, $3) * 100
+				ELSE 0
+			END,
+			max_drawdown_pct = GREATEST(
+				COALESCE(max_drawdown_pct, 0),
+				CASE
+					WHEN GREATEST(COALESCE(peak_equity, 0), $2, $3) > 0
+					THEN (GREATEST(COALESCE(peak_equity, 0), $2, $3) - $3)
+					     / GREATEST(COALESCE(peak_equity, 0), $2, $3) * 100
+					ELSE 0
+				END
+			)
+		WHERE account_id = $1
+	`, accountID, historicalPeak, normalizedEquity)
+
+	return err
+}
