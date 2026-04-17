@@ -837,3 +837,18 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - fix: investor connection_status — cron sync dari investor_ea_keys untuk role=follower
 - fix: akun 20686862 role provider → follower (business rule: 1 akun = 1 role)
 - fix: generateKey investor — mt5Account otomatis dari accounts[0]
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-17 08:24)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-$(date +%Y%m%d%H%M)`
+- **Port:** 8090 (internal), via nginx https
+- **Git:** master branch
+
+## 📋 CHANGES 2026-04-17 (DD Fix Final)
+### Backend - DD Zero On-The-Fly
+- fix: UpdateDrawdownMetrics return (maxDD, currentDD) — tidak perlu baca DB lagi
+- fix: CalculateForAccount override metrics.MaxDrawdownPct dari UpdateDrawdownMetrics
+- fix: hapus GREATEST di upsert alpha_ranks — DD bisa turun
+- result: account 6a725323 DD 49.18% → 17.90% ✅
+- Backend: crunchalpha-v3:production-202604170824

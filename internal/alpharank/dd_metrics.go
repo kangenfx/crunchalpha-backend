@@ -12,8 +12,8 @@ var historicalPeak float64
 err := s.db.QueryRow(`
 WITH events AS (
     SELECT created_at as event_time,
-        CASE WHEN transaction_type = 'deposit' THEN amount ELSE -amount END as delta
-    FROM account_transactions WHERE account_id = $1
+        CASE WHEN transaction_type = 'deposit' THEN amount ELSE 0 END as delta
+    FROM account_transactions WHERE account_id = $1 AND transaction_type = 'deposit'
     UNION ALL
     SELECT close_time, profit + swap + commission
     FROM trades WHERE account_id = $1 AND status = 'closed'
