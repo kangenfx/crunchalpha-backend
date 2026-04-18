@@ -972,3 +972,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-frontend-v3`
 - **Image:** `crunchalpha-frontend-v3:prod-202604181537`
 - **Changes:** fix: TraderProfile per-pair — title Performance Per Trading Pair, hapus grade/score/maxDD/risk, soft flags
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18 17:00)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604181700`
+- **Changes:**
+  - No SL flag threshold 70% (sesuai TrueAlpha framework), severity berdasarkan DD
+  - floating_by_symbol per symbol di SendAccountUpdate EA
+  - UpdateOpenProfit endpoint /api/ea/trade/profit
+  - floating_profit dari trader_accounts (bukan query open trades)
+  - per-pair table: hapus grade/score/maxDD, tambah avgRR, filter min 20 trades
