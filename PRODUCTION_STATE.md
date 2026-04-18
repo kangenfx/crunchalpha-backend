@@ -886,3 +886,14 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-backend`
 - **Image:** `crunchalpha-v3:production-202604180430`
 - **Changes:** feat: per-pair avg_rr — avg_win/avg_loss/risk_reward saved to DB & returned in API
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604180506`
+- **Changes:** floating_profit dari trader_accounts, excessive position size severity DD-based, per-pair filter min 20 trades, avgRR
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604180433`
+- **Changes:** PerPairTable — hapus Grade/Score/MaxDD, tambah AvgRR dan Flags
+### ⚠️ PENDING
+- Per-pair floating profit — EA perlu update profit field di open trades setiap push
+- BalanceAtOpen per trade — setelah EA running 24h realtime
