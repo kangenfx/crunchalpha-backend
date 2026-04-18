@@ -943,3 +943,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - feat: UpdateOpenProfit() — kirim floating profit tiap timer ke /api/ea/trade/profit
 - feat: floating_by_symbol di SendAccountUpdate() — akumulasi per symbol
 - parity: semua fitur MT5 v3.2 sekarang ada di MT4 v3.2
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18 10:19)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604181019`
+- **Port:** 8090 (internal), via nginx https
+- **Changes:** EA MT4 v3.2 compiled ex4 — equity_at_open, sl/tp, floating_by_symbol, UpdateOpenProfit
