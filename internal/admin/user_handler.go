@@ -300,3 +300,21 @@ func (h *UserHandler) AuditLogs(c *gin.Context) {
 	if logs == nil { logs = []Row{} }
 	c.JSON(http.StatusOK, gin.H{"data": logs})
 }
+
+func (h *UserHandler) UpdateAccountCurrency(c *gin.Context) {
+id := c.Param("id")
+var body struct {
+Currency string `json:"currency"`
+}
+if err := c.ShouldBindJSON(&body); err != nil {
+c.JSON(400, gin.H{"error": "invalid body"}); return
+}
+if body.Currency != "USD" && body.Currency != "USC" {
+c.JSON(400, gin.H{"error": "currency must be USD or USC"}); return
+}
+_, err := h.DB.Exec(`UPDATE trader_accounts SET currency=$1 WHERE id=$2`, body.Currency, id)
+if err != nil {
+c.JSON(500, gin.H{"error": err.Error()}); return
+}
+c.JSON(200, gin.H{"ok": true, "currency": body.Currency})
+}

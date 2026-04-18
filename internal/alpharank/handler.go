@@ -117,7 +117,8 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		       COALESCE(ta.about,'') as about,
                        COALESCE(ar.layer3_multiplier,1.0) as layer3_multiplier,
                        COALESCE(ar.layer3_status,'NEUTRAL') as layer3_status,
-                       COALESCE(ar.layer3_reason,'') as layer3_reason
+                       COALESCE(ar.layer3_reason,'') as layer3_reason,
+				COALESCE(ta.currency,'USD') as currency
 		FROM alpha_ranks ar
 		JOIN trader_accounts ta ON ta.id = ar.account_id
 		LEFT JOIN users u ON u.id = ta.user_id
@@ -149,6 +150,7 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		ProfitFactor float64 `json:"profitFactor"`
 		RiskLevel    string  `json:"riskLevel"`
 		Strategy     string  `json:"strategy"`
+		Currency     string  `json:"currency"`
 	}
 	var traders []TraderRow
 	for rows.Next() {
@@ -157,7 +159,7 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 			&t.AlphaScore, &t.Grade, &t.WinRate, &t.MaxDD,
 			&t.ROI, &t.NetPnl, &t.TotalTrades, &t.ProfitFactor,
 			&t.TraderName, &t.RiskLevel, &t.Strategy,
-                    &t.Layer3Multiplier, &t.Layer3Status, &t.Layer3Reason)
+                    &t.Layer3Multiplier, &t.Layer3Status, &t.Layer3Reason, &t.Currency)
 		traders = append(traders, t)
 	}
 	if traders == nil { traders = []TraderRow{} }

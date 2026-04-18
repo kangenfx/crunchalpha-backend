@@ -399,6 +399,7 @@ func main() {
 		adminRoutes.GET("/fee-simulation/all", adminFeeCalc.SimulateAllAccounts)
                 adminRoutes.POST("/invoices/:id/mark-paid", investorHandler.AdminMarkInvoicePaid)
 		adminRoutes.PUT("/trading-accounts/:id/ib-status", adminFeeCalc.UpdateIBStatus)
+			adminRoutes.PUT("/trading-accounts/:id/currency", adminUserHandler.UpdateAccountCurrency)
 	}
 
 
