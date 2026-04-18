@@ -27,14 +27,15 @@ func (s *Service) CalculateForAccount(accountID string) error {
 		return fmt.Errorf("insufficient trades: need at least 20, have %d", len(trades))
 	}
 
-	var balance, equity float64
+	var balance, equity, floatingFromAccount float64
 	err = s.db.QueryRow(`
 		SELECT
 			COALESCE(balance, 0) as balance,
-			COALESCE(equity, 0) as equity
+			COALESCE(equity, 0) as equity,
+			COALESCE(floating_profit, 0) as floating_profit
 		FROM trader_accounts
 		WHERE id = $1
-	`, accountID).Scan(&balance, &equity)
+	`, accountID).Scan(&balance, &equity, &floatingFromAccount)
 	if err != nil {
 		return fmt.Errorf("failed to get account info: %w", err)
 	}
@@ -52,7 +53,7 @@ func (s *Service) CalculateForAccount(accountID string) error {
 		WHERE account_id = $1 AND transaction_type = 'withdrawal'
 	`, accountID).Scan(&totalWithdrawals)
 
-	metrics := s.buildMetrics(accountID, trades, balance, equity, totalDeposits, totalWithdrawals)
+	metrics := s.buildMetrics(accountID, trades, balance, equity, totalDeposits, totalWithdrawals, floatingFromAccount)
 	// DD dari DB — zero on-the-fly
 	if ddMax, _ := s.UpdateDrawdownMetrics(accountID, equity, totalWithdrawals); ddMax > 0 {
 		metrics.MaxDrawdownPct = ddMax
@@ -161,7 +162,7 @@ func (s *Service) getTradesForAccount(accountID string) ([]TradeData, error) {
 	return trades, nil
 }
 
-func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, equity, totalDeposits, totalWithdrawals float64) AccountMetrics {
+func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, equity, totalDeposits, totalWithdrawals float64, floatingFromAccount float64) AccountMetrics {
 	// Query floating profit dari DB (open trades) - zero on-the-fly
 	var floatingProfit float64
 	s.db.QueryRow(`
@@ -601,8 +602,6 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 			if runningBalance > peakBalance {
 				peakBalance = runningBalance
 			}
-		case "withdrawal":
-			runningBalance -= event.Amount
 		case "trade":
 			runningBalance += event.Amount
 			if runningBalance > peakBalance {
