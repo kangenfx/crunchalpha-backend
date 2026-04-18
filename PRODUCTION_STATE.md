@@ -867,3 +867,16 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - result: account 13038460 DD 100% → 5.09% ✅
 - result: account 20661475 DD 17.90% ✅
 - Backend: crunchalpha-v3:production-202604170846
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604180316`
+- **Port:** 5176 (internal), via nginx https
+- **Changes:** fix: EA download URL fix — /api/ea/download/mt5 & mt4 working
+
+## ✅ EA STATUS (Updated 2026-04-18)
+- EA Publisher MT5 v3.0: download OK ✅
+- EA Publisher MT4 v3.0: download OK ✅
+- EA Investor MT5: download OK ✅
+- EA Investor MT4: download OK ✅
