@@ -261,6 +261,7 @@ func main() {
         eaRoutesAPIKey.Use(middleware.APIKeyAuth(apikeyRepo))
         {
                 eaRoutesAPIKey.POST("/trade", eaHandler.ReceiveTrade)
+		eaRoutesAPIKey.POST("/trade/profit", eaHandler.UpdateOpenProfit)
                 eaRoutesAPIKey.POST("/account", eaHandler.ReceiveAccount)
                 eaRoutesAPIKey.POST("/sync", eaHandler.SyncAccount)
         }

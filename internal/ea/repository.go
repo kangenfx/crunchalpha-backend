@@ -2,6 +2,7 @@ package ea
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -128,20 +129,29 @@ func (r *Repository) UpdateAccountBalance(accountID string, balance, equity floa
 }
 
 func (r *Repository) UpdateAccountFull(accountID string, data *AccountData) error {
+	// Serialize floating_by_symbol to JSON
+	floatingBySymbolJSON := []byte("{}")
+	if len(data.FloatingBySymbol) > 0 {
+		if b, err := json.Marshal(data.FloatingBySymbol); err == nil {
+			floatingBySymbolJSON = b
+		}
+	}
 	query := `
 		UPDATE trader_accounts
 		SET balance = $1, equity = $2,
 		    margin = $3, free_margin = $4,
 		    floating_profit = $5, open_lots = $6, open_positions = $7,
+		    floating_by_symbol = $8,
 		    last_sync_at = NOW(), updated_at = NOW(),
 		    ea_verified = true,
 		    ea_first_push_at = COALESCE(ea_first_push_at, NOW())
-		WHERE id = $8
+		WHERE id = $9
 	`
 	_, err := r.db.Exec(query,
 		data.Balance, data.Equity,
 		data.Margin, data.FreeMargin,
 		data.FloatingProfit, data.OpenLots, data.OpenPositions,
+		floatingBySymbolJSON,
 		accountID,
 	)
 	return err

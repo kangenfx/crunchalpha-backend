@@ -1,9 +1,9 @@
-//+------------------------------------------------------------------+
-//|              CrunchAlpha_Publisher_MT5_v3.0.mq5                  |
-//|         HTTP Direct + min_equity + SL/TP tracked from cache      |
+﻿//+------------------------------------------------------------------+
+//|              CrunchAlpha_Publisher_MT5_v3.2.mq5                  |
+//|  HTTP Direct + min_equity + SL/TP + floating_by_symbol + profit  |
 //+------------------------------------------------------------------+
 #property copyright "CrunchAlpha"
-#property version   "3.00"
+#property version   "3.20"
 #property strict
 
 input string InpApiKey           = "";
@@ -18,6 +18,7 @@ struct PositionCache {
     double   open_price;
     datetime open_time;
     double   min_equity;
+    double   equity_at_open;
     double   sl;
     double   tp;
 };
@@ -27,7 +28,7 @@ int    g_posCount      = 0;
 string g_accountNumber = "";
 
 int OnInit() {
-    Print("[CA v3.1] CrunchAlpha Publisher MT5 v3.0 starting...");
+    Print("[CA v3.2] CrunchAlpha Publisher MT5 v3.2 starting...");
     if(StringLen(InpApiKey) < 60) { Alert("[CA] ERROR: API Key required!"); return(INIT_FAILED); }
     g_accountNumber = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
     Print("[CA] Account: ", g_accountNumber);
@@ -47,6 +48,7 @@ void OnDeinit(const int reason) { Print("[CA] EA stopped. Reason: ", reason); Ev
 void OnTimer() {
     UpdateMinEquity();
     UpdateSLTP();
+    UpdateOpenProfit();
     CheckForNewPositions();
     CheckForClosedPositions();
     SendAccountUpdate();
@@ -73,6 +75,21 @@ void UpdateSLTP() {
             Print("[CA] SL/TP updated ticket=", g_positions[i].ticket,
                   " sl=", DoubleToString(newSL, 5), " tp=", DoubleToString(newTP, 5));
         }
+    }
+}
+
+// Update profit open positions setiap timer — kirim ke endpoint khusus
+void UpdateOpenProfit() {
+    for(int i = 0; i < g_posCount; i++) {
+        if(!PositionSelectByTicket(g_positions[i].ticket)) continue;
+        double profit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+        string json = "{";
+        json += "\"account_number\":\"" + g_accountNumber + "\",";
+        json += "\"ticket\":"           + IntegerToString((long)g_positions[i].ticket) + ",";
+        json += "\"profit\":"           + DoubleToString(profit, 2) + ",";
+        json += "\"status\":\"open\"";
+        json += "}";
+        HTTPPost("/api/ea/trade/profit", json);
     }
 }
 
@@ -160,9 +177,10 @@ string BuildTradeJson(ulong deal, long posID, double minEquity, double equityAtO
 
 void PublishOpen(ulong ticket) {
     if(!PositionSelectByTicket(ticket)) return;
-    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
-    double sl = PositionGetDouble(POSITION_SL);
-    double tp = PositionGetDouble(POSITION_TP);
+    double equity  = AccountInfoDouble(ACCOUNT_EQUITY);
+    double sl      = PositionGetDouble(POSITION_SL);
+    double tp      = PositionGetDouble(POSITION_TP);
+    double profit  = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
     Print("[CA] Position opened: ticket=", ticket, " symbol=", PositionGetString(POSITION_SYMBOL),
           " sl=", DoubleToString(sl,5), " tp=", DoubleToString(tp,5));
     string json = "{";
@@ -174,6 +192,7 @@ void PublishOpen(ulong ticket) {
     json += "\"open_price\":"       + DoubleToString(PositionGetDouble(POSITION_PRICE_OPEN), 5) + ",";
     json += "\"sl\":"               + DoubleToString(sl, 5) + ",";
     json += "\"tp\":"               + DoubleToString(tp, 5) + ",";
+    json += "\"profit\":"           + DoubleToString(profit, 2) + ",";
     json += "\"equity_at_open\":"   + DoubleToString(equity, 2) + ",";
     json += "\"timestamp\":"        + IntegerToString((long)TimeCurrent()) + ",";
     json += "\"status\":\"open\"";
@@ -185,6 +204,7 @@ void PublishOpen(ulong ticket) {
 void PublishClose(int cacheIndex) {
     ulong  ticket = g_positions[cacheIndex].ticket;
     double minEq  = g_positions[cacheIndex].min_equity;
+    double eqOpen = g_positions[cacheIndex].equity_at_open;
     double sl     = g_positions[cacheIndex].sl;
     double tp     = g_positions[cacheIndex].tp;
     if(!HistorySelect(0, TimeCurrent())) return;
@@ -220,7 +240,7 @@ void PublishClose(int cacheIndex) {
         json += "\"open_time\":"        + IntegerToString(openTime) + ",";
         json += "\"close_time\":"       + IntegerToString(closeTime) + ",";
         json += "\"min_equity\":"       + DoubleToString(minEq, 2) + ",";
-        json += "\"equity_at_open\":"   + DoubleToString(0, 2) + ",";
+        json += "\"equity_at_open\":"   + DoubleToString(eqOpen, 2) + ",";
         json += "\"timestamp\":"        + IntegerToString(closeTime) + ",";
         json += "\"status\":\"closed\"";
         json += "}";
@@ -234,100 +254,143 @@ void PublishClose(int cacheIndex) {
 }
 
 void SendAccountUpdate() {
-    double balance=AccountInfoDouble(ACCOUNT_BALANCE), equity=AccountInfoDouble(ACCOUNT_EQUITY);
-    double margin=AccountInfoDouble(ACCOUNT_MARGIN), freeMargin=AccountInfoDouble(ACCOUNT_MARGIN_FREE);
-    double floating=equity-balance, openLots=0;
-    int openCount=PositionsTotal();
-    for(int i=0;i<openCount;i++){ulong t=PositionGetTicket(i);if(t>0){PositionSelectByTicket(t);openLots+=PositionGetDouble(POSITION_VOLUME);}}
-    string json="{";
-    json+="\"account_number\":\""+g_accountNumber+"\",";
-    json+="\"balance\":"+DoubleToString(balance,2)+",";
-    json+="\"equity\":"+DoubleToString(equity,2)+",";
-    json+="\"margin\":"+DoubleToString(margin,2)+",";
-    json+="\"free_margin\":"+DoubleToString(freeMargin,2)+",";
-    json+="\"floating_profit\":"+DoubleToString(floating,2)+",";
-    json+="\"open_lots\":"+DoubleToString(openLots,2)+",";
-    json+="\"open_positions\":"+IntegerToString(openCount)+",";
-    json+="\"timestamp\":"+IntegerToString((long)TimeCurrent());
-    json+="}";
-    int result=HTTPPost("/api/ea/account",json);
-    if(result!=200) Print("[CA] Account update result: HTTP ",result);
+    double balance    = AccountInfoDouble(ACCOUNT_BALANCE);
+    double equity     = AccountInfoDouble(ACCOUNT_EQUITY);
+    double margin     = AccountInfoDouble(ACCOUNT_MARGIN);
+    double freeMargin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+    double floating   = equity - balance;
+    double openLots   = 0;
+    int    openCount  = PositionsTotal();
+
+    // floating_by_symbol — accumulate per symbol (handle multi positions same symbol)
+    string symNames[];
+    double symProfits[];
+    int    symCount = 0;
+
+    for(int i = 0; i < openCount; i++) {
+        ulong t = PositionGetTicket(i);
+        if(t <= 0) continue;
+        PositionSelectByTicket(t);
+        openLots += PositionGetDouble(POSITION_VOLUME);
+        string sym      = PositionGetString(POSITION_SYMBOL);
+        double symProfit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+        bool found = false;
+        for(int j = 0; j < symCount; j++) {
+            if(symNames[j] == sym) { symProfits[j] += symProfit; found = true; break; }
+        }
+        if(!found) {
+            ArrayResize(symNames,  symCount + 1);
+            ArrayResize(symProfits, symCount + 1);
+            symNames[symCount]  = sym;
+            symProfits[symCount] = symProfit;
+            symCount++;
+        }
+    }
+
+    string floatBySymbol = "{";
+    for(int i = 0; i < symCount; i++) {
+        if(i > 0) floatBySymbol += ",";
+        floatBySymbol += "\"" + symNames[i] + "\":" + DoubleToString(symProfits[i], 2);
+    }
+    floatBySymbol += "}";
+
+    string json = "{";
+    json += "\"account_number\":\"" + g_accountNumber + "\",";
+    json += "\"balance\":"           + DoubleToString(balance, 2) + ",";
+    json += "\"equity\":"            + DoubleToString(equity, 2) + ",";
+    json += "\"margin\":"            + DoubleToString(margin, 2) + ",";
+    json += "\"free_margin\":"       + DoubleToString(freeMargin, 2) + ",";
+    json += "\"floating_profit\":"   + DoubleToString(floating, 2) + ",";
+    json += "\"floating_by_symbol\":" + floatBySymbol + ",";
+    json += "\"open_lots\":"         + DoubleToString(openLots, 2) + ",";
+    json += "\"open_positions\":"    + IntegerToString(openCount) + ",";
+    json += "\"timestamp\":"         + IntegerToString((long)TimeCurrent());
+    json += "}";
+    int result = HTTPPost("/api/ea/account", json);
+    if(result != 200) Print("[CA] Account update result: HTTP ", result);
 }
 
 void CheckForNewPositions() {
-    int total=PositionsTotal();
-    for(int i=0;i<total;i++){ulong ticket=PositionGetTicket(i);if(ticket>0&&!IsInCache(ticket)){AddToCache(ticket);PublishOpen(ticket);}}
+    int total = PositionsTotal();
+    for(int i = 0; i < total; i++) {
+        ulong ticket = PositionGetTicket(i);
+        if(ticket > 0 && !IsInCache(ticket)) { AddToCache(ticket); PublishOpen(ticket); }
+    }
 }
 
 void CheckForClosedPositions() {
-    for(int i=g_posCount-1;i>=0;i--){if(!PositionSelectByTicket(g_positions[i].ticket)){PublishClose(i);RemoveFromCache(i);}}
+    for(int i = g_posCount - 1; i >= 0; i--) {
+        if(!PositionSelectByTicket(g_positions[i].ticket)) { PublishClose(i); RemoveFromCache(i); }
+    }
 }
 
 bool IsInCache(ulong ticket) {
-    for(int i=0;i<g_posCount;i++) if(g_positions[i].ticket==ticket) return true;
+    for(int i = 0; i < g_posCount; i++) if(g_positions[i].ticket == ticket) return true;
     return false;
 }
 
 void AddToCache(ulong ticket) {
     if(!PositionSelectByTicket(ticket)) return;
-    double equity=AccountInfoDouble(ACCOUNT_EQUITY);
-    ArrayResize(g_positions,g_posCount+1);
-    g_positions[g_posCount].ticket     = ticket;
-    g_positions[g_posCount].symbol     = PositionGetString(POSITION_SYMBOL);
-    g_positions[g_posCount].lots       = PositionGetDouble(POSITION_VOLUME);
-    g_positions[g_posCount].open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-    g_positions[g_posCount].open_time  = (datetime)PositionGetInteger(POSITION_TIME);
-    g_positions[g_posCount].min_equity = equity;
-    g_positions[g_posCount].sl         = PositionGetDouble(POSITION_SL);
-    g_positions[g_posCount].tp         = PositionGetDouble(POSITION_TP);
+    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+    ArrayResize(g_positions, g_posCount + 1);
+    g_positions[g_posCount].ticket         = ticket;
+    g_positions[g_posCount].symbol         = PositionGetString(POSITION_SYMBOL);
+    g_positions[g_posCount].lots           = PositionGetDouble(POSITION_VOLUME);
+    g_positions[g_posCount].open_price     = PositionGetDouble(POSITION_PRICE_OPEN);
+    g_positions[g_posCount].open_time      = (datetime)PositionGetInteger(POSITION_TIME);
+    g_positions[g_posCount].min_equity     = equity;
+    g_positions[g_posCount].equity_at_open = equity;
+    g_positions[g_posCount].sl             = PositionGetDouble(POSITION_SL);
+    g_positions[g_posCount].tp             = PositionGetDouble(POSITION_TP);
     g_posCount++;
-    Print("[CA] Cached: ticket=",ticket," sl=",DoubleToString(g_positions[g_posCount-1].sl,5),
-          " tp=",DoubleToString(g_positions[g_posCount-1].tp,5));
+    Print("[CA] Cached: ticket=", ticket, " sl=", DoubleToString(g_positions[g_posCount-1].sl, 5),
+          " tp=", DoubleToString(g_positions[g_posCount-1].tp, 5));
 }
 
 void LoadExistingPositions() {
-    int total=PositionsTotal();
-    ArrayResize(g_positions,total);
-    g_posCount=0;
-    double equity=AccountInfoDouble(ACCOUNT_EQUITY);
-    for(int i=0;i<total;i++){
-        ulong ticket=PositionGetTicket(i);
-        if(ticket>0){
+    int total = PositionsTotal();
+    ArrayResize(g_positions, total);
+    g_posCount = 0;
+    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+    for(int i = 0; i < total; i++) {
+        ulong ticket = PositionGetTicket(i);
+        if(ticket > 0) {
             PositionSelectByTicket(ticket);
-            g_positions[g_posCount].ticket     = ticket;
-            g_positions[g_posCount].symbol     = PositionGetString(POSITION_SYMBOL);
-            g_positions[g_posCount].lots       = PositionGetDouble(POSITION_VOLUME);
-            g_positions[g_posCount].open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-            g_positions[g_posCount].open_time  = (datetime)PositionGetInteger(POSITION_TIME);
-            g_positions[g_posCount].min_equity = equity;
-            g_positions[g_posCount].sl         = PositionGetDouble(POSITION_SL);
-            g_positions[g_posCount].tp         = PositionGetDouble(POSITION_TP);
-            Print("[CA] Loaded: ticket=",ticket," symbol=",g_positions[g_posCount].symbol,
-                  " sl=",DoubleToString(g_positions[g_posCount].sl,5),
-                  " tp=",DoubleToString(g_positions[g_posCount].tp,5));
+            g_positions[g_posCount].ticket         = ticket;
+            g_positions[g_posCount].symbol         = PositionGetString(POSITION_SYMBOL);
+            g_positions[g_posCount].lots           = PositionGetDouble(POSITION_VOLUME);
+            g_positions[g_posCount].open_price     = PositionGetDouble(POSITION_PRICE_OPEN);
+            g_positions[g_posCount].open_time      = (datetime)PositionGetInteger(POSITION_TIME);
+            g_positions[g_posCount].min_equity     = equity;
+            g_positions[g_posCount].equity_at_open = equity;
+            g_positions[g_posCount].sl             = PositionGetDouble(POSITION_SL);
+            g_positions[g_posCount].tp             = PositionGetDouble(POSITION_TP);
+            Print("[CA] Loaded: ticket=", ticket, " symbol=", g_positions[g_posCount].symbol,
+                  " sl=", DoubleToString(g_positions[g_posCount].sl, 5),
+                  " tp=", DoubleToString(g_positions[g_posCount].tp, 5));
             g_posCount++;
         }
     }
 }
 
 void RemoveFromCache(int index) {
-    for(int i=index;i<g_posCount-1;i++) g_positions[i]=g_positions[i+1];
+    for(int i = index; i < g_posCount - 1; i++) g_positions[i] = g_positions[i+1];
     g_posCount--;
-    ArrayResize(g_positions,g_posCount);
+    ArrayResize(g_positions, g_posCount);
 }
 
 int HTTPPost(string endpoint, string jsonBody) {
-    string url=InpBackendURL+endpoint;
-    string headers="Content-Type: application/json\r\nX-API-Key: "+InpApiKey+"\r\n";
-    char post[],result[];
+    string url     = InpBackendURL + endpoint;
+    string headers = "Content-Type: application/json\r\nX-API-Key: " + InpApiKey + "\r\n";
+    char post[], result[];
     string resultHeaders;
-    int len=StringToCharArray(jsonBody,post,0,WHOLE_ARRAY,CP_UTF8)-1;
-    ArrayResize(post,len);
-    int res=WebRequest("POST",url,headers,5000,post,result,resultHeaders);
-    if(res==-1){
-        int err=GetLastError();
-        Print("[CA] WebRequest ERROR: ",err);
-        if(err==4014) Print("[CA] Add ",InpBackendURL," to Allow WebRequest list");
+    int len = StringToCharArray(jsonBody, post, 0, WHOLE_ARRAY, CP_UTF8) - 1;
+    ArrayResize(post, len);
+    int res = WebRequest("POST", url, headers, 5000, post, result, resultHeaders);
+    if(res == -1) {
+        int err = GetLastError();
+        Print("[CA] WebRequest ERROR: ", err);
+        if(err == 4014) Print("[CA] Add ", InpBackendURL, " to Allow WebRequest list");
     }
     return res;
 }
