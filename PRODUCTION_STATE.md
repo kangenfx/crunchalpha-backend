@@ -915,3 +915,23 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-backend`
 - **Image:** `crunchalpha-v3:production-202604180920`
 - **Changes:** fix: GetTraderProfile per-pair — hapus grade/score/maxDD/risk, tambah avg_rr, filter min 20 trades
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604181000` (sesuai timestamp deploy)
+- **Port:** 5176 (internal), via nginx https
+- **Changes:** TraderProfile per-pair — samakan dengan trader dashboard, hapus Grade/Score/MaxDD/Risk, tambah AvgRR & Flags
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604180920`
+
+## 📋 CHANGES 2026-04-18
+### DD Fix — Final
+- fix: DD exclude withdrawal dari events — WD adalah profit diambil bukan loss
+- fix: hapus GREATEST di upsert — DD bisa turun
+- fix: UpdateDrawdownMetrics return value — override buildMetrics (zero on-the-fly)
+- fix: per-pair DD withdrawal juga di-exclude
+### Frontend
+- fix: TraderProfile per-pair — hapus Grade/Score/MaxDD/Risk, tambah AvgRR & soft flags
+- fix: samakan dengan Performance Per Trading Pair di trader dashboard
