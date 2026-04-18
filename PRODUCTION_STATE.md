@@ -935,3 +935,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### Frontend
 - fix: TraderProfile per-pair — hapus Grade/Score/MaxDD/Risk, tambah AvgRR & soft flags
 - fix: samakan dengan Performance Per Trading Pair di trader dashboard
+
+## 📋 CHANGES 2026-04-18 (EA MT4 v3.2)
+### EA MT4 Publisher v3.2
+- feat: equity_at_open di PositionCache, PublishOpen, PublishClose, BuildTradeJsonHistory
+- feat: sl/tp di PositionCache + UpdateSLTP() setiap timer
+- feat: UpdateOpenProfit() — kirim floating profit tiap timer ke /api/ea/trade/profit
+- feat: floating_by_symbol di SendAccountUpdate() — akumulasi per symbol
+- parity: semua fitur MT5 v3.2 sekarang ada di MT4 v3.2
