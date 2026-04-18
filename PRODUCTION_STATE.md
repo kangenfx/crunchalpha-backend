@@ -897,3 +897,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### ⚠️ PENDING
 - Per-pair floating profit — EA perlu update profit field di open trades setiap push
 - BalanceAtOpen per trade — setelah EA running 24h realtime
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604180833`
+- **Changes:** fix: EA key valid untuk semua akun milik user — hapus per-account restriction
