@@ -532,32 +532,28 @@ func (h *Handler) GetTraderProfile(c *gin.Context) {
 	// Per pair
 	type PairItem struct {
 		Symbol    string      `json:"symbol"`
-		Grade     string      `json:"grade"`
-		Score     float64     `json:"score"`
 		Trades    int         `json:"trades"`
 		WinRate   float64     `json:"win_rate"`
 		NetProfit float64     `json:"net_profit"`
-		MaxDD     float64     `json:"max_dd"`
-		RiskLevel string      `json:"risk_level"`
+		AvgRR     float64     `json:"avg_rr"`
 		Flags     interface{} `json:"flags"`
 	}
 	ppRows, _ := h.service.repo.DB.Query(`
-		SELECT ar.symbol, COALESCE(ar.grade,''), COALESCE(ar.alpha_score,0),
-			COALESCE(ar.total_trades_all, ar.trade_count,0),
-			COALESCE(ar.win_rate,0), COALESCE(ar.net_pnl,0),
-			COALESCE(ar.max_drawdown_pct,0),
-			COALESCE(ar.risk_level,'MEDIUM'),
-			COALESCE(ar.risk_flags::text,'[]')
-		FROM alpha_ranks ar
-		WHERE ar.account_id=$1::uuid AND ar.symbol!='ALL'
-		ORDER BY ar.alpha_score DESC`, accountID)
+			SELECT ar.symbol,
+				COALESCE(ar.total_trades_all, ar.trade_count,0),
+				COALESCE(ar.win_rate,0), COALESCE(ar.net_pnl,0),
+				COALESCE(ar.risk_reward,0),
+				COALESCE(ar.risk_flags::text,'[]'::text)
+			FROM alpha_ranks ar
+			WHERE ar.account_id=$1::uuid AND ar.symbol!='ALL' AND ar.trade_count >= 20
+			ORDER BY ar.net_pnl DESC`, accountID)
 	var pairs []PairItem
 	if ppRows != nil {
 		defer ppRows.Close()
 		for ppRows.Next() {
 			var p PairItem
 			var flagsRaw string
-			ppRows.Scan(&p.Symbol,&p.Grade,&p.Score,&p.Trades,&p.WinRate,&p.NetProfit,&p.MaxDD,&p.RiskLevel,&flagsRaw)
+			ppRows.Scan(&p.Symbol,&p.Trades,&p.WinRate,&p.NetProfit,&p.AvgRR,&flagsRaw)
 			var flagsParsed []interface{}
 			json.Unmarshal([]byte(flagsRaw), &flagsParsed)
 			if flagsParsed == nil { flagsParsed = []interface{}{} }
