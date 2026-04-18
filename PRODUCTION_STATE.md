@@ -903,3 +903,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-backend`
 - **Image:** `crunchalpha-v3:production-202604180833`
 - **Changes:** fix: EA key valid untuk semua akun milik user — hapus per-account restriction
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604180856`
+- **Changes:** fix: TraderProfile per-pair — hapus Grade/Score/MaxDD/Risk, tambah AvgRR, filter min 20 trades, soft flags
