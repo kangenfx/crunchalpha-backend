@@ -956,3 +956,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-frontend-v3`
 - **Image:** `crunchalpha-frontend-v3:prod-202604181100`
 - **Changes:** AddAccountModal — tambah Account Type Standard/Cent, currency USC/USD auto-set
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18 11:30)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604181130`
+- **Changes:** GET /api/public/traders return currency, PUT /api/admin/trading-accounts/:id/currency
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604181130`
+- **Changes:** Marketplace badge CENT (USC), Admin tab Accounts button CCY + modal, AddAccountModal Standard/Cent
