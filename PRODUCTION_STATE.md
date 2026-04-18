@@ -880,3 +880,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - EA Publisher MT4 v3.0: download OK ✅
 - EA Investor MT5: download OK ✅
 - EA Investor MT4: download OK ✅
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604180430`
+- **Changes:** feat: per-pair avg_rr — avg_win/avg_loss/risk_reward saved to DB & returned in API
