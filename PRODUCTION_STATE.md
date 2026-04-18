@@ -950,3 +950,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Image:** `crunchalpha-v3:production-202604181019`
 - **Port:** 8090 (internal), via nginx https
 - **Changes:** EA MT4 v3.2 compiled ex4 — equity_at_open, sl/tp, floating_by_symbol, UpdateOpenProfit
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604181100`
+- **Changes:** AddAccountModal — tambah Account Type Standard/Cent, currency USC/USD auto-set
