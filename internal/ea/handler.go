@@ -37,15 +37,16 @@ type TradeData struct {
 }
 
 type AccountData struct {
-	AccountNumber  string  `json:"account_number" binding:"required"`
-	Balance        float64 `json:"balance" binding:"required"`
-	Equity         float64 `json:"equity" binding:"required"`
-	Margin         float64 `json:"margin"`
-	FreeMargin     float64 `json:"free_margin"`
-	FloatingProfit float64 `json:"floating_profit"`
-	OpenLots       float64 `json:"open_lots"`
-	OpenPositions  int     `json:"open_positions"`
-	Timestamp      int64   `json:"timestamp,omitempty"`
+	AccountNumber      string             `json:"account_number" binding:"required"`
+	Balance            float64            `json:"balance" binding:"required"`
+	Equity             float64            `json:"equity" binding:"required"`
+	Margin             float64            `json:"margin"`
+	FreeMargin         float64            `json:"free_margin"`
+	FloatingProfit     float64            `json:"floating_profit"`
+	FloatingBySymbol   map[string]float64 `json:"floating_by_symbol,omitempty"`
+	OpenLots           float64            `json:"open_lots"`
+	OpenPositions      int                `json:"open_positions"`
+	Timestamp          int64              `json:"timestamp,omitempty"`
 }
 
 func (h *Handler) ReceiveTrade(c *gin.Context) {
@@ -175,4 +176,37 @@ func (h *Handler) SyncAccount(c *gin.Context) {
 		"message":       "sync completed",
 		"trades_synced": tradesAdded,
 	})
+}
+
+// UpdateOpenProfit - update profit field untuk open trades saja
+func (h *Handler) UpdateOpenProfit(c *gin.Context) {
+        var data struct {
+                AccountNumber string  `json:"account_number" binding:"required"`
+                Ticket        int64   `json:"ticket" binding:"required"`
+                Profit        float64 `json:"profit"`
+                Status        string  `json:"status"`
+        }
+        if err := c.ShouldBindJSON(&data); err != nil {
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }
+        userID, exists := c.Get("user_id")
+        if !exists {
+                c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+                return
+        }
+        accountID, err := h.repo.GetAccountIDByNumber(data.AccountNumber, userID.(string))
+        if err != nil {
+                c.JSON(http.StatusNotFound, gin.H{"error": "account not found"})
+                return
+        }
+        _, err = h.repo.db.Exec(`
+                UPDATE trades SET profit = $1
+                WHERE account_id = $2 AND ticket = $3 AND status = 'open'
+        `, data.Profit, accountID, data.Ticket)
+        if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+        }
+        c.JSON(http.StatusOK, gin.H{"ok": true})
 }
