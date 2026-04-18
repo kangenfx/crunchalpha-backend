@@ -182,36 +182,31 @@ func (h *Handler) GetPublicTraderDetail(c *gin.Context) {
 
 	// Per pair
 	pairRows, err := h.service.db.Query(`
-		SELECT ar.symbol, ar.trade_count, ar.win_rate, ar.profit_factor,
-		       COALESCE(ar.net_pnl,0), COALESCE(ar.max_drawdown_pct,0), ar.grade, ar.alpha_score,
-		       COALESCE(ar.risk_flags,'[]'::jsonb), COALESCE(ar.pillars,'[]'::jsonb)
+                SELECT ar.symbol, ar.trade_count, ar.win_rate, ar.profit_factor,
+                       COALESCE(ar.net_pnl,0), COALESCE(ar.risk_reward,0),
+                       COALESCE(ar.risk_flags,'[]'::jsonb)
 		FROM alpha_ranks ar
-		WHERE account_id=$1::uuid AND ar.symbol != 'ALL'
-		ORDER BY ar.alpha_score DESC LIMIT 8`, accountID)
+                WHERE account_id=$1::uuid AND ar.symbol != 'ALL' AND ar.trade_count >= 20
+                ORDER BY ar.net_pnl DESC LIMIT 8`, accountID)
 	if err != nil { c.JSON(500, gin.H{"ok":false,"error":err.Error()}); return }
 	defer pairRows.Close()
-
 	type PairRow struct {
-		Symbol       string  `json:"symbol"`
-		Trades       int     `json:"trades"`
-		WinRate      float64 `json:"winRate"`
-		ProfitFactor float64 `json:"profitFactor"`
-		RiskLevel   string  `json:"riskLevel"`
-		Strategy    string  `json:"strategy"`
-		NetPnl       float64 `json:"netPnl"`
-		MaxDD        float64 `json:"maxDD"`
-		AlphaScore   float64 `json:"alphaScore"`
-		Grade        string  `json:"grade"`
+		Symbol       string        `json:"symbol"`
+		Trades       int           `json:"trades"`
+		WinRate      float64       `json:"winRate"`
+		ProfitFactor float64       `json:"profitFactor"`
+		NetPnl       float64       `json:"netPnl"`
+		AvgRR        float64       `json:"avgRR"`
+		Flags        []interface{} `json:"flags"`
 	}
 	var pairs []PairRow
 	for pairRows.Next() {
 		var p PairRow
-		var flagsJSON, pillarsJSON []byte
+		var flagsJSON []byte
 		pairRows.Scan(&p.Symbol, &p.Trades, &p.WinRate, &p.ProfitFactor,
-			&p.NetPnl, &p.MaxDD, &p.Grade, &p.AlphaScore,
-			&flagsJSON, &pillarsJSON)
-		_ = flagsJSON
-		_ = pillarsJSON
+			&p.NetPnl, &p.AvgRR, &flagsJSON)
+		if len(flagsJSON) > 0 { json.Unmarshal(flagsJSON, &p.Flags) }
+		if p.Flags == nil { p.Flags = []interface{}{} }
 		pairs = append(pairs, p)
 	}
 	if pairs == nil { pairs = []PairRow{} }
