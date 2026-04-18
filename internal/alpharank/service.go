@@ -406,6 +406,9 @@ func (s *Service) getDistinctSymbols(accountID string) ([]string, error) {
 func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *AlphaRankResult, tradeCount int, maxDD float64, netPnl float64, metrics *AccountMetrics) error {
 	winRate := 0.0
 	profitFactor := 0.0
+	avgWin2 := 0.0
+	avgLoss2 := 0.0
+	riskReward2 := 0.0
 	if metrics != nil {
 		if metrics.TotalTrades > 0 {
 			winRate = float64(metrics.WinningTrades) / float64(metrics.TotalTrades) * 100
@@ -413,6 +416,9 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 		if metrics.GrossLoss != 0 {
 			profitFactor = math.Abs(metrics.GrossProfit / metrics.GrossLoss)
 		}
+		avgWin2 = metrics.AvgWin
+		avgLoss2 = metrics.AvgLoss
+		riskReward2 = metrics.RiskReward
 	}
 	var p1, p2, p3, p4, p5, p6, p7 float64
 	for _, pillar := range result.Pillars {
@@ -451,9 +457,10 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 				risk_flags, critical_count, major_count, minor_count,
 				max_drawdown_pct, pillars,
 					net_pnl, win_rate, total_trades_all, profit_factor,
+					avg_win, avg_loss, risk_reward,
 				risk_level,
 				calculated_at
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,NOW())
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,NOW())
 			ON CONFLICT (account_id, symbol)
 			DO UPDATE SET
 				profitability_score = EXCLUDED.profitability_score,
@@ -478,6 +485,9 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 					win_rate = EXCLUDED.win_rate,
 					total_trades_all = EXCLUDED.total_trades_all,
 					profit_factor = EXCLUDED.profit_factor,
+					avg_win = EXCLUDED.avg_win,
+					avg_loss = EXCLUDED.avg_loss,
+					risk_reward = EXCLUDED.risk_reward,
 					risk_level = EXCLUDED.risk_level,
 				calculated_at = NOW()
 	`
@@ -494,6 +504,7 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 		maxDD, pillarsJSON,
 		netPnl,
 		winRate, tradeCount, profitFactor,
+		avgWin2, avgLoss2, riskReward2,
 		GetRiskLevelFromCounts(result.RiskFlags.Counts.Critical, result.RiskFlags.Counts.Major, result.RiskFlags.Counts.Minor, result.AlphaScore),
 	)
 	return err

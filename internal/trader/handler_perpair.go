@@ -45,7 +45,8 @@ func (h *Handler) GetAlphaRankPerPair(c *gin.Context) {
 			ar.trade_count,
 			COALESCE(ar.win_rate, 0),
 			COALESCE(ar.net_pnl, 0),
-			COALESCE(ar.profit_factor, 0)
+			COALESCE(ar.profit_factor, 0),
+                        COALESCE(ar.risk_reward, 0)
 		FROM alpha_ranks ar
 		WHERE ar.account_id = $1 AND ar.symbol != 'ALL'
 		ORDER BY ar.symbol
@@ -60,14 +61,14 @@ func (h *Handler) GetAlphaRankPerPair(c *gin.Context) {
 
 	for rows.Next() {
 		var symbol, grade, badge, tier string
-		var score, maxDD, winRate, netPnl, profitFactor float64
+		var score, maxDD, winRate, netPnl, profitFactor, avgRR float64
 		var critical, major, minor, tradeCount int
 		var flagsJSON, pillarsJSON []byte
 
 		err := rows.Scan(
 			&symbol, &score, &grade, &badge, &tier, &maxDD,
 			&flagsJSON, &critical, &major, &minor,
-			&pillarsJSON, &tradeCount, &winRate, &netPnl, &profitFactor,
+			&pillarsJSON, &tradeCount, &winRate, &netPnl, &profitFactor, &avgRR,
 		)
 		if err != nil {
 			continue
@@ -97,7 +98,8 @@ func (h *Handler) GetAlphaRankPerPair(c *gin.Context) {
 			})
 		}
 
-		pairResults = append(pairResults, map[string]interface{}{
+
+pairResults = append(pairResults, map[string]interface{}{
 			"symbol":     symbol,
 			"score":      score,
 			"grade":      grade,
@@ -106,6 +108,7 @@ func (h *Handler) GetAlphaRankPerPair(c *gin.Context) {
 			"win_rate":      winRate,
 			"net_pnl":       netPnl,
 			"profit_factor": profitFactor,
+				"avg_rr":       avgRR,
 			"max_dd":     maxDD,
 			"pillars":    pillarsResponse,
 			"flags":      flagsResponse,
