@@ -163,13 +163,8 @@ func (s *Service) getTradesForAccount(accountID string) ([]TradeData, error) {
 }
 
 func (s *Service) buildMetrics(accountID string, trades []TradeData, balance, equity, totalDeposits, totalWithdrawals float64, floatingFromAccount float64) AccountMetrics {
-	// Query floating profit dari DB (open trades) - zero on-the-fly
-	var floatingProfit float64
-	s.db.QueryRow(`
-		SELECT COALESCE(SUM(profit + swap + commission), 0)
-		FROM trades
-		WHERE account_id = $1 AND status = 'open'
-	`, accountID).Scan(&floatingProfit)
+	// Floating profit dari trader_accounts — di-push EA setiap sync, lebih akurat dari open trades
+	floatingProfit := floatingFromAccount
 	var (
 		grossProfit   float64
 		grossLoss     float64
