@@ -966,3 +966,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-frontend-v3`
 - **Image:** `crunchalpha-frontend-v3:prod-202604181130`
 - **Changes:** Marketplace badge CENT (USC), Admin tab Accounts button CCY + modal, AddAccountModal Standard/Cent
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-18)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604181537`
+- **Changes:** fix: TraderProfile per-pair — title Performance Per Trading Pair, hapus grade/score/maxDD/risk, soft flags
