@@ -360,10 +360,15 @@ func (h *Handler) CopyTraderUnsubscribe(c *gin.Context) {
 		c.JSON(400, gin.H{"ok": false, "error": "no active broker account found"}); return
 	}
 	_, err := h.service.repo.DB.Exec(`
-		UPDATE copy_subscriptions SET status='inactive', updated_at=now()
+		UPDATE copy_subscriptions SET status='CANCELLED', updated_at=now()
 		WHERE follower_account_id=$1::uuid AND provider_account_id=$2::uuid`,
 		followerAccountID, req.TraderAccountID)
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return }
+	// Reset allocation ke 0 saat unsub
+	h.service.repo.DB.Exec(`
+		UPDATE user_allocations SET allocation_value=0, updated_at=now()
+		WHERE user_id=$1::uuid AND trader_account_id=$2::uuid`,
+		uid, req.TraderAccountID)
 	c.JSON(200, gin.H{"ok": true, "message": "Unsubscribed"})
 }
 
