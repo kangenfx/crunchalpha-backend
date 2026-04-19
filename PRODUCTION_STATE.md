@@ -996,3 +996,21 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - fix: EA v3.4 — ExtractBool pakai StringFind pattern "key":true (tidak lagi false positif)
 - fix: EA v3.4 — ExtractDbl pakai pattern "key": langsung
 - Settings sekarang return Signal:true Trader:true ✅
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-19 16:02)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604191559`
+- **Fix:** CopyTraderUnsubscribe — reset allocation_value=0, fix followerAccountID
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604191601`
+- **Fix:** Overview RiskDashboard — fetch copy-trader-subscriptions, filter ACTIVE only, traderName dari subs
+
+## 📋 CHANGES 2026-04-19 (continued)
+### Backend
+- fix: CopyTraderUnsubscribe — enum CANCELLED (bukan inactive), reset user_allocations ke 0
+- fix: CopyTraderUnsubscribe — followerAccountID dari trader_accounts bukan uid
+### Frontend
+- fix: Copy Traders list — filter hanya ACTIVE (subs→activeSubs)
+- fix: Overview RiskDashboard — fetch trader subs sendiri, filter ACTIVE, tampilkan traderName
