@@ -982,3 +982,17 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - UpdateOpenProfit endpoint /api/ea/trade/profit
   - floating_profit dari trader_accounts (bukan query open trades)
   - per-pair table: hapus grade/score/maxDD, tambah avgRR, filter min 20 trades
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-19)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604191522`
+
+## 📋 CHANGES 2026-04-19
+### Backend
+- fix: CopyTraderUnsubscribe — followerAccountID dari trader_accounts (bukan uid user)
+- fix: investor routes — tambah semua missing routes (unsubscribe, analyst, ea-keys)
+### EA Investor
+- fix: EA v3.4 — ExtractBool pakai StringFind pattern "key":true (tidak lagi false positif)
+- fix: EA v3.4 — ExtractDbl pakai pattern "key": langsung
+- Settings sekarang return Signal:true Trader:true ✅
