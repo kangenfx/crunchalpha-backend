@@ -1066,3 +1066,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - Template CSV download (client-side, no auth needed)
   - Status label berwarna: CLOSED_TP/CLOSED_SL/CANCELLED_MANUAL
   - Contoh CANCELLED_MANUAL di template
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-20 07:30)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604200730` (sesuai timestamp)
+- **Changes:**
+  - feat: unified PortfolioTab — Copy Traders + Copy Signals dalam 1 tab "My Portfolio"
+  - feat: Signal Feed dipindah ke sub-tab dalam My Portfolio
+  - fix: trader name priority — nickname dulu baru user.name
+  - fix: AUM display dari investorEquity settings
