@@ -242,6 +242,7 @@ func main() {
 	r.GET("/api/public/traders", alpharankHandler.GetPublicTraders)
 	r.GET("/api/public/trader/:id", alpharankHandler.GetPublicTraderDetail)
 	r.GET("/api/public/analyst-profile/:setId", analystHandler.GetPublicAnalystProfile)
+	r.GET("/api/public/market-price/:pair", analystHandler.GetMarketPrice)
 
         // EA Download (public, no auth)
         r.GET("/api/ea/download/mt4", func(c *gin.Context) {

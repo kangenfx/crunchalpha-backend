@@ -310,3 +310,30 @@ func (h *Handler) EABatchUpdate(c *gin.Context) {
 		"changes": updates,
 	})
 }
+
+// ── GET /api/public/market-price/:pair ───────────────────────────────────────
+func (h *Handler) GetMarketPrice(c *gin.Context) {
+pair := strings.ToUpper(c.Param("pair"))
+if pair == "" {
+c.JSON(400, gin.H{"ok": false, "error": "pair required"})
+return
+}
+var bid, ask float64
+var updatedAt time.Time
+err := h.DB.QueryRow(`SELECT bid, ask, updated_at FROM ea_price_cache WHERE pair=$1`, pair).Scan(&bid, &ask, &updatedAt)
+if err != nil {
+c.JSON(200, gin.H{"ok": true, "pair": pair, "bid": 0, "ask": 0, "mid": 0, "available": false})
+return
+}
+mid := (bid + ask) / 2
+stale := time.Since(updatedAt) > 30*time.Second
+c.JSON(200, gin.H{
+"ok":        true,
+"pair":      pair,
+"bid":       bid,
+"ask":       ask,
+"mid":       mid,
+"available": !stale,
+"updatedAt": updatedAt,
+})
+}

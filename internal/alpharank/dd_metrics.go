@@ -63,7 +63,7 @@ UPDATE alpha_ranks SET
     peak_equity      = $2,
     last_equity      = $3,
     current_dd       = $4,
-    max_drawdown_pct = $5
+    max_drawdown_pct = GREATEST(COALESCE(max_drawdown_pct, 0), $5)
 WHERE account_id = $1
 `, accountID, peakForCurrent, normalizedEquity, currentDD, maxDD)
 
