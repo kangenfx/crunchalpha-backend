@@ -110,6 +110,10 @@ func (h *Handler) GenerateEAKeyForAccount(c *gin.Context) {
 	keyHash := hashEAKeyV2(rawKey)
 	keyID := "eakey-" + rawKey[7:15]
 
+	// Hapus key lama untuk mt5_account yang sama
+	h.service.repo.DB.Exec(
+		`DELETE FROM investor_ea_keys WHERE investor_id=$1::uuid AND mt5_account=$2`,
+		uid, req.MT5Account)
 	_, err := h.service.repo.DB.Exec(
 		`INSERT INTO investor_ea_keys
 			(id, investor_id, key_hash, mt5_account, platform, description, created_at)

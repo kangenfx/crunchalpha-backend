@@ -64,6 +64,15 @@ func (h *Handler) GetSettings(c *gin.Context) {
 	} else {
 		s.UpdatedAt = updatedAt.Format("2006-01-02 15:04")
 	}
+	// Ambil investorEquity real-time dari investor_ea_keys — SUM per unique mt5_account
+	h.service.repo.DB.QueryRow(
+		`SELECT COALESCE(SUM(eq),0) FROM (
+		  SELECT DISTINCT ON (mt5_account) equity as eq
+		  FROM investor_ea_keys
+		  WHERE investor_id=$1::uuid
+		  ORDER BY mt5_account, last_equity_at DESC NULLS LAST
+		) t`,
+		uid).Scan(&s.InvestorEquity)
 	c.JSON(200, gin.H{"ok": true, "settings": s})
 }
 
