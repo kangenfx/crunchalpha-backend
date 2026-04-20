@@ -50,13 +50,13 @@ type TraderPosition struct {
 func (e *CopyTraderEngine) OnTraderPositionOpen(pos TraderPosition) {
 	rows, err := e.db.Query(
 		`SELECT ua.user_id, ua.allocation_value, ua.max_risk_pct, ua.max_positions,
-		        inv.investor_equity, inv.max_daily_loss_pct
+		        COALESCE((SELECT SUM(equity) FROM investor_ea_keys WHERE investor_id=ua.user_id), inv.investor_equity),
+		        inv.max_daily_loss_pct, COALESCE(inv.risk_level, 'balanced')
 		 FROM user_allocations ua
 		 JOIN investor_settings inv ON inv.investor_id = ua.user_id
 		 WHERE ua.trader_account_id = $1
 		   AND ua.status = 'ACTIVE'
-		   AND ua.allocation_value > 0
-		   AND inv.investor_equity > 0`,
+		   AND ua.allocation_value > 0`,
 		pos.TraderAccountID)
 	if err != nil {
 		log.Printf("[CopyEngine] DB error: %v", err)
@@ -64,24 +64,61 @@ func (e *CopyTraderEngine) OnTraderPositionOpen(pos TraderPosition) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var investorID string
+		var investorID, riskLevel string
 		var allocationPct, maxRiskPct, investorEquity, maxDailyLossPct float64
 		var maxPositions int
 		if err := rows.Scan(&investorID, &allocationPct, &maxRiskPct, &maxPositions,
-			&investorEquity, &maxDailyLossPct); err != nil {
+			&investorEquity, &maxDailyLossPct, &riskLevel); err != nil {
 			continue
 		}
-		e.generateCopyEvent(investorID, pos, allocationPct, maxPositions, investorEquity, maxDailyLossPct)
+		e.generateCopyEvent(investorID, pos, allocationPct, maxPositions, investorEquity, maxDailyLossPct, riskLevel)
+	}
+}
+
+func riskLevelMaxRiskPct(level string) float64 {
+	switch level {
+	case "conservative": return 0.5
+	case "aggressive":   return 3.0
+	default:             return 1.5
+	}
+}
+
+func riskLevelMaxDD(level string) float64 {
+	switch level {
+	case "conservative": return 5.0
+	case "aggressive":   return 20.0
+	default:             return 10.0
 	}
 }
 
 func (e *CopyTraderEngine) generateCopyEvent(
 	investorID string, pos TraderPosition,
 	allocationPct float64, maxPositions int,
-	investorEquity float64, maxDailyLossPct float64,
+	investorEquity float64, maxDailyLossPct float64, riskLevel string,
 ) {
 	aum := investorEquity * allocationPct / 100.0
+
+	// DD guard dari EA push floating
+	var floatingProfit float64
+	e.db.QueryRow(`SELECT COALESCE(SUM(floating), 0) FROM investor_ea_keys WHERE investor_id=$1::uuid`, investorID).Scan(&floatingProfit)
+	if investorEquity > 0 && floatingProfit < 0 {
+		currentDD := math.Abs(floatingProfit) / investorEquity * 100.0
+		maxDD := riskLevelMaxDD(riskLevel)
+		if currentDD >= maxDD {
+			log.Printf("[CopyEngine] DD guard: investor %s DD=%.2f%% >= maxDD=%.2f%% (%s) — skip", investorID, currentDD, maxDD, riskLevel)
+			return
+		}
+	}
+
 	calculatedLot := pos.Lots * (aum / pos.TraderEquity)
+
+	// Risk cap per trade
+	maxRiskPct := riskLevelMaxRiskPct(riskLevel)
+	maxLotFromRisk := aum * maxRiskPct / 100.0
+	if maxLotFromRisk >= 0.01 && calculatedLot > maxLotFromRisk {
+		log.Printf("[CopyEngine] Risk cap: lot %.4f -> %.4f (%s %.1f%%)", calculatedLot, maxLotFromRisk, riskLevel, maxRiskPct)
+		calculatedLot = maxLotFromRisk
+	}
 
 	// Layer 3: baca multiplier dari DB (zero on-the-fly)
 	var layer3Multiplier float64 = 1.0
