@@ -1089,3 +1089,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - fix: GetSettings investorEquity — DISTINCT ON mt5_account ORDER BY last_equity_at DESC
 - fix: GenerateEAKeyForAccount — hapus key lama untuk mt5_account yang sama
 - fix: auto allocation unified — 1 pool 100% untuk traders + analysts berdasarkan AlphaScore
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-20)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604201224`
+- **Changes:** Auto-allocate unified pool — traders + analysts share 100% proportional by AlphaScore; RiskDashboard fetch traderSubs + accounts
