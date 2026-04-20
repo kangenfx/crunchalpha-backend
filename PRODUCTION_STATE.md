@@ -1035,3 +1035,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - AGGRESSIVE:   Max 3.0% AUM/trade, Max DD 20%
 - DD check: real-time dari floating profit EA push
 - Lot formula: traderLot × (AUM/traderEquity) × layer3 → capped by risk level
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-20 03:02)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604200302`
+- **Fix:** trader name priority — COALESCE(nickname, user.name) bukan sebaliknya
