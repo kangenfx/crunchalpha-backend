@@ -389,7 +389,7 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 		SELECT cs.id::text, cs.provider_account_id::text, cs.status,
 			cs.lot_calculation_method, cs.lot_multiplier, cs.max_lot, cs.max_risk_percent,
 			cs.copy_sl, cs.copy_tp, cs.created_at::text,
-			COALESCE(u.name, ta.nickname, ta.account_number) as trader_name,
+			COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
 			COALESCE(ta.broker,'') as broker, COALESCE(ta.platform::text,'') as platform,
 			COALESCE(ar.alpha_score,0) as alpha_score, COALESCE(ar.grade,'') as grade,
 			COALESCE(ar.risk_level,'MEDIUM') as risk_level,
@@ -475,7 +475,7 @@ func (h *Handler) GetTraderProfile(c *gin.Context) {
 	}
 	err := h.service.repo.DB.QueryRow(`
 		SELECT ta.id::text, ta.account_number, COALESCE(ta.broker,''), COALESCE(ta.platform::text,''),
-				COALESCE(u.name, ta.nickname, ta.account_number) as trader_name,
+				COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
 				COALESCE(ta.nickname,''), COALESCE(u.country,'') as country, COALESCE(u.bio,'') as bio,
 				COALESCE(ta.about,'') as strategy,
 				COALESCE(ta.equity,0), COALESCE(ta.balance,0),
@@ -650,7 +650,7 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 	rows, err := h.service.repo.DB.Query(`
 		SELECT ce.id::text, ce.follower_ticket, ce.executed_lots, ce.executed_price::text,
 		       ce.success, ce.executed_at::text, ce.error_message,
-		       COALESCE(u.name, ta.nickname, ta.account_number) as trader_name
+		       COALESCE(ta.nickname, u.name, ta.account_number) as trader_name
 		FROM copy_executions ce
 		JOIN copy_subscriptions cs ON cs.id = ce.subscription_id
 		JOIN trader_accounts ta ON ta.id = cs.provider_account_id
