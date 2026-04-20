@@ -1014,3 +1014,24 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### Frontend
 - fix: Copy Traders list — filter hanya ACTIVE (subs→activeSubs)
 - fix: Overview RiskDashboard — fetch trader subs sendiri, filter ACTIVE, tampilkan traderName
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-20)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604200242`
+
+## 📋 CHANGES 2026-04-20
+### Backend - Risk Level Enforcement
+- feat: riskLevelMaxRiskPct — Conservative 0.5%, Balanced 1.5%, Aggressive 3.0% AUM per trade
+- feat: riskLevelMaxDD — Conservative 5%, Balanced 10%, Aggressive 20% max DD
+- feat: DD guard real-time dari investor_ea_keys.floating — stop copy jika DD >= limit
+- feat: lot cap per trade berdasarkan risk level × AUM × allocation%
+- feat: equity investor ambil dari investor_ea_keys (real-time) bukan investor_settings
+- fix: subscribe limit enforcement — max 3 traders + 3 analysts (pending)
+
+## 🔑 RISK LEVEL RULES (LOCKED)
+- CONSERVATIVE: Max 0.5% AUM/trade, Max DD 5%
+- BALANCED:     Max 1.5% AUM/trade, Max DD 10%
+- AGGRESSIVE:   Max 3.0% AUM/trade, Max DD 20%
+- DD check: real-time dari floating profit EA push
+- Lot formula: traderLot × (AUM/traderEquity) × layer3 → capped by risk level
