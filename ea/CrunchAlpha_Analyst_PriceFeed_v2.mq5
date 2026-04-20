@@ -6,7 +6,7 @@
 #property version   "2.00"
 #property strict
 
-input string InpApiUrl     = "http://45.32.118.117:8090";
+input string InpApiUrl     = "https://crunchalpha.com";
 input string InpEAKey      = "ea-crunchalpha-2026-pricefeed";
 input int    InpPollSec    = 5;
 input bool   InpDebugLog   = true;
