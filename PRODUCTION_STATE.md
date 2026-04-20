@@ -1056,3 +1056,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - Send Signal form — hapus Analyst Name & Notes field
   - Pair dropdown expanded — Commodity, Forex Major/Minor/Exotic, Index, Crypto, Energy, Agricultural
   - Dark theme fix untuk select dropdown
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-20 05:16)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604200516`
+- **Changes:**
+  - Admin Signal Sets tab — tombol Import History, modal upload CSV
+  - Template CSV download (client-side, no auth needed)
+  - Status label berwarna: CLOSED_TP/CLOSED_SL/CANCELLED_MANUAL
+  - Contoh CANCELLED_MANUAL di template
