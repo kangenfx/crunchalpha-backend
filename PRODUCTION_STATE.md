@@ -1041,3 +1041,18 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-backend`
 - **Image:** `crunchalpha-v3:production-202604200302`
 - **Fix:** trader name priority — COALESCE(nickname, user.name) bukan sebaliknya
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-20)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604200419`
+- **Changes:** feat: GET /api/public/market-price/:pair — live price dari ea_price_cache
+
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604200426`
+- **Changes:**
+  - AlphaScore™ & Grade hidden until 20 closed signals, progress bar X/20
+  - Send Signal form — hapus Analyst Name & Notes field
+  - Pair dropdown expanded — Commodity, Forex Major/Minor/Exotic, Index, Crypto, Energy, Agricultural
+  - Dark theme fix untuk select dropdown

@@ -58,6 +58,7 @@ func main() {
 
 	// Admin Handlers
 	adminUserHandler := admin.NewUserHandler(db)
+	adminSignalImportHandler := &admin.SignalImportHandler{DB: db}
 	adminBrokerHandler := admin.NewBrokerHandler(db)
 	adminFeeHandler := admin.NewFeeHandler(db)
 	adminCashflowHandler := admin.NewCashflowHandler(db)
@@ -372,6 +373,8 @@ func main() {
 		adminRoutes.DELETE("/trading-accounts/:id", adminUserHandler.DeleteTradingAccount)
 		adminRoutes.GET("/trading-accounts", adminUserHandler.ListTradingAccounts)
 		adminRoutes.GET("/signal-sets", adminUserHandler.ListSignalSets)
+		adminRoutes.POST("/signals/import", adminSignalImportHandler.ImportSignals)
+		adminRoutes.GET("/signals/template.csv", adminSignalImportHandler.DownloadTemplate)
 		adminRoutes.GET("/audit-logs", adminUserHandler.AuditLogs)
 		adminRoutes.GET("/brokers", adminBrokerHandler.ListBrokers)
 		adminRoutes.POST("/brokers", adminBrokerHandler.CreateBroker)
