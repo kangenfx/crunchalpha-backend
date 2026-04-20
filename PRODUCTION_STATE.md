@@ -1076,3 +1076,16 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - feat: Signal Feed dipindah ke sub-tab dalam My Portfolio
   - fix: trader name priority — nickname dulu baru user.name
   - fix: AUM display dari investorEquity settings
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-20 08:00)
+### Backend:
+- **Image:** latest crunchalpha-v3 production
+- **Fix:** investorEquity DISTINCT ON mt5_account — no duplicate SUM
+- **Fix:** GenerateEAKeyForAccount — delete old key sebelum insert baru
+- **Fix:** GetSettings return real equity dari investor_ea_keys
+
+## 📋 CHANGES 2026-04-20 (AUM Fix)
+- fix: investor_ea_keys duplikat — 3 keys sama mt5_account → SUM salah ($1746 bukan $582)
+- fix: GetSettings investorEquity — DISTINCT ON mt5_account ORDER BY last_equity_at DESC
+- fix: GenerateEAKeyForAccount — hapus key lama untuk mt5_account yang sama
+- fix: auto allocation unified — 1 pool 100% untuk traders + analysts berdasarkan AlphaScore
