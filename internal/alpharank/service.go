@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"time"
 )
@@ -514,7 +513,6 @@ func (s *Service) saveAlphaRankForSymbol(accountID, symbol string, result *Alpha
 // Uses ALL trades for accurate running balance, but only counts DD for target symbol
 func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades []TradeData, allTrades []TradeData, balance, equity, totalDeposits, totalWithdrawals float64) AccountMetrics {
 	// DEBUG
-	log.Printf("[DD-DEBUG] symbol=%s allTrades=%d symbolTrades=%d totalDeposits=%.2f", symbol, len(allTrades), len(symbolTrades), totalDeposits)
 	// Calculate symbol-specific stats from symbolTrades only
 	var grossProfit, grossLoss float64
 	var winningTrades, losingTrades int
@@ -629,7 +627,6 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 		FROM trader_accounts
 		WHERE id = $1
 	`, accountID, symbol).Scan(&symbolFloatingProfit)
-	log.Printf("[DEBUG-FLOAT] accountID=%s symbol=%s symbolFloatingProfit=%.2f", accountID, symbol, symbolFloatingProfit)
 	// Cap at 100%
 	if maxDD > 100 {
 		maxDD = 100
