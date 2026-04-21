@@ -1117,3 +1117,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: per-pair net_pnl include floating dari floating_by_symbol
   - fix: hapus DD layer lama (Layer2, Layer2b) di buildMetricsForSymbol
 
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-21 01:30)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604210130`
+- **Changes:** hapus debug logs DD-DEBUG dan DEBUG-FLOAT
