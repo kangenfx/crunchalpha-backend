@@ -289,8 +289,9 @@ func (h *Handler) CopyTraderSubscribe(c *gin.Context) {
 	uid, ok := getUID(c)
 	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
 	var req struct {
-		TraderAccountID string  `json:"traderAccountId"`
-		LotMode         string  `json:"lotMode"`
+		TraderAccountID    string  `json:"traderAccountId"`
+		FollowerAccountID  string  `json:"followerAccountId"`
+		LotMode            string  `json:"lotMode"`
 		LotSize         float64 `json:"lotSize"`
 		RiskPercent     float64 `json:"riskPercent"`
 		MaxLot          float64 `json:"maxLot"`
@@ -309,18 +310,28 @@ func (h *Handler) CopyTraderSubscribe(c *gin.Context) {
 
 	// Get investor own trader account (FK requirement for copy_subscriptions)
 	var followerAccountID string
-	dbErr := h.service.repo.DB.QueryRow(`
-		SELECT id::text FROM trader_accounts
-		WHERE user_id=$1::uuid AND status='active'
-		ORDER BY created_at ASC LIMIT 1`, uid).Scan(&followerAccountID)
-	if dbErr != nil || followerAccountID == "" {
-		c.JSON(400, gin.H{"ok": false, "error": "no_account", "message": "Link an MT5/MT4 account first. Go to Trader Dashboard → Add Account."}); return
+	if req.FollowerAccountID != "" {
+		var ownerCheck string
+		h.service.repo.DB.QueryRow(`SELECT id::text FROM trader_accounts WHERE id=$1::uuid AND user_id=$2::uuid AND status='active'`,
+			req.FollowerAccountID, uid).Scan(&ownerCheck)
+		if ownerCheck == "" {
+			c.JSON(400, gin.H{"ok": false, "error": "invalid_account", "message": "Account not found or not yours"}); return
+		}
+		followerAccountID = ownerCheck
+	} else {
+		dbErr := h.service.repo.DB.QueryRow(`
+			SELECT id::text FROM trader_accounts
+			WHERE user_id=$1::uuid AND status='active'
+			ORDER BY created_at ASC LIMIT 1`, uid).Scan(&followerAccountID)
+		if dbErr != nil || followerAccountID == "" {
+			c.JSON(400, gin.H{"ok": false, "error": "no_account", "message": "Link an MT5/MT4 account first."}); return
+		}
 	}
 	if followerAccountID == req.TraderAccountID {
 		c.JSON(400, gin.H{"ok": false, "error": "Cannot copy your own account"}); return
 	}
 
-	_, dbErr = h.service.repo.DB.Exec(`
+	_, dbErr := h.service.repo.DB.Exec(`
 		INSERT INTO copy_subscriptions
 			(id, follower_account_id, provider_account_id, lot_multiplier, max_lot, min_lot,
 			 copy_sl, copy_tp, status, lot_calculation_method, max_risk_percent, created_at, updated_at)
@@ -376,15 +387,6 @@ func (h *Handler) CopyTraderUnsubscribe(c *gin.Context) {
 func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 	uid, ok := getUID(c)
 	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
-	// Get investor's trader accounts first
-	var followerAccountID string
-	h.service.repo.DB.QueryRow(`SELECT id::text FROM trader_accounts WHERE user_id=$1::uuid AND status='active' LIMIT 1`, uid).Scan(&followerAccountID)
-
-	if followerAccountID == "" {
-		c.JSON(200, gin.H{"ok": true, "subscriptions": []interface{}{}, "count": 0})
-		return
-	}
-
 	rows, err := h.service.repo.DB.Query(`
 		SELECT cs.id::text, cs.provider_account_id::text, cs.status,
 			cs.lot_calculation_method, cs.lot_multiplier, cs.max_lot, cs.max_risk_percent,
@@ -396,13 +398,17 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 			COALESCE(ar.layer3_multiplier,1.0) as layer3_multiplier,
 			COALESCE(ar.layer3_status,'NEUTRAL') as layer3_status,
 			COALESCE(ar.layer3_detail->>'system_mode','FULL_ACTIVE') as layer3_system_mode,
-			COALESCE(ar.layer3_reason,'') as layer3_reason
+			COALESCE(ar.layer3_reason,'') as layer3_reason,
+			cs.follower_account_id::text,
+			COALESCE(fa.account_number,'') as follower_account_number,
+			COALESCE(fa.platform::text,'') as follower_platform
 		FROM copy_subscriptions cs
 		LEFT JOIN trader_accounts ta ON ta.id = cs.provider_account_id
 		LEFT JOIN users u ON u.id = ta.user_id
 		LEFT JOIN alpha_ranks ar ON ar.account_id = cs.provider_account_id AND ar.symbol='ALL'
-		WHERE cs.follower_account_id=$1::uuid
-		ORDER BY cs.created_at DESC`, followerAccountID)
+		JOIN trader_accounts fa ON fa.id = cs.follower_account_id AND fa.user_id=$1::uuid
+		WHERE cs.status='ACTIVE'
+		ORDER BY cs.created_at DESC`, uid)
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return }
 	defer rows.Close()
 	type SubRow struct {
@@ -425,7 +431,10 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 			Layer3Multiplier float64 `json:"layer3Multiplier"`
 			Layer3Status     string  `json:"layer3Status"`
 			Layer3SystemMode string  `json:"layer3SystemMode"`
-			Layer3Reason     string  `json:"layer3Reason"`
+			Layer3Reason          string  `json:"layer3Reason"`
+			FollowerAccountID     string  `json:"followerAccountId"`
+			FollowerAccountNumber string  `json:"followerAccountNumber"`
+			FollowerPlatform      string  `json:"followerPlatform"`
 	}
 	var subs []SubRow
 	for rows.Next() {
@@ -434,7 +443,8 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 			&s.RiskPct,&s.CopySL,&s.CopyTP,&s.CreatedAt,&s.TraderName,&s.Broker,&s.Platform,
 			&s.AlphaScore,&s.Grade,
                         &s.RiskLevel,&s.Layer3Multiplier,&s.Layer3Status,
-                        &s.Layer3SystemMode,&s.Layer3Reason); err != nil { continue }
+			&s.Layer3SystemMode,&s.Layer3Reason,
+			&s.FollowerAccountID,&s.FollowerAccountNumber,&s.FollowerPlatform); err != nil { continue }
 		subs = append(subs, s)
 	}
 	if subs == nil { subs = []SubRow{} }
