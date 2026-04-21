@@ -20,10 +20,18 @@ func RegisterRoutes(r *gin.RouterGroup, db *sql.DB) {
 	r.GET("/subscriptions", handler.GetSubscriptions)
 	r.GET("/traders", handler.GetTraderList)
 
+	// ── Account Risk Level ──────────────────────────────
+	r.GET("/account-risk-levels", handler.GetAccountRiskLevels)
+	r.POST("/account-risk-level", handler.SaveAccountRiskLevel)
 	// ── Settings ──────────────────────────────────────
 	r.GET("/settings", handler.GetSettings)
 	r.POST("/settings", handler.SaveSettings)
 	r.POST("/settings/generate-key", handler.GenerateEAKey)
+
+	// ── EA Keys per account ──────────────────────────────
+	r.POST("/ea-keys", handler.GenerateEAKeyForAccount)
+	r.GET("/ea-keys", handler.GetEAKeys)
+	r.DELETE("/ea-keys/:id", handler.DeleteEAKey)
 
 	// ── Signal orders history ─────────────────────────
 	r.GET("/signal-orders", handler.GetSignalOrders)
