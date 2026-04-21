@@ -622,32 +622,14 @@ func (s *Service) buildMetricsForSymbol(accountID, symbol string, symbolTrades [
 			}
 		}
 	}
-	log.Printf("[DD-DEBUG] symbol=%s initialDeposit=%.2f peakBalance=%.2f maxDD=%.2f equity=%.2f", symbol, initialDeposit, peakBalance, maxDD, equity)
-	// Layer 2: normalized equity vs peak
-	normalizedEquity := equity + totalWithdrawals
-	if peakBalance > 0 && normalizedEquity < peakBalance {
-		ddEquity := (peakBalance - normalizedEquity) / peakBalance * 100
-		if ddEquity > maxDD {
-			maxDD = ddEquity
-		}
-		log.Printf("[DD-DEBUG] Layer2 symbol=%s normEquity=%.2f peak=%.2f ddEquity=%.2f", symbol, normalizedEquity, peakBalance, ddEquity)
-	}
-	// Layer 2b: floating per symbol
+	// Floating per symbol dari floating_by_symbol (single source of truth)
 	var symbolFloatingProfit float64
 	s.db.QueryRow(`
-		SELECT COALESCE(SUM(profit), 0)
-		FROM trades
-		WHERE account_id = $1 AND symbol = $2 AND status = 'open'
+		SELECT COALESCE((floating_by_symbol->>$2)::numeric, 0)
+		FROM trader_accounts
+		WHERE id = $1
 	`, accountID, symbol).Scan(&symbolFloatingProfit)
-	if symbolFloatingProfit < 0 && peakBalance > 0 {
-		runningWithFloat := balance + symbolFloatingProfit
-		if runningWithFloat < peakBalance {
-			ddFloat := (peakBalance - runningWithFloat) / peakBalance * 100
-			if ddFloat > maxDD {
-				maxDD = ddFloat
-			}
-		}
-	}
+	log.Printf("[DEBUG-FLOAT] accountID=%s symbol=%s symbolFloatingProfit=%.2f", accountID, symbol, symbolFloatingProfit)
 	// Cap at 100%
 	if maxDD > 100 {
 		maxDD = 100
