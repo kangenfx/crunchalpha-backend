@@ -68,12 +68,16 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 			COALESCE(ar.layer3_status, 'NEUTRAL') as layer3_status,
 			COALESCE(ar.layer3_detail->>'system_mode', 'FULL_ACTIVE') as layer3_system_mode,
 			COALESCE(ar.layer3_reason, '') as layer3_reason,
+			COALESCE(ua.follower_account_id::text, '') as follower_account_id,
+			COALESCE(fa.account_number, '') as follower_account_number,
+			COALESCE(fa.platform::text, '') as follower_platform,
 			ua.status
 		FROM user_allocations ua
 		LEFT JOIN trader_accounts ta ON ta.id = ua.trader_account_id
 		LEFT JOIN users u ON u.id = ta.user_id
 		LEFT JOIN alpha_ranks ar ON ar.account_id = ua.trader_account_id
 			AND ar.symbol = 'ALL'
+		LEFT JOIN trader_accounts fa ON fa.id = ua.follower_account_id
 		WHERE ua.user_id = $1 AND ua.status = 'ACTIVE'
 		ORDER BY ua.updated_at DESC
 	`
@@ -108,7 +112,10 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 			&alloc.Layer3Status,
 			&alloc.Layer3SystemMode,
 			&alloc.Layer3SoftReasons,
-			&alloc.Status,
+				&alloc.Status,
+				&alloc.FollowerAccountID,
+				&alloc.FollowerAccountNumber,
+				&alloc.FollowerPlatform,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning allocation: %w", err)
@@ -173,12 +180,12 @@ func (r *Repository) GetSubscriptions(ctx context.Context, userID string) ([]Sub
 }
 
 // UpsertAllocation - create or update allocation
-func (r *Repository) UpsertAllocation(ctx context.Context, userID, traderAccountID string, mode string, value, maxRisk float64, maxPos int) error {
+func (r *Repository) UpsertAllocation(ctx context.Context, userID, traderAccountID, followerAccountID string, mode string, value, maxRisk float64, maxPos int) error {
 	query := `
 		INSERT INTO user_allocations
-			(user_id, trader_account_id, allocation_mode, allocation_value, max_risk_pct, max_positions, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', NOW(), NOW())
-		ON CONFLICT (user_id, trader_account_id)
+			(user_id, trader_account_id, follower_account_id, allocation_mode, allocation_value, max_risk_pct, max_positions, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE', NOW(), NOW())
+		ON CONFLICT (user_id, trader_account_id, follower_account_id)
 		DO UPDATE SET
 			allocation_mode  = EXCLUDED.allocation_mode,
 			allocation_value = EXCLUDED.allocation_value,
@@ -187,7 +194,7 @@ func (r *Repository) UpsertAllocation(ctx context.Context, userID, traderAccount
 			status           = 'ACTIVE',
 			updated_at       = NOW()
 	`
-	_, err := r.DB.ExecContext(ctx, query, userID, traderAccountID, mode, value, maxRisk, maxPos)
+	_, err := r.DB.ExecContext(ctx, query, userID, traderAccountID, followerAccountID, mode, value, maxRisk, maxPos)
 	if err != nil {
 		return fmt.Errorf("error upserting allocation: %w", err)
 	}
@@ -199,7 +206,7 @@ func (r *Repository) FollowTrader(ctx context.Context, userID, traderAccountID s
 	query := `
 		INSERT INTO user_follows (user_id, trader_account_id, status, created_at, updated_at)
 		VALUES ($1, $2, 'ACTIVE', NOW(), NOW())
-		ON CONFLICT (user_id, trader_account_id) DO NOTHING
+		ON CONFLICT (user_id, trader_account_id, follower_account_id)
 	`
 	_, err := r.DB.ExecContext(ctx, query, userID, traderAccountID)
 	if err != nil {

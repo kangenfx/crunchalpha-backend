@@ -347,10 +347,10 @@ func (h *Handler) CopyTraderSubscribe(c *gin.Context) {
 	// Upsert user_allocations for AUM tracking
 	h.service.repo.DB.Exec(`
 		INSERT INTO user_allocations
-			(user_id, trader_account_id, allocation_mode, allocation_value, max_risk_pct, max_positions, status, created_at, updated_at)
-		VALUES ($1::uuid, $2::uuid, 'PERCENT', 10, 5, 10, 'ACTIVE', now(), now())
-		ON CONFLICT (user_id, trader_account_id) DO UPDATE SET status='ACTIVE', updated_at=now()`,
-		followerAccountID, req.TraderAccountID)
+			(user_id, trader_account_id, follower_account_id, allocation_mode, allocation_value, max_risk_pct, max_positions, status, created_at, updated_at)
+		VALUES ($1::uuid, $2::uuid, $3::uuid, 'PERCENT', 10, 5, 10, 'ACTIVE', now(), now())
+		ON CONFLICT (user_id, trader_account_id, follower_account_id) DO UPDATE SET status='ACTIVE', updated_at=now()`,
+			uid, req.TraderAccountID, followerAccountID)
 	c.JSON(200, gin.H{"ok": true, "message": "Subscribed to copy trader"})
 }
 
@@ -359,14 +359,18 @@ func (h *Handler) CopyTraderSubscribe(c *gin.Context) {
 func (h *Handler) CopyTraderUnsubscribe(c *gin.Context) {
 	uid, ok := getUID(c)
 	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
-	var req struct { TraderAccountID string `json:"traderAccountId"` }
+	var req struct { TraderAccountID string `json:"traderAccountId"`; FollowerAccountID string `json:"followerAccountId"` }
 	if err := c.ShouldBindJSON(&req); err != nil || req.TraderAccountID == "" {
 		c.JSON(400, gin.H{"ok": false, "error": "traderAccountId required"}); return
 	}
 	var followerAccountID string
-	h.service.repo.DB.QueryRow(
-		`SELECT id::text FROM trader_accounts WHERE user_id=$1::uuid AND status='active' LIMIT 1`,
-		uid).Scan(&followerAccountID)
+	if req.FollowerAccountID != "" {
+		followerAccountID = req.FollowerAccountID
+	} else {
+		h.service.repo.DB.QueryRow(
+			`SELECT id::text FROM trader_accounts WHERE user_id=$1::uuid AND status='active' LIMIT 1`,
+			uid).Scan(&followerAccountID)
+	}
 	if followerAccountID == "" {
 		c.JSON(400, gin.H{"ok": false, "error": "no active broker account found"}); return
 	}
@@ -378,8 +382,8 @@ func (h *Handler) CopyTraderUnsubscribe(c *gin.Context) {
 	// Reset allocation ke 0 saat unsub
 	h.service.repo.DB.Exec(`
 		UPDATE user_allocations SET allocation_value=0, updated_at=now()
-		WHERE user_id=$1::uuid AND trader_account_id=$2::uuid`,
-		uid, req.TraderAccountID)
+		WHERE user_id=$1::uuid AND trader_account_id=$2::uuid AND follower_account_id=$3::uuid`,
+		uid, req.TraderAccountID, followerAccountID)
 	c.JSON(200, gin.H{"ok": true, "message": "Unsubscribed"})
 }
 

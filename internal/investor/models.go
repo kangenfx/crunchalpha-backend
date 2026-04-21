@@ -27,8 +27,11 @@ type AllocationWithTraderInfo struct {
 	Layer3Multiplier    float64 `json:"layer3_multiplier"`
 	Layer3Status        string  `json:"layer3_status"`
 	Layer3SystemMode    string  `json:"layer3_system_mode"`
-	Layer3SoftReasons   string  `json:"layer3_soft_reasons"`
-	Status              string  `json:"status"`
+	Layer3SoftReasons      string  `json:"layer3_soft_reasons"`
+	Status                 string  `json:"status"`
+	FollowerAccountID      string  `json:"follower_account_id"`
+	FollowerAccountNumber  string  `json:"follower_account_number"`
+	FollowerPlatform       string  `json:"follower_platform"`
 }
 
 // Subscription - user subscription record
@@ -66,11 +69,12 @@ type AllocationSettings struct {
 
 // AllocationRequest - request to set/update allocation
 type AllocationRequest struct {
-	TraderAccountID string  `json:"trader_account_id"`
-	Mode            string  `json:"mode"`
-	Value           float64 `json:"value"`
-	MaxRiskPct      float64 `json:"max_risk_pct"`
-	MaxPositions    int     `json:"max_positions"`
+	TraderAccountID  string  `json:"trader_account_id"`
+	FollowerAccountID string `json:"follower_account_id"`
+	Mode             string  `json:"mode"`
+	Value            float64 `json:"value"`
+	MaxRiskPct       float64 `json:"max_risk_pct"`
+	MaxPositions     int     `json:"max_positions"`
 }
 
 // SubscribeRequest - request to follow a trader

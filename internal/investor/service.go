@@ -105,8 +105,8 @@ func (s *Service) Subscribe(ctx context.Context, userID, traderAccountID string)
 }
 
 // SetAllocation - upsert allocation config
-func (s *Service) SetAllocation(ctx context.Context, userID, traderAccountID, mode string, value, maxRisk float64, maxPos int) error {
-	return s.repo.UpsertAllocation(ctx, userID, traderAccountID, mode, value, maxRisk, maxPos)
+func (s *Service) SetAllocation(ctx context.Context, userID, traderAccountID, followerAccountID, mode string, value, maxRisk float64, maxPos int) error {
+	return s.repo.UpsertAllocation(ctx, userID, traderAccountID, followerAccountID, mode, value, maxRisk, maxPos)
 }
 
 // GetTraderList - list of available traders for marketplace

@@ -67,6 +67,7 @@ func (h *Handler) SetAllocation(c *gin.Context) {
 		c.Request.Context(),
 		userID.(string),
 		req.TraderAccountID,
+		req.FollowerAccountID,
 		req.Mode,
 		req.Value,
 		req.MaxRiskPct,
