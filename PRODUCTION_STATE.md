@@ -1146,3 +1146,19 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - feat: subscribe modal tampilkan dropdown pilih akun investor
   - fix: My Portfolio tampilkan "via [account]" per copy trader
   - fix: AnalystProfile hide AlphaScore until 20 closed signals
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-21)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604210425` (atau sesuai timestamp terakhir)
+- **Changes:**
+  - feat: follower_account_id di user_allocations — allocation per akun investor
+  - feat: subscribe copy trader kirim + validasi followerAccountId
+  - feat: unsubscribe copy trader kirim followerAccountId
+  - feat: GetCopyTraderSubscriptions return semua akun user + follower info
+  - db: ALTER TABLE investor_ea_keys tambah trader_account_id, risk_level, max_daily_loss_pct, max_open_trades
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604210425` (atau sesuai timestamp terakhir)
+- **Changes:**
+  - feat: My Portfolio group by follower account dengan header per akun
+  - feat: subscribe modal dropdown pilih akun investor
+  - feat: unsubscribe + save allocation kirim followerAccountId
