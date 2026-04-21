@@ -1095,3 +1095,25 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-frontend-v3`
 - **Image:** `crunchalpha-frontend-v3:prod-202604201224`
 - **Changes:** Auto-allocate unified pool — traders + analysts share 100% proportional by AlphaScore; RiskDashboard fetch traderSubs + accounts
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-21)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604210020`
+- **Changes:**
+  - fix: DD formula — pure equity_snapshots running peak-to-trough
+  - fix: normalized_equity = equity + withdrawals (WD bukan loss)
+  - fix: hapus GREATEST di upsert global — dd_metrics.go sudah return max DD dari full history
+  - fix: hapus deposit double-count di per-pair DD calculation
+
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-21 01:20)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604210120`
+- **Changes:**
+  - fix: DD formula — pure equity_snapshots running peak-to-trough, normalized equity+withdrawals
+  - fix: hapus GREATEST di upsert global — tidak persist nilai salah
+  - fix: per-pair net_pnl include floating dari floating_by_symbol
+  - fix: hapus DD layer lama (Layer2, Layer2b) di buildMetricsForSymbol
+
