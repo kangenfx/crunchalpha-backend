@@ -351,7 +351,7 @@ func (s *Service) saveAlphaRankWithMetrics(accountID string, result *AlphaRankRe
 			grade=EXCLUDED.grade, badge=EXCLUDED.badge, tier=EXCLUDED.tier,
 			trade_count=EXCLUDED.trade_count, risk_flags=EXCLUDED.risk_flags,
 			critical_count=EXCLUDED.critical_count, major_count=EXCLUDED.major_count,
-			minor_count=EXCLUDED.minor_count, max_drawdown_pct=GREATEST(alpha_ranks.max_drawdown_pct, EXCLUDED.max_drawdown_pct),
+			minor_count=EXCLUDED.minor_count, max_drawdown_pct=EXCLUDED.max_drawdown_pct,
 			pillars=EXCLUDED.pillars, win_rate=EXCLUDED.win_rate,
 			total_trades_all=EXCLUDED.total_trades_all, profit_factor=EXCLUDED.profit_factor,
 				net_pnl=EXCLUDED.net_pnl, roi=EXCLUDED.roi,
