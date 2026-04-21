@@ -1131,3 +1131,18 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - fix: analyst marketplace filter min 20 closed_signals — tidak muncul di leaderboard/marketplace jika belum cukup data
   - feat: analyst subscriptions tambah closedSignals field untuk auto-allocate filter
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-21)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604210334`
+- **Changes:**
+  - fix: copy-trader-subscriptions query semua akun investor (bukan LIMIT 1)
+  - fix: followerAccountId, followerAccountNumber, followerPlatform di response
+  - fix: analyst subscriptions tambah closedSignals field
+  - fix: subscribe copy trader terima followerAccountId dari frontend
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604210334`
+- **Changes:**
+  - feat: subscribe modal tampilkan dropdown pilih akun investor
+  - fix: My Portfolio tampilkan "via [account]" per copy trader
+  - fix: AnalystProfile hide AlphaScore until 20 closed signals
