@@ -1123,3 +1123,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-backend`
 - **Image:** `crunchalpha-v3:production-202604210130`
 - **Changes:** hapus debug logs DD-DEBUG dan DEBUG-FLOAT
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-21)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604210204`
+- **Changes:**
+  - fix: analyst marketplace filter min 20 closed_signals — tidak muncul di leaderboard/marketplace jika belum cukup data
+  - feat: analyst subscriptions tambah closedSignals field untuk auto-allocate filter
