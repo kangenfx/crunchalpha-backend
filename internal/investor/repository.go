@@ -112,10 +112,10 @@ func (r *Repository) GetAllocations(ctx context.Context, userID string) ([]Alloc
 			&alloc.Layer3Status,
 			&alloc.Layer3SystemMode,
 			&alloc.Layer3SoftReasons,
-				&alloc.Status,
-				&alloc.FollowerAccountID,
-				&alloc.FollowerAccountNumber,
-				&alloc.FollowerPlatform,
+			&alloc.FollowerAccountID,
+			&alloc.FollowerAccountNumber,
+			&alloc.FollowerPlatform,
+			&alloc.Status,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning allocation: %w", err)
