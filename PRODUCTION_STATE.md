@@ -1235,3 +1235,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: history table Open Time + Close Time columns
   - fix: format waktu bersih — hapus +00:00/Z
   - fix: hapus set_name sub-label di pair cell
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-22 19:45)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604221945`
+- **Changes:**
+  - TraderAccount struct tambah Role field
+  - GetUserAccounts SELECT & Scan include role
+  - Fix: 17 scan columns match query
