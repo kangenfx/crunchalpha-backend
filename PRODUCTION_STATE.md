@@ -1172,3 +1172,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-backend`
 - **Image:** `crunchalpha-v3:production-202604211420`
 - **Changes:** feat: ea-keys per account routes — GET/POST/DELETE /api/investor/ea-keys
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-21 16:30)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604211630`
+- **Changes:**
+  - My Portfolio: allocation key per account (traderId+followerAccountId) — independent 100% per akun
+  - Auto allocate: pass follower_account_id — fix silent fail
+  - Warning min 5% AUM per trader
+  - Warning over 100% per account
