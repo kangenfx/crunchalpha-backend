@@ -197,7 +197,7 @@ SELECT s.id, COALESCE(s.set_id,''), COALESCE(ss.name,''), s.pair, s.direction,
   COALESCE(s.notes,'')
 FROM analyst_signals s
 LEFT JOIN analyst_signal_sets ss ON ss.id = s.set_id
-WHERE s.analyst_id=$1 ORDER BY s.id DESC LIMIT 500`, uid)
+WHERE s.analyst_id=$1 ORDER BY s.issued_at DESC NULLS LAST, s.id DESC LIMIT 500`, uid)
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "db query failed"}); return }
 	defer rows.Close()
 	out := make([]SignalRow, 0)
@@ -886,7 +886,7 @@ func (h *Handler) GetPublicAnalystProfile(c *gin.Context) {
 		       COALESCE(closed_at::text, '')
 		FROM analyst_signals
 		WHERE set_id=$1 AND status IN ('CLOSED_TP','CLOSED_SL')
-		ORDER BY created_at DESC
+		ORDER BY issued_at DESC NULLS LAST
 		LIMIT 100
 	`, setId)
 	var history []historyRow
