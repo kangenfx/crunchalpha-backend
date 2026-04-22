@@ -23,6 +23,7 @@ type TraderAccount struct {
 	LastSyncAt       *time.Time `json:"last_sync_at" db:"last_sync_at"`
 	EaFirstPushAt    *time.Time `json:"ea_first_push_at" db:"ea_first_push_at"`
 	ConnectionStatus string     `json:"connection_status" db:"connection_status"`
+	Role             string     `json:"role" db:"role"`
 }
 
 // AccountsResponse for listing accounts

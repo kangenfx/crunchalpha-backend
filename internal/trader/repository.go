@@ -25,7 +25,8 @@ func (r *Repository) GetUserAccounts(userID string) ([]TraderAccount, error) {
 		       COALESCE(ea_verified, false) as ea_verified,
 		       COALESCE(connection_status, 'pending') as connection_status,
 		       last_sync_at,
-		       ea_first_push_at
+		       ea_first_push_at,
+		       COALESCE(role::text, 'trader') as role
 		FROM trader_accounts
 		WHERE user_id = $1
 		ORDER BY 
@@ -51,7 +52,7 @@ func (r *Repository) GetUserAccounts(userID string) ([]TraderAccount, error) {
 			&acc.ID, &acc.UserID, &acc.Nickname, &acc.Broker,
 			&acc.Platform, &acc.Currency, &acc.AccountNumber,
 			&acc.AccountType, &acc.Status, &acc.UpdatedAt, &acc.CreatedAt,
-			&acc.About, &acc.EaVerified, &acc.ConnectionStatus, &acc.LastSyncAt, &acc.EaFirstPushAt,
+			&acc.About, &acc.EaVerified, &acc.ConnectionStatus, &acc.LastSyncAt, &acc.EaFirstPushAt, &acc.Role,
 		)
 		if err != nil {
 			return nil, err
