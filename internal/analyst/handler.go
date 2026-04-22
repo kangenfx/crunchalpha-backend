@@ -160,14 +160,14 @@ func (h *Handler) CreateSignalSet(c *gin.Context) {
 	var count int
 	h.DB.QueryRow(`SELECT COUNT(*) FROM analyst_signal_sets WHERE analyst_id=$1`, uid).Scan(&count)
 	if count >= 2 { c.JSON(400, gin.H{"ok": false, "error": "max 2 signal sets per analyst"}); return }
-	var req struct{ Name string `json:"name"` }
+	var req struct{ Name string `json:"name"`; Description string `json:"description"` }
 	if err := c.ShouldBindJSON(&req); err != nil { c.JSON(400, gin.H{"ok": false, "error": "invalid json"}); return }
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" { c.JSON(400, gin.H{"ok": false, "error": "name required"}); return }
 	id := genSetID(req.Name)
 	var s SignalSetDTO
-	err := h.DB.QueryRow(`INSERT INTO analyst_signal_sets (id, analyst_id, name, status)
-		VALUES ($1, $2, $3, 'Active') RETURNING id, name, status`, id, uid, req.Name).Scan(&s.ID, &s.Name, &s.Status)
+	err := h.DB.QueryRow(`INSERT INTO analyst_signal_sets (id, analyst_id, name, description, status)
+		VALUES ($1, $2, $3, $4, 'Active') RETURNING id, name, status`, id, uid, req.Name, strings.TrimSpace(req.Description)).Scan(&s.ID, &s.Name, &s.Status)
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "db insert failed"}); return }
 	c.JSON(200, gin.H{"ok": true, "signalSet": s})
 }
@@ -176,16 +176,16 @@ func (h *Handler) UpdateSignalSet(c *gin.Context) {
 	uid, ok := mustAnalyst(c)
 	if !ok { return }
 	setID := c.Param("id")
-	var req struct{ Name string `json:"name"` }
+	var req struct{ Name string `json:"name"`; Description string `json:"description"` }
 	if err := c.ShouldBindJSON(&req); err != nil { c.JSON(400, gin.H{"ok": false, "error": "invalid json"}); return }
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" { c.JSON(400, gin.H{"ok": false, "error": "name required"}); return }
-	res, err := h.DB.Exec(`UPDATE analyst_signal_sets SET name=$1, updated_at=now()
-		WHERE id=$2 AND analyst_id=$3`, req.Name, setID, uid)
+	res, err := h.DB.Exec(`UPDATE analyst_signal_sets SET name=$1, description=$2, updated_at=now()
+		WHERE id=$3 AND analyst_id=$4`, req.Name, strings.TrimSpace(req.Description), setID, uid)
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "db update failed"}); return }
 	aff, _ := res.RowsAffected()
 	if aff == 0 { c.JSON(404, gin.H{"ok": false, "error": "signal set not found"}); return }
-	c.JSON(200, gin.H{"ok": true, "id": setID, "name": req.Name})
+	c.JSON(200, gin.H{"ok": true, "id": setID, "name": req.Name, "description": req.Description})
 }
 
 func (h *Handler) ListSignals(c *gin.Context) {
