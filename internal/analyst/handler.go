@@ -38,6 +38,7 @@ type SignalRow struct {
 	TP        string  `json:"tp"`
 	Status    string  `json:"status"`
 	IssuedAt  string  `json:"issuedAt"`
+	ClosedAt  string  `json:"closedAt"`
 	Analyst   string  `json:"analyst"`
 	Notes     string  `json:"notes"`
 	RR        float64 `json:"rr"`
@@ -192,7 +193,7 @@ func (h *Handler) ListSignals(c *gin.Context) {
 	if !ok { return }
 	rows, err := h.DB.Query(`
 SELECT s.id, COALESCE(s.set_id,''), COALESCE(ss.name,''), s.pair, s.direction,
-  s.entry, s.sl, s.tp, s.status, COALESCE(s.issued_at,''), COALESCE(s.analyst_name,''),
+  s.entry, s.sl, s.tp, s.status, COALESCE(s.issued_at,''), COALESCE(s.closed_at::text,''), COALESCE(s.analyst_name,''),
   COALESCE(s.notes,'')
 FROM analyst_signals s
 LEFT JOIN analyst_signal_sets ss ON ss.id = s.set_id
@@ -203,7 +204,7 @@ WHERE s.analyst_id=$1 ORDER BY s.id DESC LIMIT 500`, uid)
 	for rows.Next() {
 		var s SignalRow
 		if err := rows.Scan(&s.ID, &s.SetID, &s.SetName, &s.Pair, &s.Direction,
-			&s.Entry, &s.SL, &s.TP, &s.Status, &s.IssuedAt, &s.Analyst, &s.Notes); err != nil {
+			&s.Entry, &s.SL, &s.TP, &s.Status, &s.IssuedAt, &s.ClosedAt, &s.Analyst, &s.Notes); err != nil {
 			c.JSON(500, gin.H{"ok": false, "error": "db scan failed"}); return
 		}
 		s.RR = calcRR(s.Entry, s.SL, s.TP, s.Direction)
@@ -492,7 +493,7 @@ func (h *Handler) PublicMarketplace(c *gin.Context) {
 		LEFT JOIN users u ON u.id::text = s.analyst_id
 		LEFT JOIN analyst_subscriptions sub ON sub.set_id = s.id
 		LEFT JOIN analyst_signals sig ON sig.set_id = s.id
-		WHERE UPPER(s.status) = 'ACTIVE'
+		WHERE UPPER(s.status) = 'ACTIVE' AND COALESCE(s.closed_signals, 0) >= 20
 		GROUP BY s.id, s.name, COALESCE(s.market,'') || ' ' || COALESCE(s.style,''), s.analyst_id, u.name, u.email, s.created_at, s.alpha_score, s.alpha_grade
 		ORDER BY s.alpha_score DESC, subscribers DESC
 	`)
@@ -875,12 +876,14 @@ func (h *Handler) GetPublicAnalystProfile(c *gin.Context) {
 		Pips      float64 `json:"pips"`
 		Result    string  `json:"result"`
 		IssuedAt  string  `json:"issuedAt"`
+		ClosedAt  string  `json:"closedAt"`
 	}
 
 	histRows, err := h.DB.Query(`
 		SELECT id, pair, direction, entry, sl, tp,
 		       COALESCE(issued_at, to_char(created_at, 'YYYY-MM-DD HH24:MI')),
-		       status
+		       status,
+		       COALESCE(closed_at::text, '')
 		FROM analyst_signals
 		WHERE set_id=$1 AND status IN ('CLOSED_TP','CLOSED_SL')
 		ORDER BY created_at DESC
@@ -892,7 +895,7 @@ func (h *Handler) GetPublicAnalystProfile(c *gin.Context) {
 		for histRows.Next() {
 			var h2 historyRow
 			var status string
-			histRows.Scan(&h2.ID, &h2.Pair, &h2.Direction, &h2.Entry, &h2.SL, &h2.TP, &h2.IssuedAt, &status)
+			histRows.Scan(&h2.ID, &h2.Pair, &h2.Direction, &h2.Entry, &h2.SL, &h2.TP, &h2.IssuedAt, &status, &h2.ClosedAt)
 			rr := calcRR(h2.Entry, h2.SL, h2.TP, h2.Direction)
 			h2.RR = math.Round(rr*100) / 100
 			e2, _ := strconv.ParseFloat(h2.Entry, 64)

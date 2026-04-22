@@ -131,7 +131,11 @@ break
 _, dbErr := h.DB.Exec(`
 INSERT INTO analyst_signals
 (analyst_id, set_id, pair, direction, entry, sl, tp, status, issued_at, running_at, closed_at, created_at, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now())`,
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now())
+ON CONFLICT (set_id, pair, direction, issued_at)
+DO UPDATE SET
+  entry=EXCLUDED.entry, sl=EXCLUDED.sl, tp=EXCLUDED.tp,
+  status=EXCLUDED.status, closed_at=EXCLUDED.closed_at, updated_at=now()`,
 analystId, setId, pair, direction, entry, sl, tp, status,
 issuedAtVal, issuedAtVal, closedAtVal,
 )
