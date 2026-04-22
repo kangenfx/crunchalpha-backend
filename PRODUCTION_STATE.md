@@ -1190,3 +1190,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### Backend:
 - **Image:** `crunchalpha-v3:production-202604221800`
 - **Changes:** fix scan order allocation — follower_account_id/number/platform sebelum status
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-22 19:00)
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604221900`
+- **Changes:**
+  - My Portfolio: AUM per akun dari ea_keys equity (bukan global sum)
+  - Overview: Portfolio Allocation per follower account (bukan breakdown trader/signal)
+  - Auto allocate: 100% per follower account independent
+  - Fix: account_role "follower" (bukan "investor") saat add account
