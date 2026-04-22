@@ -315,12 +315,16 @@ func main() {
 		investorRoutes.GET("/trader-weekly-performance", investorHandler.GetTraderWeeklyPerformance)
 		investorRoutes.POST("/settings", investorHandler.SaveSettings)
 		investorRoutes.POST("/settings/generate-key", investorHandler.GenerateEAKey)
+				investorRoutes.POST("/ea-keys", investorHandler.GenerateEAKeyForAccount)
+				investorRoutes.GET("/ea-keys", investorHandler.GetEAKeys)
+				investorRoutes.DELETE("/ea-keys/:id", investorHandler.DeleteEAKey)
+				// EA Keys per account
+				// Account Risk Levels
+				investorRoutes.GET("/account-risk-levels", investorHandler.GetAccountRiskLevels)
+				investorRoutes.POST("/account-risk-level", investorHandler.SaveAccountRiskLevel)
 		investorRoutes.GET("/copy-trade-history", investorHandler.GetCopyTradeHistory)
                 investorRoutes.GET("/fee-status", investorHandler.GetFeeStatus)
                 investorRoutes.GET("/invoices", investorHandler.GetInvoices)
-		investorRoutes.GET("/ea-keys", investorHandler.GetEAKeys)
-		investorRoutes.POST("/ea-keys", investorHandler.GenerateEAKeyForAccount)
-		investorRoutes.DELETE("/ea-keys/:id", investorHandler.DeleteEAKey)
         }
 
         // EA Investor routes
