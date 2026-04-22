@@ -1199,3 +1199,19 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - Overview: Portfolio Allocation per follower account (bukan breakdown trader/signal)
   - Auto allocate: 100% per follower account independent
   - Fix: account_role "follower" (bukan "investor") saat add account
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-22)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604222000`
+- **Changes:**
+  - fix: signal history tambah closedAt — struct, query, scan
+  - fix: import signal upsert by (set_id, pair, direction, issued_at) — no duplicate
+  - db: unique index uq_analyst_signals_import on analyst_signals
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604222100`
+- **Changes:**
+  - fix: history table tambah Open Time + Close Time columns
+  - fix: format waktu bersih — hapus +00:00/Z suffix
+  - fix: hapus set_name sub-label di pair cell history
