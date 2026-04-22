@@ -1182,3 +1182,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - Auto allocate: pass follower_account_id — fix silent fail
   - Warning min 5% AUM per trader
   - Warning over 100% per account
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-22)
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604221820`
+- **Changes:** Auto allocate per follower account — 100% independent per akun; min 5% per trader
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604221800`
+- **Changes:** fix scan order allocation — follower_account_id/number/platform sebelum status
