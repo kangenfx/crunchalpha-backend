@@ -1243,3 +1243,8 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - TraderAccount struct tambah Role field
   - GetUserAccounts SELECT & Scan include role
   - Fix: 17 scan columns match query
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-22 20:00)
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604222000`
+- **Changes:** DD Guard baca floating real dari eaKeys (bukan hardcode 0)
