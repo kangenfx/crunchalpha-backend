@@ -1162,3 +1162,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - feat: My Portfolio group by follower account dengan header per akun
   - feat: subscribe modal dropdown pilih akun investor
   - feat: unsubscribe + save allocation kirim followerAccountId
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-21)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604211600`
+- **Changes:** EA Key per account — tiap broker account punya EA key sendiri di Copy Settings
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604211420`
+- **Changes:** feat: ea-keys per account routes — GET/POST/DELETE /api/investor/ea-keys
