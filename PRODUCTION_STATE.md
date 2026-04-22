@@ -1215,3 +1215,23 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: history table tambah Open Time + Close Time columns
   - fix: format waktu bersih — hapus +00:00/Z suffix
   - fix: hapus set_name sub-label di pair cell history
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-22 22:00)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604222200`
+- **Changes:**
+  - feat: signal set limit 2→5 per analyst
+  - feat: description field di analyst_signal_sets (DB + API)
+  - fix: signal history closedAt — struct, query, scan
+  - fix: import signal upsert — no duplicate by (set_id,pair,direction,issued_at)
+  - fix: signal history order by issued_at DESC
+  - db: ALTER TABLE analyst_signal_sets ADD COLUMN description text
+  - db: unique index uq_analyst_signals_import on analyst_signals
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604222200`
+- **Changes:**
+  - feat: Create/Edit Signal Set modal tambah Strategy Description field
+  - feat: stat card SIGNAL SETS 2/2 → 5/5
+  - fix: history table Open Time + Close Time columns
+  - fix: format waktu bersih — hapus +00:00/Z
+  - fix: hapus set_name sub-label di pair cell
