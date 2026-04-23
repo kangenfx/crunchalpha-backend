@@ -1295,3 +1295,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: sanitizeTimestamp() helper — OpenTime < 2000-01-01 diganti time.Now()
   - fix: berlaku untuk SaveTrade & SyncTrade (INSERT path sebelumnya tidak ada guard)
   - Root cause: to_timestamp(0) langsung jadi 1970-01-01 saat INSERT pertama
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-23 11:15)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604231110`
+- **Changes:**
+  - fix: copy engine SL=0 ke follower (sebelumnya pakai OpenPrice → Invalid stops di broker)
+  - fix: follower_account_id dari trader_accounts (bukan investor_ea_keys)
+  - fix: totalAlloc check per follower_account_id (bukan total semua alokasi)
+  - fix: sanitizeTimestamp() — epoch-0 open_time tidak masuk DB
+  - TESTED: copy trade EXECUTED akun 20686862 ✅
