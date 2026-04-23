@@ -1277,3 +1277,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - fix: import upsert ON CONFLICT tanpa WHERE — issued_at tipe text bukan timestamp
   - db: recreate uq_analyst_signals_import tanpa WHERE clause
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-23 09:40)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604230940`
+- **Changes:**
+  - fix: copy engine query filter per follower_account_id
+  - fix: allocation check per follower account (bukan total semua akun)
+  - fix: acct_equity dari investor_ea_keys (bukan investor_settings global)
+  - fix: checkCopyRejection tambah followerAccountID parameter
+  - TESTED: copy trade EXECUTED di akun 20686862 ✅
