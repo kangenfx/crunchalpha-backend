@@ -397,17 +397,21 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 			ua.max_positions,
 			inv.investor_equity,
 			inv.max_daily_loss_pct,
-			COALESCE(inv.risk_level, 'balanced')
+			COALESCE(inv.risk_level, 'balanced'),
+			cs.follower_account_id::text,
+			COALESCE(iek.equity, inv.investor_equity) as acct_equity
 		FROM copy_subscriptions cs
 		JOIN trader_accounts ta_inv ON ta_inv.id = cs.follower_account_id
 		JOIN user_allocations ua ON ua.user_id = ta_inv.user_id
 			AND ua.trader_account_id = cs.provider_account_id
+			AND ua.follower_account_id = cs.follower_account_id
 			AND ua.status = 'ACTIVE'
 		JOIN investor_settings inv ON inv.investor_id = ta_inv.user_id
+		LEFT JOIN investor_ea_keys iek ON iek.investor_id = ta_inv.user_id
+			AND iek.mt5_account = ta_inv.account_number
 		WHERE cs.provider_account_id = $1::uuid
 		  AND cs.status = 'ACTIVE'
 		  AND inv.copy_trader_enabled = true
-		  AND inv.investor_equity > 0
 		  AND ua.allocation_value > 0`,
 		traderAccountID)
 	if err != nil {
@@ -418,23 +422,23 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 
 	count := 0
 	for rows.Next() {
-		var investorID, riskLevel string
-		var allocationPct, investorEquity, maxDailyLossPct float64
+		var investorID, riskLevel, followerAccountID string
+		var allocationPct, investorEquity, maxDailyLossPct, acctEquity float64
 		var maxPositions int
 		if err := rows.Scan(&investorID, &allocationPct, &maxPositions,
-			&investorEquity, &maxDailyLossPct, &riskLevel); err != nil {
+			&investorEquity, &maxDailyLossPct, &riskLevel, &followerAccountID, &acctEquity); err != nil {
 			continue
 		}
 
-		// AUM calculation
-		aum := investorEquity * allocationPct / 100.0
+		// AUM calculation — per follower account equity
+		aum := acctEquity * allocationPct / 100.0
 
 		// Risk-normalized lot calculation
 		lotResult := r.calcFinalLot(traderAccountID, trade, aum, traderEquity, riskLevel, traderAvgLoss)
 		calculatedLot := lotResult.FinalLot
 
 		// Rejection checks
-		reason := r.checkCopyRejection(investorID, calculatedLot, investorEquity, maxPositions, maxDailyLossPct)
+		reason := r.checkCopyRejection(investorID, followerAccountID, calculatedLot, acctEquity, maxPositions, maxDailyLossPct)
 		status := "PENDING"
 		if reason != "" {
 			status = "REJECTED"
@@ -455,7 +459,7 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 				 JOIN trader_accounts ta ON ta.id = cs.follower_account_id
 				 WHERE ta.user_id=$1::uuid AND cs.provider_account_id=$2::uuid LIMIT 1),
 				$2::uuid,
-				COALESCE((SELECT id FROM trader_accounts WHERE user_id=$1::uuid AND status='active' LIMIT 1), $1::uuid),
+				$17::uuid,
 				'OPEN', $3, $4, $5,
 				$6, $7, $8, $9, $10,
 				$5, $11, $12, $10,
@@ -465,8 +469,9 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 			investorID, traderAccountID,
 			trade.Symbol, direction, calculatedLot,
 			trade.OpenPrice, 0.0, trade.Ticket, status, nullStr(reason),
-			investorEquity, aum,
+			acctEquity, aum,
 			lotResult.PropLot, lotResult.RiskLot, lotResult.EstimatedSL, lotResult.FinalLot,
+			followerAccountID,
 		)
 		if err != nil {
 			log.Printf("[CopyEngine] Insert error investor %s: %v", investorID, err)
@@ -505,7 +510,7 @@ func (r *Repository) TriggerCopyEngineClose(traderAccountID string, providerTick
 }
 
 // checkCopyRejection — cek apakah copy event perlu di-reject
-func (r *Repository) checkCopyRejection(investorID string, lot, investorEquity float64, maxPositions int, maxDailyLossPct float64) string {
+func (r *Repository) checkCopyRejection(investorID, followerAccountID string, lot, investorEquity float64, maxPositions int, maxDailyLossPct float64) string {
 	if lot < 0.01 {
 		return "Calculated lot below minimum (0.01)"
 	}
@@ -514,21 +519,21 @@ func (r *Repository) checkCopyRejection(investorID string, lot, investorEquity f
 	var openCount int
 	r.db.QueryRow(`
 		SELECT COUNT(*) FROM copy_events
-		WHERE follower_account_id = (
-			SELECT id FROM trader_accounts WHERE user_id=$1::uuid AND status='active' LIMIT 1
-		) AND status='PENDING' AND action='OPEN'`,
-		investorID).Scan(&openCount)
-	if openCount >= maxPositions {
+		WHERE follower_account_id = $2::uuid
+		AND status='PENDING' AND action='OPEN'`,
+		investorID, followerAccountID).Scan(&openCount)
+	if maxPositions > 0 && openCount >= maxPositions {
 		return fmt.Sprintf("Max open positions reached (%d)", maxPositions)
 	}
 
-	// Total allocation check
+	// Total allocation check — per follower account
 	var totalAlloc float64
 	r.db.QueryRow(`
 		SELECT COALESCE(SUM(allocation_value), 0)
 		FROM user_allocations
-		WHERE user_id=$1::uuid AND status='ACTIVE'`,
-		investorID).Scan(&totalAlloc)
+		WHERE user_id=$1::uuid AND status='ACTIVE'
+		AND follower_account_id = $2::uuid`,
+		investorID, followerAccountID).Scan(&totalAlloc)
 	if totalAlloc > 100 {
 		return fmt.Sprintf("Total allocation %.0f%% exceeds 100%%", totalAlloc)
 	}

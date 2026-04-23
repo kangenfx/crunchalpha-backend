@@ -215,7 +215,7 @@ func (e *CopyTraderEngine) checkRejection(
 	return ""
 }
 
-func (e *CopyTraderEngine) GetPendingCopyEvents(investorID string) ([]CopyEvent, error) {
+func (e *CopyTraderEngine) GetPendingCopyEvents(investorID string, mt5Account string) ([]CopyEvent, error) {
 	rows, err := e.db.Query(
 		`SELECT ce.id, ce.provider_account_id, ce.action, ce.symbol, ce.type,
 		        COALESCE(ce.calculated_lot, ce.lots),
@@ -228,10 +228,10 @@ func (e *CopyTraderEngine) GetPendingCopyEvents(investorID string) ([]CopyEvent,
 		        ce.created_at
 		 FROM copy_events ce
 		 WHERE ce.follower_account_id = (
-		   SELECT id FROM trader_accounts WHERE user_id=$1::uuid AND status='active' LIMIT 1
+		   SELECT id FROM trader_accounts WHERE user_id=$1::uuid AND account_number=$2 AND status='active' LIMIT 1
 		 ) AND ce.status = 'PENDING'
 		 ORDER BY ce.created_at ASC LIMIT 20`,
-		investorID)
+		investorID, mt5Account)
 	if err != nil { return nil, err }
 	defer rows.Close()
 	var events []CopyEvent
