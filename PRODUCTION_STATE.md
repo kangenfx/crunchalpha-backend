@@ -1255,3 +1255,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:** 
   - Copy Settings: hapus Risk Level (sudah ada per-account di My Portfolio)
   - Max Daily Loss & Max Open Trades: tambah keterangan "per account"
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-23 03:10)
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604230310`
+- **Changes:**
+  - Fix: loadAccounts di SettingsTab missing .then() handler
+  - EA Key per Account sekarang tampil dengan benar di Copy Settings
