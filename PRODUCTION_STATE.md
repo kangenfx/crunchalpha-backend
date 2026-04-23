@@ -1314,3 +1314,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: layer3 multiplier inside calcFinalLot (defensive by sistem)
   - fix: order history query — IN multiple follower accounts (bukan LIMIT 1)
   - Logic: propLot gate → layer3 → min 0.01 jika lolos gate
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-23 17:20)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604231720`
+- **Changes:**
+  - fix: GET /api/investor/trade-copies — query via copy_events JOIN, support multiple follower accounts
+  - fix: GET /api/investor/order-history — IN multiple follower accounts
