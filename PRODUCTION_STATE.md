@@ -1287,3 +1287,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: acct_equity dari investor_ea_keys (bukan investor_settings global)
   - fix: checkCopyRejection tambah followerAccountID parameter
   - TESTED: copy trade EXECUTED di akun 20686862 ✅
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-23 10:05)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604231005`
+- **Changes:**
+  - fix: sanitizeTimestamp() helper — OpenTime < 2000-01-01 diganti time.Now()
+  - fix: berlaku untuk SaveTrade & SyncTrade (INSERT path sebelumnya tidak ada guard)
+  - Root cause: to_timestamp(0) langsung jadi 1970-01-01 saat INSERT pertama
