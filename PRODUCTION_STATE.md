@@ -1262,3 +1262,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - Fix: loadAccounts di SettingsTab missing .then() handler
   - EA Key per Account sekarang tampil dengan benar di Copy Settings
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-23 03:30)
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604230330`
+- **Changes:**
+  - Overview: Risk section per-account (risk level + AUM per akun)
+  - Overview: DD Guard per-account dengan progress bar masing-masing
+  - Fix: loadAccounts missing .then() di SettingsTab
