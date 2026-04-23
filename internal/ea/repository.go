@@ -485,7 +485,7 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 			)`,
 			investorID, traderAccountID,
 			trade.Symbol, direction, calculatedLot,
-			trade.OpenPrice, 0.0, trade.Ticket, status, nullStr(reason),
+			0.0, 0.0, trade.Ticket, status, nullStr(reason),
 			acctEquity, aum,
 			lotResult.PropLot, lotResult.RiskLot, lotResult.EstimatedSL, lotResult.FinalLot,
 			followerAccountID,
