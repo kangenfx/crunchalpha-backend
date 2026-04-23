@@ -1270,3 +1270,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - Overview: Risk section per-account (risk level + AUM per akun)
   - Overview: DD Guard per-account dengan progress bar masing-masing
   - Fix: loadAccounts missing .then() di SettingsTab
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-23 05:45)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604230545`
+- **Changes:**
+  - fix: import upsert ON CONFLICT tanpa WHERE — issued_at tipe text bukan timestamp
+  - db: recreate uq_analyst_signals_import tanpa WHERE clause
