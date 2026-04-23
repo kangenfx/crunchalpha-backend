@@ -1248,3 +1248,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### Frontend:
 - **Image:** `crunchalpha-frontend-v3:prod-202604222000`
 - **Changes:** DD Guard baca floating real dari eaKeys (bukan hardcode 0)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-22 20:30)
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604222030`
+- **Changes:** 
+  - Copy Settings: hapus Risk Level (sudah ada per-account di My Portfolio)
+  - Max Daily Loss & Max Open Trades: tambah keterangan "per account"
