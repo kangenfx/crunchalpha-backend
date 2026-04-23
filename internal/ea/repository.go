@@ -331,55 +331,25 @@ func (r *Repository) calcFinalLot(
 	riskLevel string,
 	traderAvgLoss float64,
 ) LotCalcResult {
-	cfg := getRiskLevelConfig(riskLevel)
-	pipVal := getPipValue(trade.Symbol)
-
-	// 1. Proportional lot
-	propLot := trade.Lots * (aum / traderEquity)
-
-	// 2. Estimate SL
-	var estSL float64
-	if trade.OpenPrice > 0 {
-		// Get from trader history
-		estSL = r.estimateSL(traderAccountID, trade.Symbol, trade.Lots)
+	// 1. Proportional lot — GATE: harus >= 0.01 sebelum lanjut
+	propLot := math.Floor(trade.Lots*(aum/traderEquity)*100) / 100
+	if propLot < 0.01 {
+		minAUM := (0.01 / trade.Lots) * traderEquity
+		log.Printf("[CopyEngine] propLot %.4f < 0.01 — SKIP, min_AUM=%.2f (AUM=%.2f traderEq=%.2f)",
+			propLot, minAUM, aum, traderEquity)
+		return LotCalcResult{PropLot: propLot, FinalLot: 0, RiskLevel: riskLevel}
 	}
-	if estSL <= 0 {
-		estSL = r.estimateSL(traderAccountID, trade.Symbol, trade.Lots)
-	}
-
-	// 3. Risk lot from risk level
-	// risk_lot = (AUM × max_risk_pct/100) / (SL × pip_value)
-	var riskLot float64
-	if estSL > 0 && pipVal > 0 {
-		maxRiskAmt := aum * cfg.MaxRiskPerTrade / 100.0
-		riskLot = maxRiskAmt / (estSL * pipVal)
-	} else {
-		// No SL estimate available — use conservative cap
-		riskLot = aum * cfg.MaxRiskPerTrade / 100.0 / 10.0
-	}
-
-	// 4. Final lot = MIN(prop_lot, risk_lot)
-	finalLot := math.Min(propLot, riskLot)
-
-	// 5. Round down to 2 decimal places
-	finalLot = math.Floor(finalLot*100) / 100
-	propLot = math.Floor(propLot*100) / 100
-	riskLot = math.Floor(riskLot*100) / 100
-
-	// 6. Minimum lot
-	if finalLot < 0.01 {
-		finalLot = 0.01
-	}
-
-	return LotCalcResult{
-		PropLot:     propLot,
-		RiskLot:     riskLot,
-		FinalLot:    finalLot,
-		EstimatedSL: estSL,
-		RiskLevel:   riskLevel,
-	}
+	// 2. Apply layer3 multiplier (defensive, by sistem)
+	var layer3 float64 = 1.0
+	r.db.QueryRow(`SELECT COALESCE(layer3_multiplier, 1.0) FROM alpha_ranks WHERE account_id = $1 AND symbol = 'ALL'`, traderAccountID).Scan(&layer3)
+	if layer3 < 0.30 { layer3 = 0.30 }
+	if layer3 > 1.00 { layer3 = 1.00 }
+	// 3. Final lot = propLot x layer3, minimum 0.01
+	finalLot := math.Floor(propLot*layer3*100) / 100
+	if finalLot < 0.01 { finalLot = 0.01 }
+	log.Printf("[CopyEngine] calcFinalLot — propLot=%.4f layer3=%.4f finalLot=%.4f", propLot, layer3, finalLot)
+	return LotCalcResult{PropLot: propLot, RiskLot: propLot, FinalLot: finalLot, RiskLevel: riskLevel}
 }
-
 // TriggerCopyEngine — dipanggil saat trader buka posisi baru
 // Generate copy_events untuk semua investor yang follow trader ini
 func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData) {

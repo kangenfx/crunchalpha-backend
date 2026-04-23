@@ -12,8 +12,11 @@ func (h *Handler) EAGetPendingCopyTrades(c *gin.Context) {
 		c.JSON(401, gin.H{"ok": false, "error": "missing investor id"})
 		return
 	}
+	mt5Account, _ := c.Get("mt5_account")
+	mt5Str := ""
+	if mt5Account != nil { mt5Str = mt5Account.(string) }
 	engine := NewCopyTraderEngine(h.service.repo.DB)
-	events, err := engine.GetPendingCopyEvents(investorID)
+	events, err := engine.GetPendingCopyEvents(investorID, mt5Str)
 	if err != nil {
 		c.JSON(500, gin.H{"ok": false, "error": "db error"})
 		return
