@@ -1305,3 +1305,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: totalAlloc check per follower_account_id (bukan total semua alokasi)
   - fix: sanitizeTimestamp() — epoch-0 open_time tidak masuk DB
   - TESTED: copy trade EXECUTED akun 20686862 ✅
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-23 16:55)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604231655`
+- **Changes:**
+  - fix: calcFinalLot — propLot < 0.01 SKIP (tidak copy, bukan fallback ke 0.01)
+  - fix: layer3 multiplier inside calcFinalLot (defensive by sistem)
+  - fix: order history query — IN multiple follower accounts (bukan LIMIT 1)
+  - Logic: propLot gate → layer3 → min 0.01 jika lolos gate
