@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"strings"
+	"time"
 )
 
 type AlphaRankCalculator interface {
@@ -16,6 +17,16 @@ type AlphaRankCalculator interface {
 type Repository struct {
 	db              *sql.DB
 	alphaRankSvc    AlphaRankCalculator
+}
+
+// epoch2000 = 2000-01-01 UTC
+const epoch2000 = int64(946684800)
+
+func sanitizeTimestamp(ts int64) int64 {
+	if ts < epoch2000 {
+		return time.Now().Unix()
+	}
+	return ts
 }
 
 func NewRepository(db *sql.DB, alphaRankSvc AlphaRankCalculator) *Repository {
@@ -31,6 +42,9 @@ func (r *Repository) GetAccountIDByNumber(accountNumber, userID string) (string,
 
 func (r *Repository) SaveTrade(accountID string, trade *TradeData) error {
 	// Skip non-trading symbols (archived, empty)
+
+	// Sanitize epoch-0 timestamps
+	trade.OpenTime = sanitizeTimestamp(trade.OpenTime)
 	if trade.Symbol == "" || trade.Symbol == "archived" {
 		return nil
 	}
@@ -103,6 +117,9 @@ func (r *Repository) SyncTrade(accountID string, trade *TradeData) error {
 				equity_at_open = CASE WHEN EXCLUDED.equity_at_open > 0 THEN EXCLUDED.equity_at_open ELSE trades.equity_at_open END,
 				open_time = CASE WHEN EXCLUDED.open_time > '2000-01-01' THEN EXCLUDED.open_time ELSE trades.open_time END
 	`
+	// Sanitize epoch-0 timestamps
+	trade.OpenTime = sanitizeTimestamp(trade.OpenTime)
+
 	var closeTime int64
 	if trade.CloseTime > 0 {
 		closeTime = trade.CloseTime
