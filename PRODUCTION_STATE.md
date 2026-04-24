@@ -1331,3 +1331,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: propLot gate <0.01 SKIP — no fallback to minimum
   - fix: layer3 inside calcFinalLot
   - TESTED: copy_executions terisi ✅ OPEN+CLOSE EXECUTED ✅
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-24 08:00)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604240800`
+- **Changes:**
+  - fix: GetTradeCopies — JOIN copy_events, IN multiple follower accounts
+  - fix: EA Investor v3.41 — EventSetTimer 5s → 2s
