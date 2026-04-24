@@ -392,27 +392,23 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 	uid, ok := getUID(c)
 	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
 	rows, err := h.service.repo.DB.Query(`
-		SELECT cs.id::text, cs.provider_account_id::text, cs.status,
-			cs.lot_calculation_method, cs.lot_multiplier, cs.max_lot, cs.max_risk_percent,
-			cs.copy_sl, cs.copy_tp, cs.created_at::text,
-			COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
-			COALESCE(ar.alpha_score,0) as alpha_score, COALESCE(ar.grade,'') as grade,
-			COALESCE(ar.risk_level,'MEDIUM') as risk_level,
-			COALESCE(ar.layer3_multiplier,1.0) as layer3_multiplier,
-			COALESCE(ar.layer3_status,'NEUTRAL') as layer3_status,
-			COALESCE(ar.layer3_detail->>'system_mode','FULL_ACTIVE') as layer3_system_mode,
-			COALESCE(ar.layer3_reason,'') as layer3_reason,
-			cs.follower_account_id::text,
-			COALESCE(fa.account_number,'') as follower_account_number,
-			COALESCE(ex.executed_price::text,'') as executed_price,
-			COALESCE(ex.close_price::text,'') as close_price,
-			COALESCE(ex.profit,0) as profit,
-			COALESCE(ex.executed_lots,0) as executed_lots
-			COALESCE(fa.platform::text,'') as follower_platform,
-			COALESCE(ta.broker,'') as broker,
-			COALESCE(ta.platform::text,'') as platform,
-			COALESCE(ta.equity, 0) as trader_equity,
-			COALESCE((SELECT lots FROM trades WHERE account_id=cs.provider_account_id AND status='open' ORDER BY open_time DESC LIMIT 1), 0.01) as last_master_lot
+			SELECT cs.id::text, cs.provider_account_id::text, cs.status,
+				cs.lot_calculation_method, cs.lot_multiplier, cs.max_lot, cs.max_risk_percent,
+				cs.copy_sl, cs.copy_tp, cs.created_at::text,
+				COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
+				COALESCE(ar.alpha_score,0) as alpha_score, COALESCE(ar.grade,'') as grade,
+				COALESCE(ar.risk_level,'MEDIUM') as risk_level,
+				COALESCE(ar.layer3_multiplier,1.0) as layer3_multiplier,
+				COALESCE(ar.layer3_status,'NEUTRAL') as layer3_status,
+				COALESCE(ar.layer3_detail->>'system_mode','FULL_ACTIVE') as layer3_system_mode,
+				COALESCE(ar.layer3_reason,'') as layer3_reason,
+				cs.follower_account_id::text,
+				COALESCE(fa.account_number,'') as follower_account_number,
+				COALESCE(fa.platform::text,'') as follower_platform,
+				COALESCE(ta.broker,'') as broker,
+				COALESCE(ta.platform::text,'') as platform,
+				COALESCE(ta.equity, 0) as trader_equity,
+				COALESCE((SELECT lots FROM trades WHERE account_id=cs.provider_account_id AND status='open' ORDER BY open_time DESC LIMIT 1), 0.01) as last_master_lot
 		FROM copy_subscriptions cs
 		LEFT JOIN trader_accounts ta ON ta.id = cs.provider_account_id
 		LEFT JOIN users u ON u.id = ta.user_id
@@ -454,13 +450,13 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 	for rows.Next() {
 		var s SubRow
 		if err := rows.Scan(&s.ID,&s.TraderID,&s.Status,&s.LotMode,&s.LotSize,&s.MaxLot,
-			&s.RiskPct,&s.CopySL,&s.CopyTP,&s.CreatedAt,&s.TraderName,&s.Broker,&s.Platform,
+			&s.RiskPct,&s.CopySL,&s.CopyTP,&s.CreatedAt,&s.TraderName,
 			&s.AlphaScore,&s.Grade,
-                        &s.RiskLevel,&s.Layer3Multiplier,&s.Layer3Status,
+			&s.RiskLevel,&s.Layer3Multiplier,&s.Layer3Status,
 			&s.Layer3SystemMode,&s.Layer3Reason,
 			&s.FollowerAccountID,&s.FollowerAccountNumber,&s.FollowerPlatform,
-				&s.Broker,&s.Platform,
-				&s.TraderEquity,&s.LastMasterLot); err != nil { continue }
+			&s.Broker,&s.Platform,
+			&s.TraderEquity,&s.LastMasterLot); err != nil { continue }
 			if s.LastMasterLot > 0 {
 				s.MinAumRequired = (0.01 / s.LastMasterLot) * s.TraderEquity
 			}
