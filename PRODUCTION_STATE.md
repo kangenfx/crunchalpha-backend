@@ -1357,3 +1357,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### Pending:
 - Close Price & P&L follower — butuh storage follower trade data dari EA
 - Type display untuk CLOSE event
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-24)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604240340`
+- **Changes:**
+  - feat: GET /trade-copies route terdaftar
+  - fix: copy-trade-history query semua akun investor (hapus LIMIT 1)
+  - feat: risk level per akun di trader_accounts
+  - feat: GET/POST account-risk-levels endpoints
