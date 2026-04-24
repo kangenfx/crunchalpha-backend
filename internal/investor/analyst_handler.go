@@ -501,7 +501,6 @@ func (h *Handler) GetTraderProfile(c *gin.Context) {
 	err := h.service.repo.DB.QueryRow(`
 		SELECT ta.id::text, ta.account_number, COALESCE(ta.broker,''), COALESCE(ta.platform::text,''),
 				COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
-		       cev.symbol, cev.type, cev.provider_ticket::text, cev.action,
 				COALESCE(ta.nickname,''), COALESCE(u.country,'') as country, COALESCE(u.bio,'') as bio,
 				COALESCE(ta.about,'') as strategy,
 				COALESCE(ta.equity,0), COALESCE(ta.balance,0),
