@@ -396,8 +396,6 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 			cs.lot_calculation_method, cs.lot_multiplier, cs.max_lot, cs.max_risk_percent,
 			cs.copy_sl, cs.copy_tp, cs.created_at::text,
 			COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
-		       cev.symbol, cev.type, cev.provider_ticket::text, cev.action,
-			COALESCE(ta.broker,'') as broker, COALESCE(ta.platform::text,'') as platform,
 			COALESCE(ar.alpha_score,0) as alpha_score, COALESCE(ar.grade,'') as grade,
 			COALESCE(ar.risk_level,'MEDIUM') as risk_level,
 			COALESCE(ar.layer3_multiplier,1.0) as layer3_multiplier,
@@ -406,7 +404,15 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 			COALESCE(ar.layer3_reason,'') as layer3_reason,
 			cs.follower_account_id::text,
 			COALESCE(fa.account_number,'') as follower_account_number,
-			COALESCE(fa.platform::text,'') as follower_platform
+			COALESCE(ex.executed_price::text,'') as executed_price,
+			COALESCE(ex.close_price::text,'') as close_price,
+			COALESCE(ex.profit,0) as profit,
+			COALESCE(ex.executed_lots,0) as executed_lots
+			COALESCE(fa.platform::text,'') as follower_platform,
+			COALESCE(ta.broker,'') as broker,
+			COALESCE(ta.platform::text,'') as platform,
+			COALESCE(ta.equity, 0) as trader_equity,
+			COALESCE((SELECT lots FROM trades WHERE account_id=cs.provider_account_id AND status='open' ORDER BY open_time DESC LIMIT 1), 0.01) as last_master_lot
 		FROM copy_subscriptions cs
 		LEFT JOIN trader_accounts ta ON ta.id = cs.provider_account_id
 		LEFT JOIN users u ON u.id = ta.user_id
@@ -440,6 +446,9 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 			FollowerAccountID     string  `json:"followerAccountId"`
 			FollowerAccountNumber string  `json:"followerAccountNumber"`
 			FollowerPlatform      string  `json:"followerPlatform"`
+			TraderEquity      float64 `json:"traderEquity"`
+			LastMasterLot     float64 `json:"lastMasterLot"`
+			MinAumRequired    float64 `json:"minAumRequired"`
 	}
 	var subs []SubRow
 	for rows.Next() {
@@ -449,7 +458,12 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 			&s.AlphaScore,&s.Grade,
                         &s.RiskLevel,&s.Layer3Multiplier,&s.Layer3Status,
 			&s.Layer3SystemMode,&s.Layer3Reason,
-			&s.FollowerAccountID,&s.FollowerAccountNumber,&s.FollowerPlatform); err != nil { continue }
+			&s.FollowerAccountID,&s.FollowerAccountNumber,&s.FollowerPlatform,
+				&s.Broker,&s.Platform,
+				&s.TraderEquity,&s.LastMasterLot); err != nil { continue }
+			if s.LastMasterLot > 0 {
+				s.MinAumRequired = (0.01 / s.LastMasterLot) * s.TraderEquity
+			}
 		subs = append(subs, s)
 	}
 	if subs == nil { subs = []SubRow{} }
@@ -655,43 +669,61 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 	if !ok { c.JSON(401, gin.H{"ok":false,"error":"unauthorized"}); return }
 
 	rows, err := h.service.repo.DB.Query(`
-		SELECT ce.id::text, ce.follower_ticket, ce.executed_lots, ce.executed_price::text,
-		       ce.success, ce.executed_at::text, ce.error_message,
-		       COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
-		       cev.symbol, cev.type, cev.provider_ticket::text, cev.action
-		FROM copy_executions ce
-		JOIN copy_events cev ON cev.id = ce.signal_id
-		JOIN trader_accounts ta ON ta.id = cev.provider_account_id
-		LEFT JOIN users u ON u.id = ta.user_id
-		WHERE cev.follower_account_id IN (
-			SELECT id FROM trader_accounts WHERE user_id=$1::uuid AND status='active'
+		SELECT
+			ce.id::text,
+			ce.action,
+			ce.symbol,
+			ce.type,
+			ce.calculated_lot,
+			ce.status,
+			COALESCE(ce.rejection_reason,'') as rejection_reason,
+			ce.provider_ticket::text,
+			ce.aum_used,
+			ce.created_at::text,
+			COALESCE(ta.nickname, ta.account_number) as trader_name,
+			COALESCE(fa.account_number,'') as follower_account_number,
+			COALESCE(ex.executed_price::text,'') as executed_price,
+			COALESCE(ex.close_price::text,'') as close_price,
+			COALESCE(ex.profit,0) as profit,
+			COALESCE(ex.executed_lots,0) as executed_lots
+		FROM copy_events ce
+		LEFT JOIN trader_accounts ta ON ta.id = ce.provider_account_id
+		LEFT JOIN trader_accounts fa ON fa.id = ce.follower_account_id
+		LEFT JOIN LATERAL (SELECT executed_price, close_price, profit, executed_lots FROM copy_executions WHERE subscription_id = ce.subscription_id ORDER BY executed_at DESC LIMIT 1) ex ON true
+		WHERE ce.follower_account_id IN (
+			SELECT id FROM trader_accounts WHERE user_id=$1::uuid
 		)
-		ORDER BY ce.executed_at DESC
+		ORDER BY ce.created_at DESC
 		LIMIT 100`, uid)
 	if err != nil { c.JSON(500, gin.H{"ok":false,"error":err.Error()}); return }
 	defer rows.Close()
 
 	type CopyRow struct {
-		ID            string  `json:"id"`
-		FollowerTicket *int64 `json:"followerTicket"`
-		ExecutedLots  float64 `json:"executedLots"`
-		ExecutedPrice string  `json:"executedPrice"`
-		Success       bool    `json:"success"`
-		ExecutedAt    string  `json:"executedAt"`
-		ErrorMessage  *string `json:"errorMessage"`
-		TraderName      string  `json:"traderName"`
-		Symbol         string  `json:"symbol"`
-		Direction      int     `json:"direction"`
-		ProviderTicket string  `json:"providerTicket"`
-		Action         string  `json:"action"`
+		ID                    string  `json:"id"`
+		Action                string  `json:"action"`
+		Symbol                string  `json:"symbol"`
+		Type                  string  `json:"type"`
+		Lot                   float64 `json:"lot"`
+		Status                string  `json:"status"`
+		RejectionReason       string  `json:"rejectionReason"`
+		ProviderTicket        string  `json:"providerTicket"`
+		AumUsed               float64 `json:"aumUsed"`
+		CreatedAt             string  `json:"createdAt"`
+		TraderName            string  `json:"traderName"`
+		FollowerAccountNumber string  `json:"followerAccountNumber"`
+		ExecutedPrice         string  `json:"executedPrice"`
+		ClosePrice            string  `json:"closePrice"`
+		Profit                float64 `json:"profit"`
+		ExecutedLots          float64 `json:"executedLots"`
 	}
 
 	var copies []CopyRow
 	for rows.Next() {
 		var r CopyRow
-		rows.Scan(&r.ID, &r.FollowerTicket, &r.ExecutedLots, &r.ExecutedPrice,
-			&r.Success, &r.ExecutedAt, &r.ErrorMessage, &r.TraderName,
-				&r.Symbol, &r.Direction, &r.ProviderTicket, &r.Action)
+		rows.Scan(&r.ID, &r.Action, &r.Symbol, &r.Type, &r.Lot,
+			&r.Status, &r.RejectionReason, &r.ProviderTicket,
+			&r.AumUsed, &r.CreatedAt, &r.TraderName, &r.FollowerAccountNumber,
+			&r.ExecutedPrice, &r.ClosePrice, &r.Profit, &r.ExecutedLots)
 		copies = append(copies, r)
 	}
 	if copies == nil { copies = []CopyRow{} }

@@ -111,8 +111,8 @@ func (h *Handler) GetCopyTradeHistory(c *gin.Context) {
 			COALESCE(ta.nickname, ta.account_number, '') as trader_name
 		 FROM copy_events ce
 		 LEFT JOIN trader_accounts ta ON ta.id = ce.provider_account_id
-		 WHERE ce.follower_account_id = (
-		   SELECT id FROM trader_accounts WHERE user_id=$1::uuid AND status='active' LIMIT 1
+		 WHERE ce.follower_account_id IN (
+		   SELECT id FROM trader_accounts WHERE user_id=$1::uuid AND status='active'
 		 )
 		 ORDER BY ce.created_at DESC LIMIT 100`,
 		uid)

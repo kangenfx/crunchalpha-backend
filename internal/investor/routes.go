@@ -38,6 +38,7 @@ func RegisterRoutes(r *gin.RouterGroup, db *sql.DB) {
 
 	// ── Copy trade history ────────────────────────────
 	r.GET("/copy-trade-history", handler.GetCopyTradeHistory)
+	r.GET("/trade-copies", handler.GetTradeCopies)
 }
 
 func RegisterEARoutes(r *gin.RouterGroup, db *sql.DB) {
