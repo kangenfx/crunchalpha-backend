@@ -652,26 +652,19 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 	uid, ok := getUID(c)
 	if !ok { c.JSON(401, gin.H{"ok":false,"error":"unauthorized"}); return }
 
-	// Get investor's trader accounts
-	var followerAccountID string
-	h.service.repo.DB.QueryRow(`SELECT id::text FROM trader_accounts WHERE user_id=$1::uuid AND status='active' LIMIT 1`, uid).Scan(&followerAccountID)
-
-	if followerAccountID == "" {
-		c.JSON(200, gin.H{"ok":true,"copies":[]interface{}{}})
-		return
-	}
-
 	rows, err := h.service.repo.DB.Query(`
 		SELECT ce.id::text, ce.follower_ticket, ce.executed_lots, ce.executed_price::text,
 		       ce.success, ce.executed_at::text, ce.error_message,
 		       COALESCE(ta.nickname, u.name, ta.account_number) as trader_name
 		FROM copy_executions ce
-		JOIN copy_subscriptions cs ON cs.id = ce.subscription_id
-		JOIN trader_accounts ta ON ta.id = cs.provider_account_id
+		JOIN copy_events cev ON cev.id = ce.signal_id
+		JOIN trader_accounts ta ON ta.id = cev.provider_account_id
 		LEFT JOIN users u ON u.id = ta.user_id
-		WHERE cs.follower_account_id = $1::uuid
+		WHERE cev.follower_account_id IN (
+			SELECT id FROM trader_accounts WHERE user_id=$1::uuid AND status='active'
+		)
 		ORDER BY ce.executed_at DESC
-		LIMIT 100`, followerAccountID)
+		LIMIT 100`, uid)
 	if err != nil { c.JSON(500, gin.H{"ok":false,"error":err.Error()}); return }
 	defer rows.Close()
 
