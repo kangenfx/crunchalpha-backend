@@ -128,3 +128,41 @@ func (h *Handler) GetTraderList(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"data": traders})
 }
+
+// GetAccountRiskLevels - GET /api/investor/account-risk-levels
+func (h *Handler) GetAccountRiskLevels(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists { c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"}); return }
+	rows, err := h.service.repo.DB.QueryContext(c.Request.Context(),
+		`SELECT id::text, COALESCE(risk_level,'balanced') FROM trader_accounts WHERE user_id=$1::uuid AND status='active'`,
+		userID.(string))
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return }
+	defer rows.Close()
+	levels := map[string]string{}
+	for rows.Next() {
+		var id, lvl string
+		rows.Scan(&id, &lvl)
+		levels[id] = lvl
+	}
+	c.JSON(200, gin.H{"ok": true, "levels": levels})
+}
+
+// SaveAccountRiskLevel - POST /api/investor/account-risk-level
+func (h *Handler) SaveAccountRiskLevel(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists { c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"}); return }
+	var req struct {
+		FollowerAccountID string `json:"follower_account_id"`
+		RiskLevel         string `json:"risk_level"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.FollowerAccountID == "" {
+		c.JSON(400, gin.H{"ok": false, "error": "follower_account_id required"}); return
+	}
+	valid := map[string]bool{"conservative":true,"balanced":true,"aggressive":true}
+	if !valid[req.RiskLevel] { c.JSON(400, gin.H{"ok": false, "error": "invalid risk_level"}); return }
+	_, err := h.service.repo.DB.ExecContext(c.Request.Context(),
+		`UPDATE trader_accounts SET risk_level=$1 WHERE id=$2::uuid AND user_id=$3::uuid`,
+		req.RiskLevel, req.FollowerAccountID, userID.(string))
+	if err != nil { c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return }
+	c.JSON(200, gin.H{"ok": true, "risk_level": req.RiskLevel})
+}
