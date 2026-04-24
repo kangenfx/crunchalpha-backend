@@ -684,7 +684,7 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 		FROM copy_events ce
 		LEFT JOIN trader_accounts ta ON ta.id = ce.provider_account_id
 		LEFT JOIN trader_accounts fa ON fa.id = ce.follower_account_id
-		LEFT JOIN LATERAL (SELECT executed_price, close_price, profit, executed_lots FROM copy_executions WHERE subscription_id = ce.subscription_id ORDER BY executed_at DESC LIMIT 1) ex ON true
+		LEFT JOIN LATERAL (SELECT executed_price, close_price, profit, executed_lots FROM copy_executions WHERE signal_id = ce.id ORDER BY executed_at DESC LIMIT 1) ex ON true
 		WHERE ce.follower_account_id IN (
 			SELECT id FROM trader_accounts WHERE user_id=$1::uuid
 		)
