@@ -1350,3 +1350,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - feat: Trade Copies table — tambah Action, Type, Close Price, P&L kolom
   - fix: direction 0=BUY 1=SELL mapping
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-24 09:30)
+### Backend: crunchalpha-v3:production-202604240920
+### Frontend: crunchalpha-frontend-v3:prod-202604240127
+### Pending:
+- Close Price & P&L follower — butuh storage follower trade data dari EA
+- Type display untuk CLOSE event
