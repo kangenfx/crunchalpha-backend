@@ -286,9 +286,9 @@ if status == "EXECUTED" || status == "REJECTED" {
 e.db.Exec(
 `INSERT INTO copy_executions
 (subscription_id, signal_id, follower_ticket, executed_lots, executed_price, success, error_message, executed_at)
- SELECT ce.subscription_id, $1::uuid, $3, $4, $5, $6, $7, now()
+ SELECT ce.subscription_id, $1::uuid, $2, $3, $4, $5, $6, now()
  FROM copy_events ce WHERE ce.id = $1`,
-eventID, eventID,
+eventID,
 followerTicket, executedLot, executedPrice,
 status == "EXECUTED",
 nullStrEngine(rejectionReason),
