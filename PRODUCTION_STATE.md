@@ -1382,3 +1382,8 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: GetCopyTraderSubscriptions — hapus kolom duplikat, fix scan order
   - fix: GetTradeCopies — rewrite query pakai copy_events table
   - Both APIs working: subscriptions count=2, trade-copies EXECUTED ✅
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-24 11:30)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604241130`
+- **Changes:** fix: GetTraderProfile — hapus orphan cev columns; Marketplace trader profile working
