@@ -1366,3 +1366,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: copy-trade-history query semua akun investor (hapus LIMIT 1)
   - feat: risk level per akun di trader_accounts
   - feat: GET/POST account-risk-levels endpoints
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-24)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604240510`
+- **Changes:**
+  - feat: trade-copies LATERAL JOIN executed_price, close_price, profit
+  - fix: copy-trade-history query semua akun (IN instead of LIMIT 1)
+  - feat: GET /trade-copies route registered
