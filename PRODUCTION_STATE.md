@@ -1321,3 +1321,13 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - fix: GET /api/investor/trade-copies — query via copy_events JOIN, support multiple follower accounts
   - fix: GET /api/investor/order-history — IN multiple follower accounts
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-24 00:10)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604231740`
+- **Changes:**
+  - fix: copy_executions INSERT param mismatch — remove duplicate eventID
+  - fix: trade-copies query via copy_events JOIN, multiple follower accounts
+  - fix: propLot gate <0.01 SKIP — no fallback to minimum
+  - fix: layer3 inside calcFinalLot
+  - TESTED: copy_executions terisi ✅ OPEN+CLOSE EXECUTED ✅
