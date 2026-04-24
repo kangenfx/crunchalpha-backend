@@ -396,6 +396,7 @@ func (h *Handler) GetCopyTraderSubscriptions(c *gin.Context) {
 			cs.lot_calculation_method, cs.lot_multiplier, cs.max_lot, cs.max_risk_percent,
 			cs.copy_sl, cs.copy_tp, cs.created_at::text,
 			COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
+		       cev.symbol, cev.type, cev.provider_ticket::text, cev.action,
 			COALESCE(ta.broker,'') as broker, COALESCE(ta.platform::text,'') as platform,
 			COALESCE(ar.alpha_score,0) as alpha_score, COALESCE(ar.grade,'') as grade,
 			COALESCE(ar.risk_level,'MEDIUM') as risk_level,
@@ -490,6 +491,7 @@ func (h *Handler) GetTraderProfile(c *gin.Context) {
 	err := h.service.repo.DB.QueryRow(`
 		SELECT ta.id::text, ta.account_number, COALESCE(ta.broker,''), COALESCE(ta.platform::text,''),
 				COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
+		       cev.symbol, cev.type, cev.provider_ticket::text, cev.action,
 				COALESCE(ta.nickname,''), COALESCE(u.country,'') as country, COALESCE(u.bio,'') as bio,
 				COALESCE(ta.about,'') as strategy,
 				COALESCE(ta.equity,0), COALESCE(ta.balance,0),
@@ -655,7 +657,8 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 	rows, err := h.service.repo.DB.Query(`
 		SELECT ce.id::text, ce.follower_ticket, ce.executed_lots, ce.executed_price::text,
 		       ce.success, ce.executed_at::text, ce.error_message,
-		       COALESCE(ta.nickname, u.name, ta.account_number) as trader_name
+		       COALESCE(ta.nickname, u.name, ta.account_number) as trader_name,
+		       cev.symbol, cev.type, cev.provider_ticket::text, cev.action
 		FROM copy_executions ce
 		JOIN copy_events cev ON cev.id = ce.signal_id
 		JOIN trader_accounts ta ON ta.id = cev.provider_account_id
@@ -676,14 +679,19 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 		Success       bool    `json:"success"`
 		ExecutedAt    string  `json:"executedAt"`
 		ErrorMessage  *string `json:"errorMessage"`
-		TraderName    string  `json:"traderName"`
+		TraderName      string  `json:"traderName"`
+		Symbol         string  `json:"symbol"`
+		Direction      int     `json:"direction"`
+		ProviderTicket string  `json:"providerTicket"`
+		Action         string  `json:"action"`
 	}
 
 	var copies []CopyRow
 	for rows.Next() {
 		var r CopyRow
 		rows.Scan(&r.ID, &r.FollowerTicket, &r.ExecutedLots, &r.ExecutedPrice,
-			&r.Success, &r.ExecutedAt, &r.ErrorMessage, &r.TraderName)
+			&r.Success, &r.ExecutedAt, &r.ErrorMessage, &r.TraderName,
+				&r.Symbol, &r.Direction, &r.ProviderTicket, &r.Action)
 		copies = append(copies, r)
 	}
 	if copies == nil { copies = []CopyRow{} }
