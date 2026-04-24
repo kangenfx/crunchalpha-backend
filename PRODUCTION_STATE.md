@@ -1338,3 +1338,15 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - fix: GetTradeCopies — JOIN copy_events, IN multiple follower accounts
   - fix: EA Investor v3.41 — EventSetTimer 5s → 2s
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-24 09:00)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604240900`
+- **Changes:**
+  - fix: GetTradeCopies — tambah symbol, direction, action, close_price, profit, close_time
+  - fix: JOIN trades via follower_ticket untuk close price & profit
+### Frontend:
+- **Image:** `crunchalpha-frontend-v3:prod-202604240109`
+- **Changes:**
+  - feat: Trade Copies table — tambah Action, Type, Close Price, P&L kolom
+  - fix: direction 0=BUY 1=SELL mapping
