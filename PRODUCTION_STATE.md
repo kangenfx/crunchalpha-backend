@@ -1374,3 +1374,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - feat: trade-copies LATERAL JOIN executed_price, close_price, profit
   - fix: copy-trade-history query semua akun (IN instead of LIMIT 1)
   - feat: GET /trade-copies route registered
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-24 11:15)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604241115`
+- **Changes:**
+  - fix: GetCopyTraderSubscriptions — hapus kolom duplikat, fix scan order
+  - fix: GetTradeCopies — rewrite query pakai copy_events table
+  - Both APIs working: subscriptions count=2, trade-copies EXECUTED ✅
