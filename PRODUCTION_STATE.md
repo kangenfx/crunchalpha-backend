@@ -1422,3 +1422,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 2. EA MT5 Investor — belum ada SyncTrades(), perlu tambahkan
 3. Earnings page trader & analyst
 4. Affiliate dashboard redesign dark theme
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-25 17:30)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604251730`
+- **Changes:**
+  - fix: OrderHistoryTab fetch dari /api/investor/trade-history (bukan signal-orders)
+  - fix: stats cards — Total Trades, Closed, Open, Total P&L
+  - fix: MarketplacePage restore dari git (corruption [S.bg] di working file)
