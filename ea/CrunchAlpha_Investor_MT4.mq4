@@ -314,7 +314,7 @@ string ExtractStrFrom(string j, string key, int from)
    return StringSubstr(j,s,e-s);
 }
 
-double ExtractDbl(string j,string key)  { return StringToDouble(ExtractStrFrom(j,key,0)); }
+double ExtractDbl(string j,string key)  { return StringToDouble(ExtractStrFrom(j,"\""+key+"\":"  ,0)); }
 bool   ExtractBool(string j,string key) {
    string pt="\""+key+"\":true";
    string pf="\""+key+"\":false";
