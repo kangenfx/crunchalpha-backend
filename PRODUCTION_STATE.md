@@ -1407,3 +1407,18 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### Pending:
 - Overview Copy Trade P&L — tunggu SyncTrades data masuk
 - Managed VPS deploy — tunggu VPS Windows minggu depan
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-25)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604251600`
+- **Changes:**
+  - feat: POST /api/ea/investor/sync-trades — EA kirim trade history ke DB (investor_trades)
+  - feat: GET /api/investor/trade-history — investor fetch trade history dari DB
+  - fix: route injection via main.go (bukan routes.go)
+
+## ⚠️ PENDING (Updated 2026-04-25)
+1. Frontend OrderHistoryTab — sudah difix di source tapi belum deploy (MarketplacePage.jsx ada build error corruption [e.target] dari sesi sebelumnya, perlu fix dulu)
+2. EA MT5 Investor — belum ada SyncTrades(), perlu tambahkan
+3. Earnings page trader & analyst
+4. Affiliate dashboard redesign dark theme
