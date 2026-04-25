@@ -1445,3 +1445,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - feat: GET /api/investor/trade-history?account_id= — optional filter by follower_account_id
   - feat: response tambah followerAccount field
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-25 18:35)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604251835`
+- **Changes:**
+  - fix: accounts state di InvestorDashboard root — pass ke OrderHistoryTab
+  - feat: dropdown account filter berfungsi di Order History
