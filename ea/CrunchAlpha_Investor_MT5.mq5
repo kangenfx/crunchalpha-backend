@@ -5,7 +5,7 @@
 //|           lebih reliable dari string compare                     |
 //+------------------------------------------------------------------+
 #property copyright "CrunchAlpha"
-#property version   "3.50"
+#property version   "3.51"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -425,6 +425,9 @@ void SyncTrades()
     datetime now = TimeCurrent();
     if(now - lastTradeSync < tradeSyncInterval) return;
     lastTradeSync = now;
+
+    // MT5 requires HistorySelect before accessing deals
+    HistorySelect(0, TimeCurrent());
 
     string trades = "";
     int total = HistoryDealsTotal();
