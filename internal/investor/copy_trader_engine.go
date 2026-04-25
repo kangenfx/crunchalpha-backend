@@ -285,8 +285,12 @@ return fmt.Errorf("update copy_event failed: %w", err)
 if status == "EXECUTED" || status == "REJECTED" {
 e.db.Exec(
 `INSERT INTO copy_executions
-(subscription_id, signal_id, follower_ticket, executed_lots, executed_price, success, error_message, executed_at)
- SELECT ce.subscription_id, $1::uuid, $2, $3, $4, $5, $6, now()
+(subscription_id, signal_id, follower_ticket, executed_lots, executed_price, success, error_message, action, close_price, executed_at)
+ SELECT ce.subscription_id, $1::uuid, $2, $3,
+        CASE WHEN ce.action='OPEN' THEN $4 ELSE ce.sl END,
+        $5, $6, ce.action,
+        CASE WHEN ce.action='CLOSE' THEN $4 ELSE NULL END,
+        now()
  FROM copy_events ce WHERE ce.id = $1`,
 eventID,
 followerTicket, executedLot, executedPrice,

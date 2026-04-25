@@ -323,6 +323,7 @@ func main() {
 				investorRoutes.GET("/account-risk-levels", investorHandler.GetAccountRiskLevels)
 				investorRoutes.POST("/account-risk-level", investorHandler.SaveAccountRiskLevel)
 		investorRoutes.GET("/copy-trade-history", investorHandler.GetCopyTradeHistory)
+			investorRoutes.GET("/trade-history", investorHandler.GetInvestorTradeHistory)
                 investorRoutes.GET("/fee-status", investorHandler.GetFeeStatus)
                 investorRoutes.GET("/invoices", investorHandler.GetInvoices)
         }
@@ -336,6 +337,7 @@ func main() {
 	eaInvestorRoutes.POST("/push-equity", investorHandler.EAPushEquity)
 	eaInvestorRoutes.GET("/pending-copy-trades", investorHandler.EAGetPendingCopyTrades)
 	eaInvestorRoutes.POST("/copy-trade-update", investorHandler.EACopyTradeUpdate)
+	eaInvestorRoutes.POST("/sync-trades", investorHandler.EASyncInvestorTrades)
 
         // Analyst routes
 	analystRoutes := r.Group("/api/analyst")

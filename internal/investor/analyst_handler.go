@@ -668,7 +668,7 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 			ce.id::text,
 			ce.action,
 			ce.symbol,
-			ce.type,
+			CASE WHEN ce.type=0 THEN 'BUY' ELSE 'SELL' END as type,
 			ce.calculated_lot,
 			ce.status,
 			COALESCE(ce.rejection_reason,'') as rejection_reason,
