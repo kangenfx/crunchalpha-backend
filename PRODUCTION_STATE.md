@@ -1387,3 +1387,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### Backend:
 - **Image:** `crunchalpha-v3:production-202604241130`
 - **Changes:** fix: GetTraderProfile — hapus orphan cev columns; Marketplace trader profile working
+
+## 📋 CHANGES 2026-04-25
+### EA MT4 Investor v2.1 Fix
+- fix: ExtractBool — smart quotes → escaped straight quotes
+- fix: ExtractDbl — cari "key": dengan colon agar nilai numerik ter-parse
+- Result: Signal:true Trader:true MaxLot:0.1 MaxDD:5.0% ✅
+### EA STATUS (Updated)
+- EA MT5 Investor v3.50: HTTPS crunchalpha.com ✅
+- EA MT4 Investor v2.1: HTTPS crunchalpha.com ✅ (fix ExtractBool & ExtractDbl)
