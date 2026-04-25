@@ -1396,3 +1396,14 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### EA STATUS (Updated)
 - EA MT5 Investor v3.50: HTTPS crunchalpha.com ✅
 - EA MT4 Investor v2.1: HTTPS crunchalpha.com ✅ (fix ExtractBool & ExtractDbl)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-25 09:10)
+### Backend: crunchalpha-v3:production-202604250400
+### Frontend: crunchalpha-frontend-v3:prod-202604240934
+### EA Status:
+- EA Investor MT5 v3.50 — SyncTrades(), timer 2s ✅
+- EA Investor MT4 v2.51 — SyncTrades(), ExtractBool fix, copyInterval 2s ✅
+- Download: /api/ea/download/investor-mt5 & investor-mt4 ✅
+### Pending:
+- Overview Copy Trade P&L — tunggu SyncTrades data masuk
+- Managed VPS deploy — tunggu VPS Windows minggu depan
