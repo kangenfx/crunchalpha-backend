@@ -5,7 +5,7 @@
 //| Lot calculated by backend — EA only executes                     |
 //+------------------------------------------------------------------+
 #property copyright "CrunchAlpha"
-#property version   "2.50"
+#property version   "2.51"
 #property strict
 
 //── Inputs ──────────────────────────────────────────────────────────
@@ -315,7 +315,13 @@ string ExtractStrFrom(string j, string key, int from)
 }
 
 double ExtractDbl(string j,string key)  { return StringToDouble(ExtractStrFrom(j,key,0)); }
-bool   ExtractBool(string j,string key) { return ExtractStrFrom(j,key,0)=="true"; }
+bool   ExtractBool(string j,string key) {
+   string pt="""+key+"":true";
+   string pf="""+key+"":false";
+   if(StringFind(j,pt)>=0) return true;
+   if(StringFind(j,pf)>=0) return false;
+   return false;
+}
 
 //+------------------------------------------------------------------+
 // SYNC TRADES — kirim history trades ke backend setiap 5 menit
@@ -376,3 +382,5 @@ void SyncTrades()
    if(res == 200) Print("[CA] SyncTrades: ", count, " trades synced");
    else           Print("[CA] SyncTrades failed HTTP:", res);
 }
+// Override ExtractBool untuk handle nested JSON
+// (fungsi lama tetap ada, ini tidak conflict karena nama berbeda)
