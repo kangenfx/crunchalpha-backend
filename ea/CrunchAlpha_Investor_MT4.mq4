@@ -316,8 +316,8 @@ string ExtractStrFrom(string j, string key, int from)
 
 double ExtractDbl(string j,string key)  { return StringToDouble(ExtractStrFrom(j,key,0)); }
 bool   ExtractBool(string j,string key) {
-   string pt="""+key+"":true";
-   string pf="""+key+"":false";
+   string pt="\""+key+"\":true";
+   string pf="\""+key+"\":false";
    if(StringFind(j,pt)>=0) return true;
    if(StringFind(j,pf)>=0) return false;
    return false;
