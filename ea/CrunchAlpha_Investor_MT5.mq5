@@ -10,6 +10,7 @@
 
 #include <Trade\Trade.mqh>
 
+
 input string EAKey      = "";
 string BackendURL = "https://crunchalpha.com";
 
@@ -415,4 +416,59 @@ bool ExtractBool(string j, string key)
     if(StringFind(j, patternTrue)  >= 0) return true;
     if(StringFind(j, patternFalse) >= 0) return false;
     return false;
+}
+//+------------------------------------------------------------------+
+// SYNC TRADES — kirim history trades ke backend setiap 5 menit
+//+------------------------------------------------------------------+
+void SyncTrades()
+{
+    datetime now = TimeCurrent();
+    if(now - lastTradeSync < tradeSyncInterval) return;
+    lastTradeSync = now;
+
+    string trades = "";
+    int total = HistoryDealsTotal();
+    int count = 0;
+    int start = MathMax(0, total - 200);
+
+    for(int i = start; i < total; i++)
+    {
+        ulong ticket = HistoryDealGetTicket(i);
+        if(ticket == 0) continue;
+        string comment = HistoryDealGetString(ticket, DEAL_COMMENT);
+        if(StringFind(comment, "CA-CT:") < 0) continue;
+
+        string sym    = HistoryDealGetString(ticket, DEAL_SYMBOL);
+        double price  = HistoryDealGetDouble(ticket, DEAL_PRICE);
+        double lots   = HistoryDealGetDouble(ticket, DEAL_VOLUME);
+        double profit = HistoryDealGetDouble(ticket, DEAL_PROFIT);
+        double swap   = HistoryDealGetDouble(ticket, DEAL_SWAP);
+        double comm   = HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+        long   time   = (long)HistoryDealGetInteger(ticket, DEAL_TIME);
+        int    type   = (int)HistoryDealGetInteger(ticket, DEAL_TYPE);
+        string typeStr = (type == DEAL_TYPE_BUY) ? "buy" : "sell";
+
+        if(trades != "") trades += ",";
+        trades += "{\"ticket\":"     + IntegerToString(ticket) +
+                  ",\"symbol\":\""   + sym + "\"" +
+                  ",\"type\":\""     + typeStr + "\"" +
+                  ",\"lots\":"       + DoubleToString(lots, 2) +
+                  ",\"openPrice\":"  + DoubleToString(price, 5) +
+                  ",\"closePrice\":0" +
+                  ",\"openTime\":"   + IntegerToString(time) +
+                  ",\"closeTime\":0" +
+                  ",\"profit\":"     + DoubleToString(profit, 2) +
+                  ",\"swap\":"       + DoubleToString(swap, 2) +
+                  ",\"commission\":" + DoubleToString(comm, 2) +
+                  ",\"status\":\"closed\"" +
+                  ",\"comment\":\"" + comment + "\"}";
+        count++;
+    }
+
+    if(count == 0) return;
+
+    string body = "{\"trades\":[" + trades + "]}";
+    int res = HTTPPost("/api/ea/investor/sync-trades", body);
+    if(res == 200) Print("[CA] SyncTrades: ", count, " trades synced");
+    else           Print("[CA] SyncTrades failed HTTP:", res);
 }

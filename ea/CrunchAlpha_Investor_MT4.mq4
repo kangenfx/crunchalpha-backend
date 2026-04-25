@@ -27,7 +27,7 @@ int      tradeSyncInterval = 300;
 int      equityInterval    = 30;
 int      settingsInterval  = 300;
 int      signalInterval    = 10;
-int      copyInterval      = 10;
+int      copyInterval      = 2;
 
 //+------------------------------------------------------------------+
 int OnInit()
