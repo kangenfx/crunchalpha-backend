@@ -1431,3 +1431,17 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: OrderHistoryTab fetch dari /api/investor/trade-history (bukan signal-orders)
   - fix: stats cards — Total Trades, Closed, Open, Total P&L
   - fix: MarketplacePage restore dari git (corruption [S.bg] di working file)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-25 18:20)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202604251820`
+- **Changes:**
+  - feat: Order History — dropdown filter by account (All Accounts / per account)
+  - feat: refetch trades saat ganti account
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604251800`
+- **Changes:**
+  - feat: GET /api/investor/trade-history?account_id= — optional filter by follower_account_id
+  - feat: response tambah followerAccount field
