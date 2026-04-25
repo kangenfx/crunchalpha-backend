@@ -5,7 +5,7 @@
 //|           lebih reliable dari string compare                     |
 //+------------------------------------------------------------------+
 #property copyright "CrunchAlpha"
-#property version   "3.41"
+#property version   "3.50"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -21,6 +21,8 @@ double   signalMaxLot      = 0.10;
 double   maxDailyLossPct   = 5.0;
 int      maxOpenTrades     = 10;
 datetime lastEquityPush    = 0;
+datetime lastTradeSync     = 0;
+int      tradeSyncInterval = 300;
 datetime lastSettingsLoad  = 0;
 int      equityInterval    = 30;
 int      settingsInterval  = 60;
@@ -56,6 +58,7 @@ void OnTimer()
     }
     if(copySignalEnabled) PollSignals();
     if(copyTraderEnabled) PollCopyTrades();
+    SyncTrades();
 }
 
 //+------------------------------------------------------------------+

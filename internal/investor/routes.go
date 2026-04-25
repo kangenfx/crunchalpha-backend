@@ -39,6 +39,7 @@ func RegisterRoutes(r *gin.RouterGroup, db *sql.DB) {
 	// ── Copy trade history ────────────────────────────
 	r.GET("/copy-trade-history", handler.GetCopyTradeHistory)
 	r.GET("/trade-copies", handler.GetTradeCopies)
+	r.GET("/trade-history", handler.GetInvestorTradeHistory)
 }
 
 func RegisterEARoutes(r *gin.RouterGroup, db *sql.DB) {
@@ -53,6 +54,7 @@ func RegisterEARoutes(r *gin.RouterGroup, db *sql.DB) {
 
 	// ── Copy Trade EA endpoints ───────────────────────
 	r.POST("/push-equity", handler.EAPushEquity)
+	r.POST("/sync-trades", handler.EASyncInvestorTrades)
 	r.GET("/pending-copy-trades", handler.EAGetPendingCopyTrades)
 	r.POST("/copy-trade-update", handler.EACopyTradeUpdate)
 }

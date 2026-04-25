@@ -5,7 +5,7 @@
 //| Lot calculated by backend — EA only executes                     |
 //+------------------------------------------------------------------+
 #property copyright "CrunchAlpha"
-#property version   "2.10"
+#property version   "2.50"
 #property strict
 
 //── Inputs ──────────────────────────────────────────────────────────
@@ -22,6 +22,8 @@ datetime lastEquityPush    = 0;
 datetime lastSettingsLoad  = 0;
 datetime lastSignalPoll    = 0;
 datetime lastCopyPoll      = 0;
+datetime lastTradeSync     = 0;
+int      tradeSyncInterval = 300;
 int      equityInterval    = 30;
 int      settingsInterval  = 300;
 int      signalInterval    = 10;
@@ -64,6 +66,7 @@ void OnTimer()
    }
    if(copySignalEnabled && now - lastSignalPoll >= signalInterval) { PollSignals();    lastSignalPoll = now; }
    if(copyTraderEnabled && now - lastCopyPoll  >= copyInterval)    { PollCopyTrades(); lastCopyPoll   = now; }
+   if(now - lastTradeSync >= tradeSyncInterval) { SyncTrades(); lastTradeSync = now; }
 }
 
 //+------------------------------------------------------------------+
@@ -313,3 +316,63 @@ string ExtractStrFrom(string j, string key, int from)
 
 double ExtractDbl(string j,string key)  { return StringToDouble(ExtractStrFrom(j,key,0)); }
 bool   ExtractBool(string j,string key) { return ExtractStrFrom(j,key,0)=="true"; }
+
+//+------------------------------------------------------------------+
+// SYNC TRADES — kirim history trades ke backend setiap 5 menit
+//+------------------------------------------------------------------+
+void SyncTrades()
+{
+   string trades = "";
+   int count = 0;
+   int total = OrdersHistoryTotal();
+   int start = MathMax(0, total - 200);
+
+   for(int i = start; i < total; i++)
+   {
+      if(!OrderSelect(i, SELECT_BY_POS, MODE_HISTORY)) continue;
+
+      string comment = OrderComment();
+      if(StringFind(comment, "CA-CT:") < 0) continue;
+
+      string sym    = OrderSymbol();
+      double lots   = OrderLots();
+      double openP  = OrderOpenPrice();
+      double closeP = OrderClosePrice();
+      double profit = OrderProfit();
+      double swap   = OrderSwap();
+      double comm   = OrderCommission();
+      long   openT  = (long)OrderOpenTime();
+      long   closeT = (long)OrderCloseTime();
+      int    type   = OrderType();
+      long   ticket = OrderTicket();
+
+      string typeStr = (type == OP_BUY) ? "buy" : "sell";
+      string status  = (closeT > 0) ? "closed" : "open";
+
+      if(trades != "") trades += ",";
+      trades += "{\"ticket\":"    + IntegerToString(ticket) +
+                ",\"symbol\":\""  + sym + "\"" +
+                ",\"type\":\""    + typeStr + "\"" +
+                ",\"lots\":"      + DoubleToStr(lots, 2) +
+                ",\"openPrice\":" + DoubleToStr(openP, 5) +
+                ",\"closePrice\":"+ DoubleToStr(closeP, 5) +
+                ",\"openTime\":"  + IntegerToString(openT) +
+                ",\"closeTime\":" + IntegerToString(closeT) +
+                ",\"profit\":"    + DoubleToStr(profit, 2) +
+                ",\"swap\":"      + DoubleToStr(swap, 2) +
+                ",\"commission\":"+ DoubleToStr(comm, 2) +
+                ",\"status\":\""  + status + "\"" +
+                ",\"comment\":\"" + comment + "\"}";
+      count++;
+   }
+
+   if(count == 0) return;
+
+   string body = "{\"trades\":[" + trades + "]}";
+   string headers = "X-EA-Key: " + EAKey + "\r\nContent-Type: application/json\r\n";
+   char post[], result[]; string rh;
+   StringToCharArray(body, post, 0, StringLen(body));
+   int res = WebRequest("POST", BackendURL+"/api/ea/investor/sync-trades", headers, 5000, post, result, rh);
+   if(res == 200) Print("[CA] SyncTrades: ", count, " trades synced");
+   else           Print("[CA] SyncTrades failed HTTP:", res);
+}
