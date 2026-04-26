@@ -150,38 +150,37 @@ func (h *Handler) GetInvestorTradeHistory(c *gin.Context) {
 		return
 	}
 	accountID := c.Query("account_id")
+
+	query := `
+SELECT
+	ce.provider_ticket as ticket,
+	ce.symbol,
+	CASE WHEN ce.type=0 THEN 'buy' ELSE 'sell' END as type,
+	ce.calculated_lot as lots,
+	COALESCE(ox.executed_price, 0) as open_price,
+	COALESCE(cx.close_price, 0) as close_price,
+	ce.created_at::text as open_time,
+	COALESCE(cc.created_at::text, '') as close_time,
+	COALESCE(cx.profit, 0) as profit,
+	CASE WHEN cx.close_price IS NOT NULL THEN 'closed' ELSE 'open' END as status,
+	COALESCE(ta.nickname, ta.account_number, '') as trader_name,
+	COALESCE(fa.account_number, '') as follower_account
+FROM copy_events ce
+LEFT JOIN copy_executions ox ON ox.signal_id = ce.id AND ox.action = 'OPEN'
+LEFT JOIN copy_events cc ON cc.provider_ticket = ce.provider_ticket
+	AND cc.action = 'CLOSE' AND cc.follower_account_id = ce.follower_account_id
+LEFT JOIN copy_executions cx ON cx.signal_id = cc.id AND cx.action = 'CLOSE'
+LEFT JOIN trader_accounts ta ON ta.id = ce.provider_account_id
+LEFT JOIN trader_accounts fa ON fa.id = ce.follower_account_id
+WHERE ce.action = 'OPEN' AND ce.status = 'EXECUTED'
+AND fa.user_id = $1::uuid`
+
 	var rows *sql.Rows
 	var err error
 	if accountID != "" {
-		rows, err = h.service.repo.DB.Query(`
-SELECT it.ticket, it.symbol, it.type, it.lots,
-       it.open_price, COALESCE(it.close_price, 0),
-       it.open_time::text, COALESCE(it.close_time::text, ''),
-       COALESCE(it.profit, 0), it.status, it.comment,
-       COALESCE(it.provider_ticket, 0),
-       COALESCE(ta.nickname, ta.account_number, '') as trader_name,
-       COALESCE(fa.account_number, '') as follower_account
-FROM investor_trades it
-LEFT JOIN trader_accounts ta ON ta.ticket = it.provider_ticket
-LEFT JOIN trader_accounts fa ON fa.id = it.follower_account_id
-WHERE it.investor_id = $1::uuid AND it.follower_account_id = $2::uuid
-ORDER BY it.open_time DESC
-LIMIT 200`, uid, accountID)
+		rows, err = h.service.repo.DB.Query(query + ` AND ce.follower_account_id = $2::uuid ORDER BY ce.created_at DESC LIMIT 200`, uid, accountID)
 	} else {
-		rows, err = h.service.repo.DB.Query(`
-SELECT it.ticket, it.symbol, it.type, it.lots,
-       it.open_price, COALESCE(it.close_price, 0),
-       it.open_time::text, COALESCE(it.close_time::text, ''),
-       COALESCE(it.profit, 0), it.status, it.comment,
-       COALESCE(it.provider_ticket, 0),
-       COALESCE(ta.nickname, ta.account_number, '') as trader_name,
-       COALESCE(fa.account_number, '') as follower_account
-FROM investor_trades it
-LEFT JOIN trader_accounts ta ON ta.ticket = it.provider_ticket
-LEFT JOIN trader_accounts fa ON fa.id = it.follower_account_id
-WHERE it.investor_id = $1::uuid
-ORDER BY it.open_time DESC
-LIMIT 200`, uid)
+		rows, err = h.service.repo.DB.Query(query + ` ORDER BY ce.created_at DESC LIMIT 200`, uid)
 	}
 	if err != nil {
 		c.JSON(500, gin.H{"ok": false, "error": err.Error()})
@@ -200,8 +199,6 @@ LIMIT 200`, uid)
 		CloseTime       string  `json:"closeTime"`
 		Profit          float64 `json:"profit"`
 		Status          string  `json:"status"`
-		Comment         string  `json:"comment"`
-		ProviderTicket  int64   `json:"providerTicket"`
 		TraderName      string  `json:"traderName"`
 		FollowerAccount string  `json:"followerAccount"`
 	}
@@ -212,8 +209,8 @@ LIMIT 200`, uid)
 		rows.Scan(&t.Ticket, &t.Symbol, &t.Type, &t.Lots,
 			&t.OpenPrice, &t.ClosePrice,
 			&t.OpenTime, &t.CloseTime,
-			&t.Profit, &t.Status, &t.Comment,
-			&t.ProviderTicket, &t.TraderName, &t.FollowerAccount)
+			&t.Profit, &t.Status,
+			&t.TraderName, &t.FollowerAccount)
 		trades = append(trades, t)
 	}
 	if trades == nil {
