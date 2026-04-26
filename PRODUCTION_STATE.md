@@ -1466,3 +1466,22 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 1. EA MT5 Investor v3.7 — compile & deploy (profit field di SendCopyTradeUpdate)
 2. Data lama 4 trades tanpa open_price — tidak bisa direcovery
 3. P&L akan terisi setelah EA v3.7 live dan trader close posisi
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-26)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-format`
+- **Port:** 5176 (internal), via nginx https
+- **Changes:**
+  - feat: light/dark theme toggle — pojok kanan bawah, persist di localStorage
+  - feat: CSS variables light theme di index.css [data-theme="light"]
+  - fix: number formatting standard — fMoney (smart compact $52.6K), fPct (2 decimal), fRatio
+  - fix: StatCard font auto-shrink untuk angka panjang
+  - fix: semua hardcode hex colors → var(--xxx) di AffiliateDashboard, MarketplacePage, TraderProfile, AnalystProfile, InvestorDashboard, AdminDashboard
+  - fix: soft colors — success #86efac, danger #f87171, warning #fcd34d
+  - fix: layout konsisten semua dashboard pages — width:100%, hapus maxWidth/margin:auto
+  - fix: Marketplace page layout — page-header standard
+  - fix: AffiliateDashboard warna angka konsisten pakai CSS vars
+  - fix: Analyst/Investor table text → var(--text-muted)
+  - ⚠️ DEV NOTE: Selalu pakai var(--xxx) bukan hardcode hex agar otomatis ikut light/dark theme
+
