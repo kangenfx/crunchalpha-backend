@@ -1453,3 +1453,16 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - fix: accounts state di InvestorDashboard root — pass ke OrderHistoryTab
   - feat: dropdown account filter berfungsi di Order History
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-26 15:00)
+### Backend:
+- **Image:** `crunchalpha-v3:production-202604261500`
+- **Changes:**
+  - feat: GetInvestorTradeHistory baca dari copy_events (bukan investor_trades)
+  - feat: copy-trade-update tambah profit field
+  - feat: copy_executions.profit tersimpan saat EA kirim close
+
+## ⚠️ PENDING
+1. EA MT5 Investor v3.7 — compile & deploy (profit field di SendCopyTradeUpdate)
+2. Data lama 4 trades tanpa open_price — tidak bisa direcovery
+3. P&L akan terisi setelah EA v3.7 live dan trader close posisi
