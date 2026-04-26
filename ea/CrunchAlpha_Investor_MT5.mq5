@@ -240,8 +240,9 @@ void ProcessCopyTrade(string eventID, string action, string symbol,
             ulong tkt = PositionGetTicket(i);
             if(PositionSelectByTicket(tkt) && StringFind(PositionGetString(POSITION_COMMENT), sc) >= 0) {
                 if(trade.PositionClose(tkt)) {
+                    double closedProfit = PositionGetDouble(POSITION_PROFIT);
                     Print("[CA] CopyTrade closed ticket:", tkt);
-                    SendCopyTradeUpdate(eventID, "EXECUTED", "", tkt, PositionGetDouble(POSITION_VOLUME), trade.ResultPrice());
+                    SendCopyTradeUpdate(eventID, "EXECUTED", "", tkt, PositionGetDouble(POSITION_VOLUME), trade.ResultPrice(), closedProfit);
                 } else {
                     Print("[CA] CopyTrade close failed:", trade.ResultRetcode());
                 }
@@ -301,14 +302,15 @@ void SendSignalUpdate(long sigID, long ticket, string status, double openP, doub
     HTTPPost("/api/ea/investor/order-update", body);
 }
 
-void SendCopyTradeUpdate(string eventID, string status, string reason, long ticket, double lot, double price)
+void SendCopyTradeUpdate(string eventID, string status, string reason, long ticket, double lot, double price, double profit=0)
 {
     string body = "{\"eventId\":\"" + eventID + "\"" +
                   ",\"status\":\"" + status + "\"" +
                   ",\"rejectionReason\":\"" + reason + "\"" +
                   ",\"followerTicket\":" + IntegerToString(ticket) +
                   ",\"executedLot\":"   + DoubleToString(lot, 4) +
-                  ",\"executedPrice\":" + DoubleToString(price, 5) + "}";
+                  ",\"executedPrice\":" + DoubleToString(price, 5) +
+                  ",\"profit\":" + DoubleToString(profit, 2) + "}";
     HTTPPost("/api/ea/investor/copy-trade-update", body);
 }
 
@@ -426,40 +428,53 @@ void SyncTrades()
     if(now - lastTradeSync < tradeSyncInterval) return;
     lastTradeSync = now;
 
-    // MT5 requires HistorySelect before accessing deals
-    HistorySelect(0, TimeCurrent());
-
-    string trades = "";
+    if(!HistorySelect(0, TimeCurrent())) return;
     int total = HistoryDealsTotal();
-    int count = 0;
     int start = MathMax(0, total - 200);
+    string trades = "";
+    int count = 0;
 
     for(int i = start; i < total; i++)
     {
-        ulong ticket = HistoryDealGetTicket(i);
-        if(ticket == 0) continue;
-        string comment = HistoryDealGetString(ticket, DEAL_COMMENT);
+        ulong deal = HistoryDealGetTicket(i);
+        if(deal == 0) continue;
+        if(HistoryDealGetInteger(deal, DEAL_ENTRY) != DEAL_ENTRY_OUT) continue;
+        string comment = HistoryDealGetString(deal, DEAL_COMMENT);
         if(StringFind(comment, "CA-CT:") < 0) continue;
 
-        string sym    = HistoryDealGetString(ticket, DEAL_SYMBOL);
-        double price  = HistoryDealGetDouble(ticket, DEAL_PRICE);
-        double lots   = HistoryDealGetDouble(ticket, DEAL_VOLUME);
-        double profit = HistoryDealGetDouble(ticket, DEAL_PROFIT);
-        double swap   = HistoryDealGetDouble(ticket, DEAL_SWAP);
-        double comm   = HistoryDealGetDouble(ticket, DEAL_COMMISSION);
-        long   time   = (long)HistoryDealGetInteger(ticket, DEAL_TIME);
-        int    type   = (int)HistoryDealGetInteger(ticket, DEAL_TYPE);
-        string typeStr = (type == DEAL_TYPE_BUY) ? "buy" : "sell";
+        long   posID      = HistoryDealGetInteger(deal, DEAL_POSITION_ID);
+        string sym        = HistoryDealGetString(deal, DEAL_SYMBOL);
+        double closePrice = HistoryDealGetDouble(deal, DEAL_PRICE);
+        double lots       = HistoryDealGetDouble(deal, DEAL_VOLUME);
+        double profit     = HistoryDealGetDouble(deal, DEAL_PROFIT);
+        double swap       = HistoryDealGetDouble(deal, DEAL_SWAP);
+        double comm       = HistoryDealGetDouble(deal, DEAL_COMMISSION);
+        long   closeTime  = (long)HistoryDealGetInteger(deal, DEAL_TIME);
+        int    dealType   = (int)HistoryDealGetInteger(deal, DEAL_TYPE);
+        string typeStr    = (dealType == DEAL_TYPE_SELL) ? "buy" : "sell";
+
+        double openPrice = closePrice;
+        long   openTime  = closeTime;
+        for(int j = 0; j < total; j++) {
+            ulong d = HistoryDealGetTicket(j);
+            if(d == 0) continue;
+            if(HistoryDealGetInteger(d, DEAL_POSITION_ID) == posID &&
+               HistoryDealGetInteger(d, DEAL_ENTRY) == DEAL_ENTRY_IN) {
+                openPrice = HistoryDealGetDouble(d, DEAL_PRICE);
+                openTime  = (long)HistoryDealGetInteger(d, DEAL_TIME);
+                break;
+            }
+        }
 
         if(trades != "") trades += ",";
-        trades += "{\"ticket\":"     + IntegerToString(ticket) +
+        trades += "{\"ticket\":"     + IntegerToString(posID) +
                   ",\"symbol\":\""   + sym + "\"" +
                   ",\"type\":\""     + typeStr + "\"" +
                   ",\"lots\":"       + DoubleToString(lots, 2) +
-                  ",\"openPrice\":"  + DoubleToString(price, 5) +
-                  ",\"closePrice\":0" +
-                  ",\"openTime\":"   + IntegerToString(time) +
-                  ",\"closeTime\":0" +
+                  ",\"openPrice\":"  + DoubleToString(openPrice, 5) +
+                  ",\"closePrice\":" + DoubleToString(closePrice, 5) +
+                  ",\"openTime\":"   + IntegerToString(openTime) +
+                  ",\"closeTime\":"  + IntegerToString(closeTime) +
                   ",\"profit\":"     + DoubleToString(profit, 2) +
                   ",\"swap\":"       + DoubleToString(swap, 2) +
                   ",\"commission\":" + DoubleToString(comm, 2) +
@@ -469,7 +484,6 @@ void SyncTrades()
     }
 
     if(count == 0) return;
-
     string body = "{\"trades\":[" + trades + "]}";
     int res = HTTPPost("/api/ea/investor/sync-trades", body);
     if(res == 200) Print("[CA] SyncTrades: ", count, " trades synced");

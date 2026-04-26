@@ -271,34 +271,36 @@ events = []CopyEvent{}
 return events, nil
 }
 
-func (e *CopyTraderEngine) UpdateCopyEventStatus(eventID, status, rejectionReason string, followerTicket int64, executedLot, executedPrice float64) error {
-_, err := e.db.Exec(
-`UPDATE copy_events SET
-status       = $2,
-error        = CASE WHEN $3 != '' THEN $3 ELSE error END,
-processed_at = now()
- WHERE id = $1`,
-eventID, status, rejectionReason)
-if err != nil {
-return fmt.Errorf("update copy_event failed: %w", err)
-}
-if status == "EXECUTED" || status == "REJECTED" {
-e.db.Exec(
-`INSERT INTO copy_executions
-(subscription_id, signal_id, follower_ticket, executed_lots, executed_price, success, error_message, action, close_price, executed_at)
- SELECT ce.subscription_id, $1::uuid, $2, $3,
-        CASE WHEN ce.action='OPEN' THEN $4 ELSE ce.sl END,
-        $5, $6, ce.action,
-        CASE WHEN ce.action='CLOSE' THEN $4 ELSE NULL END,
-        now()
- FROM copy_events ce WHERE ce.id = $1`,
-eventID,
-followerTicket, executedLot, executedPrice,
-status == "EXECUTED",
-nullStrEngine(rejectionReason),
-)
-}
-return nil
+func (e *CopyTraderEngine) UpdateCopyEventStatus(eventID, status, rejectionReason string, followerTicket int64, executedLot, executedPrice, profit float64) error {
+	_, err := e.db.Exec(
+	`UPDATE copy_events SET
+	status       = $2,
+	error        = CASE WHEN $3 != '' THEN $3 ELSE error END,
+	processed_at = now()
+	 WHERE id = $1`,
+	eventID, status, rejectionReason)
+	if err != nil {
+		return fmt.Errorf("update copy_event failed: %w", err)
+	}
+	if status == "EXECUTED" || status == "REJECTED" {
+		e.db.Exec(
+		`INSERT INTO copy_executions
+		(subscription_id, signal_id, follower_ticket, executed_lots, executed_price, success, error_message, action, close_price, profit, executed_at)
+		 SELECT ce.subscription_id, $1::uuid, $2, $3,
+		        CASE WHEN ce.action='OPEN' THEN $4 ELSE 0 END,
+		        $5, $6, ce.action,
+		        CASE WHEN ce.action='CLOSE' THEN $4 ELSE NULL END,
+		        CASE WHEN ce.action='CLOSE' THEN $7 ELSE NULL END,
+		        now()
+		 FROM copy_events ce WHERE ce.id = $1`,
+		eventID,
+		followerTicket, executedLot, executedPrice,
+		status == "EXECUTED",
+		nullStrEngine(rejectionReason),
+		profit,
+		)
+	}
+	return nil
 }
 
 func nullStrEngine(s string) interface{} {

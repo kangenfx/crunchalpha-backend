@@ -39,6 +39,7 @@ func (h *Handler) EACopyTradeUpdate(c *gin.Context) {
 		FollowerTicket  int64   `json:"followerTicket"`
 		ExecutedLot     float64 `json:"executedLot"`
 		ExecutedPrice   float64 `json:"executedPrice"`
+		Profit          float64 `json:"profit"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.EventID == "" {
 		c.JSON(400, gin.H{"ok": false, "error": "invalid request"})
@@ -47,7 +48,7 @@ func (h *Handler) EACopyTradeUpdate(c *gin.Context) {
 	engine := NewCopyTraderEngine(h.service.repo.DB)
 	err := engine.UpdateCopyEventStatus(
 		req.EventID, req.Status, req.RejectionReason,
-		req.FollowerTicket, req.ExecutedLot, req.ExecutedPrice,
+		req.FollowerTicket, req.ExecutedLot, req.ExecutedPrice, req.Profit,
 	)
 	if err != nil {
 		c.JSON(500, gin.H{"ok": false, "error": err.Error()})
