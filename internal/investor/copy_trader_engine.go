@@ -272,6 +272,7 @@ return events, nil
 }
 
 func (e *CopyTraderEngine) UpdateCopyEventStatus(eventID, status, rejectionReason string, followerTicket int64, executedLot, executedPrice, profit float64) error {
+	log.Printf("[CopyEngine] UpdateStatus eventID=%s status=%s profit=%f", eventID, status, profit)
 	_, err := e.db.Exec(
 	`UPDATE copy_events SET
 	status       = $2,
@@ -283,14 +284,14 @@ func (e *CopyTraderEngine) UpdateCopyEventStatus(eventID, status, rejectionReaso
 		return fmt.Errorf("update copy_event failed: %w", err)
 	}
 	if status == "EXECUTED" || status == "REJECTED" {
-		e.db.Exec(
+		_, execErr := e.db.Exec(
 		`INSERT INTO copy_executions
 		(subscription_id, signal_id, follower_ticket, executed_lots, executed_price, success, error_message, action, close_price, profit, executed_at)
 		 SELECT ce.subscription_id, $1::uuid, $2, $3,
 		        CASE WHEN ce.action='OPEN' THEN $4 ELSE 0 END,
 		        $5, $6, ce.action,
 		        CASE WHEN ce.action='CLOSE' THEN $4 ELSE NULL END,
-		        CASE WHEN ce.action='CLOSE' THEN $7 ELSE NULL END,
+		        CASE WHEN ce.action='CLOSE' THEN $7::numeric ELSE NULL END,
 		        now()
 		 FROM copy_events ce WHERE ce.id = $1`,
 		eventID,
@@ -299,6 +300,7 @@ func (e *CopyTraderEngine) UpdateCopyEventStatus(eventID, status, rejectionReaso
 		nullStrEngine(rejectionReason),
 		profit,
 		)
+		if execErr != nil { log.Printf("[CopyEngine] copy_executions error: %v eventID=%s", execErr, eventID) } else { log.Printf("[CopyEngine] copy_executions OK eventID=%s profit=%f", eventID, profit) }
 	}
 	return nil
 }

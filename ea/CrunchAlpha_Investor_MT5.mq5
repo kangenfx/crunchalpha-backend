@@ -5,7 +5,7 @@
 //|           lebih reliable dari string compare                     |
 //+------------------------------------------------------------------+
 #property copyright "CrunchAlpha"
-#property version   "3.51"
+#property version   "3.8"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -23,7 +23,7 @@ double   maxDailyLossPct   = 5.0;
 int      maxOpenTrades     = 10;
 datetime lastEquityPush    = 0;
 datetime lastTradeSync     = 0;
-int      tradeSyncInterval = 300;
+int      tradeSyncInterval = 60;
 datetime lastSettingsLoad  = 0;
 int      equityInterval    = 30;
 int      settingsInterval  = 60;
@@ -36,7 +36,7 @@ int OnInit()
     trade.SetDeviationInPoints(30);
     trade.SetExpertMagicNumber(20260307);
     EventSetTimer(2);
-    Print("[CA v3.4] CrunchAlpha Investor EA MT5 v3.4 started");
+    Print("[CA v3.8] CrunchAlpha Investor EA MT5 v3.4 started");
     Print("[CA] Backend: ", BackendURL);
     LoadSettings();
     PushEquity();
@@ -239,11 +239,11 @@ void ProcessCopyTrade(string eventID, string action, string symbol,
         for(int i = PositionsTotal() - 1; i >= 0; i--) {
             ulong tkt = PositionGetTicket(i);
             if(PositionSelectByTicket(tkt) && StringFind(PositionGetString(POSITION_COMMENT), sc) >= 0) {
+                double savedLot    = PositionGetDouble(POSITION_VOLUME);
+                double savedProfit = PositionGetDouble(POSITION_PROFIT);
                 if(trade.PositionClose(tkt)) {
-                    double closedProfit = PositionGetDouble(POSITION_PROFIT);
                     Print("[CA] CopyTrade closed ticket:", tkt);
-                    SendCopyTradeUpdate(eventID, "EXECUTED", "", tkt, PositionGetDouble(POSITION_VOLUME), trade.ResultPrice(), closedProfit);
-                } else {
+                    SendCopyTradeUpdate(eventID, "EXECUTED", "", tkt, savedLot, trade.ResultPrice(), savedProfit);
                     Print("[CA] CopyTrade close failed:", trade.ResultRetcode());
                 }
                 return;
