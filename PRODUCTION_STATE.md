@@ -1485,3 +1485,16 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: Analyst/Investor table text → var(--text-muted)
   - ⚠️ DEV NOTE: Selalu pakai var(--xxx) bukan hardcode hex agar otomatis ikut light/dark theme
 
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-27)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-format`
+- **Changes:**
+  - fix: admin dashboard C.text/C.muted → CSS vars (light theme compatible)
+  - fix: card-meta + text-xs CSS class — sub-text grey bukan putih
+  - fix: analyst dashboard TD color → var(--text-muted)
+  - fix: about/broker/landing navbar hardcode dark → var(--bg-surface)
+  - fix: broker page hero gradient → var(--bg-elevated)
+  - fix: broker page emoji dihapus dari badges
+  - feat: "Brokers" link di navbar landing page
