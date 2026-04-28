@@ -136,6 +136,9 @@ func (h *Handler) SaveSettings(c *gin.Context) {
 		req.MaxDailyLossPct, req.MaxOpenTrades, req.Mt5Account, req.SignalLotMode, req.TraderLotMode, req.RiskLevel)
 
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "save failed: "+err.Error()}); return }
+	if req.MaxOpenTrades != nil {
+		h.service.repo.DB.Exec(`UPDATE user_allocations SET max_positions=$2, updated_at=now() WHERE user_id=$1::uuid`, uid, *req.MaxOpenTrades)
+	}
 	c.JSON(200, gin.H{"ok": true, "message": "Settings saved"})
 }
 
