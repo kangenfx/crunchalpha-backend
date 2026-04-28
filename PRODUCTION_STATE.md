@@ -1506,3 +1506,14 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - fix: auto-close copy_events via SyncTrades — detect manual/SL/TP close di investor
   - fix: maxOpenTrades tidak stuck karena posisi lama tidak ter-close di DB
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-28)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:test-format`
+- **Changes:**
+  - fix: Order History table — GoldCentrum/symbol text-muted bukan bold putih
+  - fix: leaderboard landing page — klik trader/analyst → marketplace profile (bukan dashboard)
+  - fix: AUM explanation text — "per trader account and per signal set on My Portfolio tab"
+  - fix: investor dashboard allocation mode buttons flexWrap mobile
+  - fix: mobile scroll utilities di index.css
