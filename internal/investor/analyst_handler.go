@@ -330,17 +330,25 @@ func (h *Handler) CopyTraderSubscribe(c *gin.Context) {
 	if followerAccountID == req.TraderAccountID {
 		c.JSON(400, gin.H{"ok": false, "error": "Cannot copy your own account"}); return
 	}
+	// Get current equity dari investor EA key untuk start_equity & hwm_equity
+	var startEquity float64
+	h.service.repo.DB.QueryRow(`
+		SELECT COALESCE(equity, 0) FROM investor_ea_keys
+		WHERE investor_id=$1::uuid ORDER BY last_equity_at DESC LIMIT 1`, uid).Scan(&startEquity)
 
 	_, dbErr := h.service.repo.DB.Exec(`
-		INSERT INTO copy_subscriptions
-			(id, follower_account_id, provider_account_id, lot_multiplier, max_lot, min_lot,
-			 copy_sl, copy_tp, status, lot_calculation_method, max_risk_percent, created_at, updated_at)
-		VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3, $4, 0.01, $5, $6, 'ACTIVE', $7, $8, now(), now())
-		ON CONFLICT (follower_account_id, provider_account_id) DO UPDATE SET
-			status='ACTIVE', lot_multiplier=$3, max_lot=$4, copy_sl=$5, copy_tp=$6,
-			lot_calculation_method=$7, max_risk_percent=$8, updated_at=now()`,
-		followerAccountID, req.TraderAccountID, lotSize, maxLot,
-		req.CopySL, req.CopyTP, lotMethod, req.RiskPercent)
+			INSERT INTO copy_subscriptions
+				(id, follower_account_id, provider_account_id, lot_multiplier, max_lot, min_lot,
+				 copy_sl, copy_tp, status, lot_calculation_method, max_risk_percent,
+				 start_equity, hwm_equity, peak_equity, fee_period_start, created_at, updated_at)
+			VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3, $4, 0.01, $5, $6, 'ACTIVE', $7, $8,
+				 $9, $9, $9, now(), now(), now())
+			ON CONFLICT (follower_account_id, provider_account_id) DO UPDATE SET
+				status='ACTIVE', lot_multiplier=$3, max_lot=$4, copy_sl=$5, copy_tp=$6,
+				lot_calculation_method=$7, max_risk_percent=$8,
+				start_equity=$9, hwm_equity=$9, peak_equity=$9, fee_period_start=now(), updated_at=now()`,
+			followerAccountID, req.TraderAccountID, lotSize, maxLot,
+			req.CopySL, req.CopyTP, lotMethod, req.RiskPercent, startEquity)
 	if dbErr != nil {
 		c.JSON(500, gin.H{"ok": false, "error": "subscribe failed: " + dbErr.Error()}); return
 	}
