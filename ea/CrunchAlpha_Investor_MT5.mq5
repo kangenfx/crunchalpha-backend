@@ -241,11 +241,11 @@ void ProcessCopyTrade(string eventID, string action, string symbol,
             if(PositionSelectByTicket(tkt) && StringFind(PositionGetString(POSITION_COMMENT), sc) >= 0) {
                 double savedLot    = PositionGetDouble(POSITION_VOLUME);
                 double savedProfit = PositionGetDouble(POSITION_PROFIT);
+                double savedLot    = PositionGetDouble(POSITION_VOLUME);
+                double savedProfit = PositionGetDouble(POSITION_PROFIT);
                 if(trade.PositionClose(tkt)) {
                     Print("[CA] CopyTrade closed ticket:", tkt);
                     SendCopyTradeUpdate(eventID, "EXECUTED", "", tkt, savedLot, trade.ResultPrice(), savedProfit);
-                    Print("[CA] CopyTrade close failed:", trade.ResultRetcode());
-                }
                 return;
             }
         }

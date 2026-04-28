@@ -137,6 +137,27 @@ DO UPDATE SET
 			continue
 		}
 		upserted++
+		// Auto-close copy_events jika trade sudah closed
+		if status == "closed" && provTicket > 0 {
+			h.service.repo.DB.Exec(`
+				INSERT INTO copy_events
+				(id, subscription_id, provider_account_id, follower_account_id,
+				 action, symbol, type, lots, provider_ticket, status, created_at)
+				SELECT uuid_generate_v4(), ce.subscription_id, ce.provider_account_id,
+					ce.follower_account_id, 'CLOSE', ce.symbol, ce.type,
+					ce.calculated_lot, ce.provider_ticket, 'EXECUTED', now()
+				FROM copy_events ce
+				WHERE ce.follower_account_id = $1::uuid
+				  AND ce.provider_ticket = $2
+				  AND ce.action = 'OPEN' AND ce.status = 'EXECUTED'
+				  AND NOT EXISTS (
+					SELECT 1 FROM copy_events x
+					WHERE x.follower_account_id = $1::uuid
+					  AND x.provider_ticket = $2
+					  AND x.action = 'CLOSE'
+				)`,
+				followerAcctID, provTicket)
+		}
 	}
 	log.Printf("[InvestorTrades] Synced %d trades for investor %s", upserted, investorID)
 	c.JSON(200, gin.H{"ok": true, "synced": upserted})
