@@ -1498,3 +1498,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: broker page hero gradient → var(--bg-elevated)
   - fix: broker page emoji dihapus dari badges
   - feat: "Brokers" link di navbar landing page
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-28 08:50)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604280850`
+- **Changes:**
+  - fix: auto-close copy_events via SyncTrades — detect manual/SL/TP close di investor
+  - fix: maxOpenTrades tidak stuck karena posisi lama tidak ter-close di DB
