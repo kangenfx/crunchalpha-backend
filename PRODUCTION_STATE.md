@@ -1533,3 +1533,8 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Image:** `crunchalpha-v3:production-202604280955`
 - **Note:** Rollback — image ini MT5 copy trading berjalan normal
 - **Pending:** fix INSERT copy_events parameter $1 untuk MT4 investor (harus proper via UI flow)
+
+## ⚠️ PENDING (Updated 2026-04-29)
+1. MT4 investor copy tidak jalan — duplicate key di copy_events karena subquery subscription_id tidak match follower_account_id dengan benar
+2. Root cause: binary production-202604280955 pakai $17 parameter (CAST), source code sekarang berbeda
+3. Fix harus: sesuaikan INSERT copy_events source dengan binary lama — JANGAN ubah tanpa test menyeluruh
