@@ -79,6 +79,7 @@ if err := rows.Scan(&investorID, &allocationPct, &maxRiskPct, &maxPositions,
 log.Printf("[CopyEngine] Scan error: %v", err)
 continue
 }
+log.Printf("[CopyEngine] Loop — investorID=%s followerAccountID=%s", investorID, followerAccountID)
 e.generateCopyEvent(investorID, followerAccountID, pos, allocationPct, maxPositions, investorEquity, maxDailyLossPct, riskLevel)
 }
 }
@@ -160,6 +161,10 @@ if reason != "" {
 status = "REJECTED"
 }
 
+// DEBUG
+var debugSubID string
+e.db.QueryRow(`SELECT id FROM copy_subscriptions WHERE provider_account_id=$1 AND follower_account_id=$2::uuid LIMIT 1`, pos.TraderAccountID, followerAccountID).Scan(&debugSubID)
+log.Printf("[CopyEngine] DEBUG followerAccountID=%s subID=%s", followerAccountID, debugSubID)
 _, err := e.db.Exec(
 `INSERT INTO copy_events
 (id, subscription_id, provider_account_id, follower_account_id,

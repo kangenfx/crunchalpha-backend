@@ -443,8 +443,7 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 			VALUES (
 				uuid_generate_v4(),
 				(SELECT cs.id FROM copy_subscriptions cs
-				 JOIN trader_accounts ta ON ta.id = cs.follower_account_id
-				 WHERE ta.user_id=$1::uuid AND cs.provider_account_id=$2::uuid LIMIT 1),
+				 WHERE cs.follower_account_id=$17::uuid AND cs.provider_account_id=$2::uuid LIMIT 1),
 				$2::uuid,
 				$17::uuid,
 				'OPEN', $3, $4, $5,

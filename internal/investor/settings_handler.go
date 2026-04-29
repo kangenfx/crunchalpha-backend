@@ -138,6 +138,10 @@ func (h *Handler) SaveSettings(c *gin.Context) {
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "save failed: "+err.Error()}); return }
 	if req.MaxOpenTrades != nil {
 		h.service.repo.DB.Exec(`UPDATE user_allocations SET max_positions=$2, updated_at=now() WHERE user_id=$1::uuid`, uid, *req.MaxOpenTrades)
+		h.service.repo.DB.Exec(`UPDATE investor_ea_keys SET max_open_trades=$2 WHERE investor_id=$1::uuid`, uid, *req.MaxOpenTrades)
+	}
+	if req.RiskLevel != nil {
+		h.service.repo.DB.Exec(`UPDATE investor_ea_keys SET risk_level=$2 WHERE investor_id=$1::uuid`, uid, *req.RiskLevel)
 	}
 	c.JSON(200, gin.H{"ok": true, "message": "Settings saved"})
 }
