@@ -167,7 +167,7 @@ _, err := e.db.Exec(
  calculated_lot, investor_equity, aum_used, rejection_reason, created_at)
  VALUES (
 uuid_generate_v4(),
-(SELECT id FROM user_allocations WHERE user_id=$1::uuid AND trader_account_id=$2 AND follower_account_id=$3::uuid LIMIT 1),
+(SELECT id FROM copy_subscriptions WHERE provider_account_id=$2 AND follower_account_id=$3::uuid LIMIT 1),
 $2, $3::uuid,
 $4, $5, $6, $7, $8, $9, $10, $11, $12,
 $13, $14, $15, $16, now())`,
@@ -194,7 +194,15 @@ return "Calculated lot below minimum (0.01)"
 var openCount int
 e.db.QueryRow(
 `SELECT COUNT(*) FROM copy_events
- WHERE follower_account_id = $1::uuid AND status='PENDING'`,
+ WHERE follower_account_id = $1::uuid
+   AND action = 'OPEN'
+   AND status = 'EXECUTED'
+   AND provider_ticket NOT IN (
+     SELECT provider_ticket FROM copy_events
+     WHERE follower_account_id = $1::uuid
+       AND action = 'CLOSE'
+       AND status = 'EXECUTED'
+   )`,
 followerAccountID).Scan(&openCount)
 if openCount >= maxPositions {
 return fmt.Sprintf("Max open positions reached (%d)", maxPositions)
@@ -227,6 +235,9 @@ return ""
 }
 
 func (e *CopyTraderEngine) GetPendingCopyEvents(investorID string, mt5Account string) ([]CopyEvent, error) {
+// Auto-expire PENDING events older than 3 minutes
+e.db.Exec(`UPDATE copy_events SET status='REJECTED', error='auto-expired: not executed within 3 minutes'
+ WHERE status='PENDING' AND created_at < now() - interval '3 minutes'`)
 rows, err := e.db.Query(
 `SELECT ce.id, ce.provider_account_id, ce.action, ce.symbol, ce.type,
 COALESCE(ce.calculated_lot, ce.lots),
