@@ -1517,3 +1517,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: AUM explanation text — "per trader account and per signal set on My Portfolio tab"
   - fix: investor dashboard allocation mode buttons flexWrap mobile
   - fix: mobile scroll utilities di index.css
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-29 06:00)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604290600`
+- **Changes:**
+  - fix: copy_executions INSERT — ce.id langsung dari SELECT (bukan $1::uuid duplikat)
+  - fix: WHERE ce.id = $1::uuid (hapus corrupt markdown link yang menyebabkan pq: could not determine data type of parameter $1)
+  - Root cause: MT4 investor tidak bisa open posisi karena INSERT copy_executions selalu gagal
