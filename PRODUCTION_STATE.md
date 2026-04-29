@@ -1526,3 +1526,10 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: copy_executions INSERT — ce.id langsung dari SELECT (bukan $1::uuid duplikat)
   - fix: WHERE ce.id = $1::uuid (hapus corrupt markdown link yang menyebabkan pq: could not determine data type of parameter $1)
   - Root cause: MT4 investor tidak bisa open posisi karena INSERT copy_executions selalu gagal
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-04-29 07:42)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202604280955`
+- **Note:** Rollback — image ini MT5 copy trading berjalan normal
+- **Pending:** fix INSERT copy_events parameter $1 untuk MT4 investor (harus proper via UI flow)
