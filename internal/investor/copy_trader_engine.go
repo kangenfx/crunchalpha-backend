@@ -303,13 +303,13 @@ func (e *CopyTraderEngine) UpdateCopyEventStatus(eventID, status, rejectionReaso
 		_, execErr := e.db.Exec(
 		`INSERT INTO copy_executions
 		(subscription_id, signal_id, follower_ticket, executed_lots, executed_price, success, error_message, action, close_price, profit, executed_at)
-		 SELECT ce.subscription_id, $1::uuid, $2::bigint, $3::numeric,
+		 SELECT ce.subscription_id, ce.id, $2::bigint, $3::numeric,
 		        CASE WHEN ce.action='OPEN' THEN $4::numeric ELSE 0 END,
 		        $5, $6, ce.action,
 		        CASE WHEN ce.action='CLOSE' THEN $4::numeric ELSE NULL END,
 		        CASE WHEN ce.action='CLOSE' THEN $7::numeric ELSE NULL END,
 		        now()
-		 FROM copy_events ce WHERE ce.id = $1`,
+		 FROM copy_events ce WHERE ce.id = $1::uuid`,
 		eventID,
 		followerTicket, executedLot, executedPrice,
 		status == "EXECUTED",
