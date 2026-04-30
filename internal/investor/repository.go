@@ -198,6 +198,21 @@ func (r *Repository) UpsertAllocation(ctx context.Context, userID, traderAccount
 	if err != nil {
 		return fmt.Errorf("error upserting allocation: %w", err)
 	}
+	// Reset HWM & start_equity setiap allocation berubah
+	r.DB.ExecContext(ctx, `
+		UPDATE copy_subscriptions cs
+		SET
+			start_equity = ROUND((iek.equity * $3::numeric / 100), 2),
+			hwm_equity   = ROUND((iek.equity * $3::numeric / 100), 2),
+			peak_equity  = ROUND((iek.equity * $3::numeric / 100), 2),
+			fee_period_start = now(),
+			updated_at   = now()
+		FROM investor_ea_keys iek
+		WHERE cs.follower_account_id = $1::uuid
+		  AND cs.provider_account_id = $2::uuid
+		  AND cs.status = 'ACTIVE'
+		  AND iek.trader_account_id = $1::uuid
+	`, followerAccountID, traderAccountID, value)
 	return nil
 }
 

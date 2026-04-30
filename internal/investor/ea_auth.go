@@ -116,8 +116,10 @@ func (h *Handler) GenerateEAKeyForAccount(c *gin.Context) {
 		uid, req.MT5Account)
 	_, err := h.service.repo.DB.Exec(
 		`INSERT INTO investor_ea_keys
-			(id, investor_id, key_hash, mt5_account, platform, description, created_at)
-		VALUES ($1, $2::uuid, $3, $4, $5, $6, now())
+			(id, investor_id, key_hash, mt5_account, platform, description, trader_account_id, created_at)
+		VALUES ($1, $2::uuid, $3, $4, $5, $6,
+			(SELECT id FROM trader_accounts WHERE account_number=$4 AND user_id=$2::uuid LIMIT 1),
+			now())
 		ON CONFLICT (key_hash) DO NOTHING`,
 		keyID, uid, keyHash, req.MT5Account, req.Platform, req.Description)
 	if err != nil {

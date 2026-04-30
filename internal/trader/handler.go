@@ -261,7 +261,7 @@ func (h *Handler) GetMyFollowers(c *gin.Context) {
 			cs.id, cs.provider_account_id, ta_p.nickname as provider_nickname,
 			cs.follower_account_id, ta_f.nickname as follower_nickname,
 			cs.status, cs.lot_calculation_method,
-			COALESCE(cs.follower_equity,0) as follower_equity,
+			COALESCE(ROUND(iek.equity * ua.allocation_value / 100, 2), 0) as follower_equity,
 			COALESCE(cs.lot_multiplier,1) as lot_multiplier,
 			cs.created_at,
 			COUNT(ce.id) as total_copies,
@@ -271,11 +271,14 @@ func (h *Handler) GetMyFollowers(c *gin.Context) {
 		JOIN trader_accounts ta_p ON ta_p.id = cs.provider_account_id
 		JOIN trader_accounts ta_f ON ta_f.id = cs.follower_account_id
 		LEFT JOIN copy_executions ce ON ce.subscription_id = cs.id
+		LEFT JOIN investor_ea_keys iek ON iek.trader_account_id = cs.follower_account_id
+		LEFT JOIN user_allocations ua ON ua.follower_account_id = cs.follower_account_id
+			AND ua.trader_account_id = cs.provider_account_id AND ua.status = 'ACTIVE'
 		WHERE ta_p.user_id = $1::uuid
 		GROUP BY cs.id, cs.provider_account_id, ta_p.nickname,
 		         cs.follower_account_id, ta_f.nickname,
 		         cs.status, cs.lot_calculation_method,
-		         cs.follower_equity, cs.lot_multiplier, cs.created_at
+		         iek.equity, ua.allocation_value, cs.lot_multiplier, cs.created_at
 		ORDER BY cs.created_at DESC`, uid)
 	if err != nil { c.JSON(500, gin.H{"ok":false,"error":err.Error()}); return }
 	defer rows.Close()
