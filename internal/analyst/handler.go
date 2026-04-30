@@ -572,6 +572,21 @@ func (h *Handler) PublicMarketplace(c *gin.Context) {
 }
 
 // Helper: calculate AlphaRank for any setId (used by marketplace)
+func pipMult(pair string) float64 {
+	pair = strings.ToUpper(pair)
+	switch {
+	case strings.Contains(pair, "XAU"), strings.Contains(pair, "XPT"), strings.Contains(pair, "XPD"): return 10.0
+	case strings.Contains(pair, "XAG"): return 1000.0
+	case strings.Contains(pair, "OIL"), strings.Contains(pair, "NGAS"): return 100.0
+	case strings.Contains(pair, "BTC"): return 1.0
+	case strings.Contains(pair, "ETH"), strings.Contains(pair, "BNB"), strings.Contains(pair, "SOL"): return 10.0
+	case strings.Contains(pair, "XRP"), strings.Contains(pair, "ADA"), strings.Contains(pair, "DOT"), strings.Contains(pair, "LTC"): return 1000.0
+	case strings.Contains(pair, "US30"), strings.Contains(pair, "NAS100"), strings.Contains(pair, "SPX500"), strings.Contains(pair, "GER40"), strings.Contains(pair, "UK100"), strings.Contains(pair, "FRA40"), strings.Contains(pair, "AUS200"), strings.Contains(pair, "JPN225"), strings.Contains(pair, "HK50"): return 1.0
+	case strings.Contains(pair, "JPY"): return 100.0
+	default: return 10000.0
+	}
+}
+
 type AlphaResult struct { Score float64; Grade string }
 
 func (h *Handler) calcAlphaRank(setId string) AlphaResult {
@@ -671,8 +686,7 @@ func (h *Handler) RecalcAndSaveAlphaRank(setId string) {
 			e2,_:=strconv.ParseFloat(sd.entry,64)
 			tp2,_:=strconv.ParseFloat(sd.tp,64)
 			sl2,_:=strconv.ParseFloat(sd.sl,64)
-			mult:=10000.0
-			if strings.Contains(sd.pair,"JPY")||strings.Contains(sd.pair,"XAU") { mult=100.0 }
+			mult:=pipMult(sd.pair)
 			if sd.status=="CLOSED_TP" {
 				wins++; grossProfit+=math.Abs(tp2-e2)
 				totalPipsWin+=math.Abs(tp2-e2)*mult; cur=0
@@ -901,8 +915,7 @@ func (h *Handler) GetPublicAnalystProfile(c *gin.Context) {
 			e2, _ := strconv.ParseFloat(h2.Entry, 64)
 			tp2, _ := strconv.ParseFloat(h2.TP, 64)
 			sl2, _ := strconv.ParseFloat(h2.SL, 64)
-			mult := 10000.0
-			if strings.Contains(h2.Pair, "JPY") || strings.Contains(h2.Pair, "XAU") { mult = 100.0 }
+			mult := pipMult(h2.Pair)
 			if status == "CLOSED_TP" {
 				h2.Pips = math.Round(math.Abs(tp2-e2)*mult*10) / 10
 				h2.Result = "WIN"
