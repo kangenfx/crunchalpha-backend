@@ -431,6 +431,15 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 			status = "REJECTED"
 		}
 
+		// Lookup subscription_id sebelum INSERT
+		var subscriptionID string
+		e2 := r.db.QueryRow(`SELECT id FROM copy_subscriptions WHERE follower_account_id=$1::uuid AND provider_account_id=$2::uuid LIMIT 1`,
+			followerAccountID, traderAccountID).Scan(&subscriptionID)
+		if e2 != nil || subscriptionID == "" {
+			log.Printf("[CopyEngine] subscription not found follower=%s provider=%s: %v", followerAccountID, traderAccountID, e2)
+			continue
+		}
+
 		// Insert copy_event — simpan ke DB (single source of truth)
 		_, err := r.db.Exec(`
 			INSERT INTO copy_events
@@ -442,22 +451,20 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 				 created_at)
 			VALUES (
 				uuid_generate_v4(),
-				(SELECT cs.id FROM copy_subscriptions cs
-				 WHERE cs.follower_account_id=$17::uuid AND cs.provider_account_id=$2::uuid LIMIT 1),
+				$1::uuid,
 				$2::uuid,
-				$17::uuid,
-				'OPEN', $3, $4, $5,
-				$6, $7, $8, $9, $10,
-				$5, $11, $12, $10,
-				$13, $14, $15, $16,
+				$3::uuid,
+				'OPEN', $4, $5, $6,
+				$7, $8, $9, $10, $11,
+				$6, $12, $13, $11,
+				$14, $15, $16, $17,
 				now()
 			)`,
-			investorID, traderAccountID,
+			subscriptionID, traderAccountID, followerAccountID,
 			trade.Symbol, direction, calculatedLot,
 			0.0, 0.0, trade.Ticket, status, nullStr(reason),
 			acctEquity, aum,
 			lotResult.PropLot, lotResult.RiskLot, lotResult.EstimatedSL, lotResult.FinalLot,
-			followerAccountID,
 		)
 		if err != nil {
 			log.Printf("[CopyEngine] Insert error investor %s: %v", investorID, err)
