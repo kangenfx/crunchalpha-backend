@@ -436,7 +436,7 @@ func (h *Handler) AnalystAlphaRank(c *gin.Context) {
 	json.Unmarshal([]byte(flagsJSON), &flags)
 	if flags == nil { flags = []map[string]interface{}{} }
 
-	_ = netPips; _ = avgTP; _ = avgSL; _ = avgSignalMonth; _ = avgSignalWeek; _ = daysActive; _ = cumulativeR
+	_ = netPips; _ = avgTP; _ = avgSL; _ = avgSignalMonth; _ = avgSignalWeek; _ = cumulativeR
 
 	c.JSON(200, gin.H{
 		"ok": true,
@@ -456,6 +456,7 @@ func (h *Handler) AnalystAlphaRank(c *gin.Context) {
 			"maxConsecLoss":  maxConsecLoss,
 			"pendingSignals": pendingSignals,
 			"runningSignals": runningSignals,
+			"daysActive":     daysActive,
 			"pillars": []gin.H{
 				{"code":"P1","name":"Profitability","weight":15,"score":p1Score,"reason":p1Reason},
 				{"code":"P2","name":"Consistency","weight":15,"score":p2Score,"reason":p2Reason},
