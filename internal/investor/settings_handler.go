@@ -142,6 +142,16 @@ func (h *Handler) SaveSettings(c *gin.Context) {
 	}
 	if req.RiskLevel != nil {
 		h.service.repo.DB.Exec(`UPDATE investor_ea_keys SET risk_level=$2 WHERE investor_id=$1::uuid`, uid, *req.RiskLevel)
+		// Auto-set max_daily_loss_pct berdasarkan risk level
+		ddPct := 10.0
+		switch *req.RiskLevel {
+		case "conservative":
+			ddPct = 5.0
+		case "aggressive":
+			ddPct = 20.0
+		}
+		h.service.repo.DB.Exec(`UPDATE investor_settings SET max_daily_loss_pct=$2 WHERE investor_id=$1::uuid`, uid, ddPct)
+		h.service.repo.DB.Exec(`UPDATE investor_ea_keys SET max_daily_loss_pct=$2 WHERE investor_id=$1::uuid`, uid, ddPct)
 	}
 	c.JSON(200, gin.H{"ok": true, "message": "Settings saved"})
 }
