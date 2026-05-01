@@ -49,28 +49,20 @@ TraderAccountID string
 
 func (e *CopyTraderEngine) OnTraderPositionOpen(pos TraderPosition) {
 rows, err := e.db.Query(
-`SELECT
-        ta_inv.user_id::text,
-        ua.allocation_value,
-        ua.max_positions,
-        inv.investor_equity,
-        inv.max_daily_loss_pct,
-        COALESCE(inv.risk_level, 'balanced'),
-        cs.follower_account_id::text,
-        COALESCE(iek.equity, inv.investor_equity) as acct_equity
-FROM copy_subscriptions cs
-JOIN trader_accounts ta_inv ON ta_inv.id = cs.follower_account_id
-JOIN user_allocations ua ON ua.user_id = ta_inv.user_id
-        AND ua.trader_account_id = cs.provider_account_id
-        AND ua.follower_account_id = cs.follower_account_id
-        AND ua.status = 'ACTIVE'
-JOIN investor_settings inv ON inv.investor_id = ta_inv.user_id
-LEFT JOIN investor_ea_keys iek ON iek.investor_id = ta_inv.user_id
-        AND iek.mt5_account = ta_inv.account_number
-WHERE cs.provider_account_id = $1::uuid
-  AND cs.status = 'ACTIVE'
-  AND inv.copy_trader_enabled = true
-  AND ua.allocation_value > 0`,
+`SELECT ua.user_id, ua.allocation_value, ua.max_risk_pct, ua.max_positions,
+COALESCE(iek.equity, 0),
+inv.max_daily_loss_pct, COALESCE(inv.risk_level, 'balanced'),
+ua.follower_account_id
+ FROM user_allocations ua
+ JOIN investor_settings inv ON inv.investor_id = ua.user_id
+ JOIN investor_ea_keys iek ON iek.investor_id = ua.user_id
+   AND iek.mt5_account = (
+SELECT account_number FROM trader_accounts WHERE id = ua.follower_account_id
+   )
+ WHERE ua.trader_account_id = $1
+   AND ua.status = 'ACTIVE'
+   AND ua.allocation_value > 0
+   AND ua.follower_account_id IS NOT NULL`,
 pos.TraderAccountID)
 if err != nil {
 log.Printf("[CopyEngine] DB error: %v", err)
@@ -78,17 +70,17 @@ return
 }
 defer rows.Close()
 for rows.Next() {
-var investorID, riskLevel, followerAccountID string
-var acctEquity float64
-var allocationPct, investorEquity, maxDailyLossPct float64
+var investorID, riskLevel string
+var followerAccountID string
+var allocationPct, maxRiskPct, investorEquity, maxDailyLossPct float64
 var maxPositions int
-if err := rows.Scan(&investorID, &allocationPct, &maxPositions,
-&investorEquity, &maxDailyLossPct, &riskLevel, &followerAccountID, &acctEquity); err != nil {
+if err := rows.Scan(&investorID, &allocationPct, &maxRiskPct, &maxPositions,
+&investorEquity, &maxDailyLossPct, &riskLevel, &followerAccountID); err != nil {
 log.Printf("[CopyEngine] Scan error: %v", err)
 continue
 }
 log.Printf("[CopyEngine] Loop — investorID=%s followerAccountID=%s", investorID, followerAccountID)
-e.generateCopyEvent(investorID, followerAccountID, pos, allocationPct, maxPositions, acctEquity, maxDailyLossPct, riskLevel)
+e.generateCopyEvent(investorID, followerAccountID, pos, allocationPct, maxPositions, investorEquity, maxDailyLossPct, riskLevel)
 }
 }
 
@@ -148,7 +140,7 @@ var layer3Multiplier float64 = 1.0
 e.db.QueryRow(`
 SELECT COALESCE(layer3_multiplier, 1.0)
 FROM alpha_ranks
-WHERE account_id = CAST($1 AS uuid) AND symbol = 'ALL'
+WHERE account_id = $1 AND symbol = 'ALL'
 `, pos.TraderAccountID).Scan(&layer3Multiplier)
 if layer3Multiplier < 0.30 {
 layer3Multiplier = 0.30
@@ -171,9 +163,8 @@ status = "REJECTED"
 
 // DEBUG
 var debugSubID string
-e.db.QueryRow(`SELECT id FROM copy_subscriptions WHERE provider_account_id=CAST($1 AS uuid) AND follower_account_id=CAST($2 AS uuid) LIMIT 1`, pos.TraderAccountID, followerAccountID).Scan(&debugSubID)
+e.db.QueryRow(`SELECT id FROM copy_subscriptions WHERE provider_account_id=$1 AND follower_account_id=$2::uuid LIMIT 1`, pos.TraderAccountID, followerAccountID).Scan(&debugSubID)
 log.Printf("[CopyEngine] DEBUG followerAccountID=%s subID=%s", followerAccountID, debugSubID)
-log.Printf("[CopyEngine] DEBUG INSERT params: traderAccID=%s followerAccID=%s symbol=%s type=%d lot=%f ticket=%d status=%s", pos.TraderAccountID, followerAccountID, pos.Symbol, pos.Type, calculatedLot, pos.Ticket, status)
 _, err := e.db.Exec(
 `INSERT INTO copy_events
 (id, subscription_id, provider_account_id, follower_account_id,
@@ -181,11 +172,11 @@ _, err := e.db.Exec(
  calculated_lot, investor_equity, aum_used, rejection_reason, created_at)
  VALUES (
 uuid_generate_v4(),
-		(SELECT id FROM user_allocations WHERE user_id=CAST($1 AS uuid) AND trader_account_id=$2::uuid AND follower_account_id=CAST($3 AS uuid) LIMIT 1),
-		$2::uuid, $3::uuid,
-		$4, $5, $6, $7, $8, $9, $10, $11, $12,
-		$13, $14, $15, $16, now())`,
-				investorID, pos.TraderAccountID, followerAccountID,
+(SELECT id FROM copy_subscriptions WHERE provider_account_id=$2 AND follower_account_id=$3::uuid LIMIT 1),
+$2, $3::uuid,
+$4, $5, $6, $7, $8, $9, $10, $11, $12,
+$13, $14, $15, $16, now())`,
+investorID, pos.TraderAccountID, followerAccountID,
 "OPEN", pos.Symbol, pos.Type, calculatedLot,
 pos.SL, pos.TP, pos.Ticket, status, nullStrEngine(reason),
 calculatedLot, investorEquity, aum, nullStrEngine(reason),
@@ -251,7 +242,7 @@ return ""
 func (e *CopyTraderEngine) GetPendingCopyEvents(investorID string, mt5Account string) ([]CopyEvent, error) {
 // Auto-expire PENDING events older than 3 minutes
 e.db.Exec(`UPDATE copy_events SET status='REJECTED', error='auto-expired: not executed within 3 minutes'
- WHERE status='PENDING' AND created_at < now() - interval '3 minutes'`)
+ WHERE status='PENDING' AND action='OPEN' AND created_at < now() - interval '3 minutes'`)
 rows, err := e.db.Query(
 `SELECT ce.id, ce.provider_account_id, ce.action, ce.symbol, ce.type,
 COALESCE(ce.calculated_lot, ce.lots),
