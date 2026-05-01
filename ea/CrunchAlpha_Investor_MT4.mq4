@@ -289,9 +289,23 @@ double NormalizeLot(string sym, double lot)
 
 string NormalizePair(string pair)
 {
+   // 1. Exact match
    if(MarketInfo(pair,MODE_DIGITS)>0) return pair;
-   string sfx[]=  {".raw",".pro",".ecn",".std",".stp","+"};
-   for(int i=0;i<6;i++) { string t=pair+sfx[i]; if(MarketInfo(t,MODE_DIGITS)>0) return t; }
+   // 2. Strip trailing lowercase suffix (e.g. XAUUSDc->XAUUSD, EURUSDm->EURUSD)
+   string base=pair;
+   int len=StringLen(pair);
+   while(len>3) {
+      ushort last=StringGetCharacter(base,len-1);
+      if(last>='a'&&last<='z') { base=StringSubstr(base,0,len-1); len--; }
+      else break;
+   }
+   if(base!=pair && MarketInfo(base,MODE_DIGITS)>0) return base;
+   // 3. Try base + common broker suffixes
+   string sfx[]={".raw",".pro",".ecn",".std",".stp","+","m","c","n","s"};
+   for(int i=0;i<10;i++) { string t=base+sfx[i]; if(MarketInfo(t,MODE_DIGITS)>0) return t; }
+   // 4. Try original + common broker suffixes
+   string sfx2[]={".raw",".pro",".ecn",".std",".stp","+"};
+   for(int i=0;i<6;i++) { string t=pair+sfx2[i]; if(MarketInfo(t,MODE_DIGITS)>0) return t; }
    return "";
 }
 
