@@ -216,7 +216,8 @@ void ProcessCopyTrade(string eventID, string action, string symbol,
       {
          if(OrderSelect(i,SELECT_BY_POS)&&OrderCloseTime()==0&&StringFind(OrderComment(),sc)>=0)
          {
-            double cp2=(OrderType()==OP_BUY)?Bid:Ask;
+            string osym=OrderSymbol();
+            double cp2=(OrderType()==OP_BUY)?MarketInfo(osym,MODE_BID):MarketInfo(osym,MODE_ASK);
             if(OrderClose(OrderTicket(),OrderLots(),cp2,3))
                SendCopyTradeUpdate(eventID,"EXECUTED","",OrderTicket(),OrderLots(),cp2);
             return;
