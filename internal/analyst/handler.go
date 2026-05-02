@@ -705,7 +705,10 @@ func (h *Handler) RecalcAndSaveAlphaRank(setId string) {
 	netPips:=totalPipsWin-totalPipsLoss
 	avgTP:=0.0; if wins>0 { avgTP=totalPipsWin/float64(wins) }
 	avgSL:=0.0; if losses>0 { avgSL=totalPipsLoss/float64(losses) }
-	daysActive:=1; if !firstSignalTime.IsZero() { daysActive=int(now.Sub(firstSignalTime).Hours()/24)+1 }
+	// daysActive dari created_at signal set
+	var setCreatedAt time.Time
+	h.DB.QueryRow(`SELECT created_at FROM analyst_signal_sets WHERE id=$1`, setId).Scan(&setCreatedAt)
+	daysActive:=1; if !setCreatedAt.IsZero() { daysActive=int(now.Sub(setCreatedAt).Hours()/24)+1 }
 	avgSignalMonth:=float64(totalSignals)/(float64(daysActive)/30.0)
 	avgSignalWeek:=float64(totalSignals)/(float64(daysActive)/7.0)
 	cumulativeR:=totalClosedRR
