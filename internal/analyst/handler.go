@@ -1015,7 +1015,7 @@ func (h *Handler) GetMySubscribers(c *gin.Context) {
 		var s SubRow
 		rows.Scan(&s.ID, &s.SetID, &s.SetName,
 			&s.Status, &s.ExecutionMode, &s.AutoFollow,
-			&s.CreatedAt, &s.TotalSignals, &s.Wins, &s.Losses, &s.ExpiresAt)
+			&s.CreatedAt, &s.TotalSignals, &s.Wins, &s.Losses, &s.ExpiresAt, &s.AUM)
 		subs = append(subs, s)
 	}
 	if subs == nil { subs = []SubRow{} }
