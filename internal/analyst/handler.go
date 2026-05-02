@@ -25,6 +25,10 @@ type SignalSetDTO struct {
 	WinRate       float64 `json:"winRate"`
 	PF            float64 `json:"profitFactor"`
 	Status        string  `json:"status"`
+	DaysActive    int     `json:"daysActive"`
+	ClosedSignals int     `json:"closedSignals"`
+	AlphaScore    float64 `json:"alphaScore"`
+	AlphaGrade    string  `json:"grade"`
 }
 
 type SignalRow struct {
@@ -114,18 +118,21 @@ func (h *Handler) Dashboard(c *gin.Context) {
 	rows, err := h.DB.Query(`SELECT s.id, s.name, s.status,
 		COALESCE(s.win_rate,0), COALESCE(s.profit_factor,0),
 		COALESCE(s.subscribers,0),
-		COUNT(sub.id) FILTER (WHERE sub.execution_mode='AUTO' AND sub.status='ACTIVE')
+		COUNT(sub.id) FILTER (WHERE sub.execution_mode='AUTO' AND sub.status='ACTIVE'),
+		COALESCE(s.days_active,0), COALESCE(s.closed_signals,0),
+		COALESCE(s.alpha_score,0), COALESCE(s.alpha_grade,'')
 		FROM analyst_signal_sets s
 		LEFT JOIN analyst_subscriptions sub ON sub.set_id=s.id AND sub.status='ACTIVE'
 		WHERE s.analyst_id=$1
-		GROUP BY s.id, s.name, s.status, s.win_rate, s.profit_factor, s.subscribers
+		GROUP BY s.id, s.name, s.status, s.win_rate, s.profit_factor, s.subscribers,
+		         s.days_active, s.closed_signals, s.alpha_score, s.alpha_grade
 		ORDER BY s.created_at DESC LIMIT 200`, uid)
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "db query failed"}); return }
 	defer rows.Close()
 	sets := make([]SignalSetDTO, 0)
 	for rows.Next() {
 		var s SignalSetDTO
-		if err := rows.Scan(&s.ID, &s.Name, &s.Status, &s.WinRate, &s.PF, &s.Subscribers, &s.AutoFollowers); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &s.Status, &s.WinRate, &s.PF, &s.Subscribers, &s.AutoFollowers, &s.DaysActive, &s.ClosedSignals, &s.AlphaScore, &s.AlphaGrade); err != nil {
 			c.JSON(500, gin.H{"ok": false, "error": "db scan failed"}); return
 		}
 		sets = append(sets, s)
