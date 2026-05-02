@@ -986,7 +986,8 @@ func (h *Handler) GetMySubscribers(c *gin.Context) {
 			COALESCE(s.total_signals_during,0),
 			COALESCE(s.wins_during,0),
 			COALESCE(s.losses_during,0),
-			COALESCE(s.expires_at::text,'')
+			COALESCE(s.expires_at::text,''),
+			COALESCE((SELECT ta.equity FROM trader_accounts ta WHERE ta.user_id=s.investor_id ORDER BY ta.updated_at DESC LIMIT 1),0) as aum
 		FROM analyst_subscriptions s
 		JOIN analyst_signal_sets ass ON ass.id = s.set_id
 		WHERE ass.analyst_id = $1
@@ -1006,6 +1007,7 @@ func (h *Handler) GetMySubscribers(c *gin.Context) {
 		Wins          int    `json:"wins"`
 		Losses        int    `json:"losses"`
 		ExpiresAt     string `json:"expiresAt"`
+		AUM           float64 `json:"aum"`
 	}
 
 	var subs []SubRow
@@ -1036,5 +1038,7 @@ func (h *Handler) GetMySubscribers(c *gin.Context) {
 	for _, v := range setMap { setSummary = append(setSummary, v) }
 	if setSummary == nil { setSummary = []gin.H{} }
 
-	c.JSON(200, gin.H{"ok":true, "subscribers":subs, "setSummary":setSummary})
+	totalAUM:=0.0; activeCount:=0
+	for _,s:=range subs { if s.Status=="ACTIVE" { totalAUM+=s.AUM; activeCount++ } }
+	c.JSON(200, gin.H{"ok":true, "subscribers":subs, "setSummary":setSummary, "totalFollowers":len(subs), "activeFollowers":activeCount, "totalAUM":math.Round(totalAUM*100)/100})
 }
