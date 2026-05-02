@@ -987,9 +987,12 @@ func (h *Handler) GetMySubscribers(c *gin.Context) {
 			COALESCE(s.wins_during,0),
 			COALESCE(s.losses_during,0),
 			COALESCE(s.expires_at::text,''),
-			COALESCE((SELECT ta.equity FROM trader_accounts ta WHERE ta.user_id=s.investor_id ORDER BY ta.updated_at DESC LIMIT 1),0) as aum
+			COALESCE(ta.equity,0) as aum,
+			COALESCE(ta.nickname, ta.account_number, '') as account_name,
+			COALESCE(ta.broker,'') as broker
 		FROM analyst_subscriptions s
 		JOIN analyst_signal_sets ass ON ass.id = s.set_id
+		LEFT JOIN trader_accounts ta ON ta.user_id = s.investor_id
 		WHERE ass.analyst_id = $1
 		ORDER BY s.created_at DESC`, uid)
 	if err != nil { c.JSON(500, gin.H{"ok":false,"error":err.Error()}); return }
@@ -1008,6 +1011,8 @@ func (h *Handler) GetMySubscribers(c *gin.Context) {
 		Losses        int    `json:"losses"`
 		ExpiresAt     string `json:"expiresAt"`
 		AUM           float64 `json:"aum"`
+		AccountName   string  `json:"accountName"`
+		Broker        string  `json:"broker"`
 	}
 
 	var subs []SubRow
@@ -1015,7 +1020,7 @@ func (h *Handler) GetMySubscribers(c *gin.Context) {
 		var s SubRow
 		rows.Scan(&s.ID, &s.SetID, &s.SetName,
 			&s.Status, &s.ExecutionMode, &s.AutoFollow,
-			&s.CreatedAt, &s.TotalSignals, &s.Wins, &s.Losses, &s.ExpiresAt, &s.AUM)
+			&s.CreatedAt, &s.TotalSignals, &s.Wins, &s.Losses, &s.ExpiresAt, &s.AUM, &s.AccountName, &s.Broker)
 		subs = append(subs, s)
 	}
 	if subs == nil { subs = []SubRow{} }
