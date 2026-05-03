@@ -1655,3 +1655,23 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 ### Backend:
 - **Container:** `crunchalpha-backend`
 - **Image:** `crunchalpha-v3:production-202605031559`
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-03 16:38)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202605031638`
+- **Changes:**
+  - fix: autoAllocate — traders+analysts 1 pool 100% proporsional by alpha score
+  - fix: Overview Portfolio Allocation — analyst muncul dengan AUM benar
+  - fix: AUM analyst per follower account (bukan total investorEquity)
+  - fix: Risk contribution dihitung dari combined traders+analysts
+  - feat: warning rebalance — snapshot_alpha_score, threshold 10 poin
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605031618`
+- **Changes:**
+  - feat: redistributeAllocations — combined pool, cancelled reset to 0
+  - feat: GET /api/investor/rebalance-check — needsRebalance flag + changes
+  - feat: POST /api/investor/rebalance — trigger manual rebalance
+  - fix: GetAnalystSubscriptions tambah followerAccountId di response
+  - db: user_allocations + analyst_subscriptions tambah allocation_mode, snapshot_alpha_score
