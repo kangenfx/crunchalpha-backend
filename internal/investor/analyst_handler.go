@@ -78,7 +78,8 @@ func (h *Handler) GetAnalystSubscriptions(c *gin.Context) {
 		       COALESCE(u.name, u.email, '') as analyst_name,
 		       COALESCE(s.allocation_pct, 0) as allocation_pct,
 		       COALESCE(ss.alpha_score, 0) as alpha_score,
-		       COALESCE(ss.alpha_grade, 'D') as alpha_grade
+		       COALESCE(ss.alpha_grade, 'D') as alpha_grade,
+		       COALESCE(s.follower_account_id::text, '') as follower_account_id
 		FROM analyst_subscriptions s
 		JOIN analyst_signal_sets ss ON ss.id = s.set_id
 		LEFT JOIN users u ON u.id = ss.analyst_id::uuid
@@ -98,12 +99,13 @@ func (h *Handler) GetAnalystSubscriptions(c *gin.Context) {
 		AllocationPct float64 `json:"allocationPct"`
 		AlphaScore    float64 `json:"alphaScore"`
 		AlphaGrade    string  `json:"alphaGrade"`
+			FollowerAccountID string  `json:"followerAccountId"`
 	}
 	var subs []SubRow
 	for rows.Next() {
 		var s SubRow
 		var createdAt time.Time
-		rows.Scan(&s.ID, &s.SetID, &s.Status, &s.AutoFollow, &createdAt, &s.SetName, &s.AnalystName, &s.AllocationPct, &s.AlphaScore, &s.AlphaGrade)
+		rows.Scan(&s.ID, &s.SetID, &s.Status, &s.AutoFollow, &createdAt, &s.SetName, &s.AnalystName, &s.AllocationPct, &s.AlphaScore, &s.AlphaGrade, &s.FollowerAccountID)
 		s.CreatedAt = createdAt.Format("2006-01-02")
 		subs = append(subs, s)
 	}
