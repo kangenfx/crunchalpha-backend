@@ -1620,3 +1620,9 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - feat: RoleFeesPanel — Performance Fee + Subscription Fee sections terpisah
   - feat: Basic default $10/mo, Premium $30/mo, split 80/20/0
   - fix: AnalystProfile.jsx duplicate useState (setSubModal) compile error
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-03 12:15)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202605031215`
+- **Changes:** Investor Fees tab — tambah reference section "Fees Paid by Investor" (read-only): Performance Fee trader/analyst + Subscription Basic/Premium trader/analyst, nilai otomatis ikut dari Trader/Analyst Fees config
