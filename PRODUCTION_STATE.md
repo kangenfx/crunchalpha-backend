@@ -1637,3 +1637,21 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - Survivability/Scalability netral
   - Header storytelling "Suited for X Investors"
   - Trade History — BUY/SELL warna netral
+
+## 📋 CHANGES 2026-05-03
+### Auto Rebalance Allocation
+- feat: redistributeAllocations — gabungkan traders + analysts dalam 1 pool 100%
+- feat: proporsional by alpha score, min 5% per subscription
+- feat: cancelled subscriptions di-reset ke 0 otomatis
+- feat: GET /api/investor/rebalance-check — warning jika alpha score berubah >10 poin
+- feat: POST /api/investor/rebalance — trigger rebalance manual per follower account
+- feat: snapshot_alpha_score — kolom baru di user_allocations & analyst_subscriptions
+- db: ALTER TABLE user_allocations ADD allocation_mode, snapshot_alpha_score
+- db: ALTER TABLE analyst_subscriptions ADD allocation_mode, snapshot_alpha_score
+- fix: subscribe analyst → auto redistribute allocation proporsional
+- note: frontend warning banner & rebalance button — pending
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-03)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605031559`
