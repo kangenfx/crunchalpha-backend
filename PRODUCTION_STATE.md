@@ -1608,3 +1608,15 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Image:** crunchalpha-frontend-v3:prod-$(date +%Y%m%d%H%M)
 ### Backend:
 - **Image:** crunchalpha-v3:production-$(date +%Y%m%d%H%M)
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-03)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202605031200`
+- **Port:** 5176 (internal), via nginx https
+- **Changes:**
+  - feat: Subscription tier Basic & Premium untuk Trader & Analyst fees
+  - feat: 16 key baru di platform_fee_config (basic/premium fee, trader/analyst/platform/affiliate share)
+  - feat: RoleFeesPanel — Performance Fee + Subscription Fee sections terpisah
+  - feat: Basic default $10/mo, Premium $30/mo, split 80/20/0
+  - fix: AnalystProfile.jsx duplicate useState (setSubModal) compile error
