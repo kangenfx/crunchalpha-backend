@@ -118,7 +118,19 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
                        COALESCE(ar.layer3_multiplier,1.0) as layer3_multiplier,
                        COALESCE(ar.layer3_status,'NEUTRAL') as layer3_status,
                        COALESCE(ar.layer3_reason,'') as layer3_reason,
-				COALESCE(ta.currency,'USD') as currency
+				COALESCE(ta.currency,'USD') as currency,
+				COALESCE((SELECT ROUND(SUM(iek.equity * ua.allocation_value / 100),0)
+					FROM user_allocations ua
+					JOIN copy_subscriptions cs ON cs.follower_account_id = ua.follower_account_id
+					  AND cs.provider_account_id = ta.id AND cs.status = 'ACTIVE'
+					JOIN investor_ea_keys iek ON iek.trader_account_id = cs.follower_account_id
+					WHERE ua.trader_account_id = ta.id AND ua.status = 'ACTIVE'), 0) as total_aum,
+				CASE
+				  WHEN (SELECT MIN(open_time) FROM trades WHERE account_id = ta.id) IS NULL THEN 'New'
+				  WHEN DATE_PART('day', NOW() - (SELECT MIN(open_time) FROM trades WHERE account_id = ta.id)) < 30 THEN FLOOR(DATE_PART('day', NOW() - (SELECT MIN(open_time) FROM trades WHERE account_id = ta.id)))::text || 'd'
+				  WHEN DATE_PART('day', NOW() - (SELECT MIN(open_time) FROM trades WHERE account_id = ta.id)) < 365 THEN FLOOR(DATE_PART('day', NOW() - (SELECT MIN(open_time) FROM trades WHERE account_id = ta.id))/30)::text || 'mo'
+				  ELSE FLOOR(DATE_PART('day', NOW() - (SELECT MIN(open_time) FROM trades WHERE account_id = ta.id))/365)::text || 'yr'
+				END as account_age
 		FROM alpha_ranks ar
 		JOIN trader_accounts ta ON ta.id = ar.account_id
 		LEFT JOIN users u ON u.id = ta.user_id
@@ -151,6 +163,8 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 		RiskLevel    string  `json:"riskLevel"`
 		Strategy     string  `json:"strategy"`
 		Currency     string  `json:"currency"`
+		TotalAUM     float64 `json:"totalAUM"`
+		AccountAge   string  `json:"accountAge"`
 	}
 	var traders []TraderRow
 	for rows.Next() {
@@ -159,7 +173,8 @@ func (h *Handler) GetPublicTraders(c *gin.Context) {
 			&t.AlphaScore, &t.Grade, &t.WinRate, &t.MaxDD,
 			&t.ROI, &t.NetPnl, &t.TotalTrades, &t.ProfitFactor,
 			&t.TraderName, &t.RiskLevel, &t.Strategy,
-                    &t.Layer3Multiplier, &t.Layer3Status, &t.Layer3Reason, &t.Currency)
+                    &t.Layer3Multiplier, &t.Layer3Status, &t.Layer3Reason, &t.Currency,
+			&t.TotalAUM, &t.AccountAge)
 		traders = append(traders, t)
 	}
 	if traders == nil { traders = []TraderRow{} }
