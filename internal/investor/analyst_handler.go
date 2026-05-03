@@ -116,8 +116,9 @@ func (h *Handler) SubscribeAnalystSet(c *gin.Context) {
 	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
 
 	var req struct {
-		SetID      string `json:"setId"`
-		AutoFollow bool   `json:"autoFollow"`
+		SetID             string `json:"setId"`
+		AutoFollow        bool   `json:"autoFollow"`
+		FollowerAccountID string `json:"followerAccountId"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.SetID == "" {
 		c.JSON(400, gin.H{"ok": false, "error": "setId required"}); return
@@ -128,22 +129,27 @@ func (h *Handler) SubscribeAnalystSet(c *gin.Context) {
 	if err != nil { c.JSON(404, gin.H{"ok": false, "error": "signal set not found"}); return }
 
 	// Update existing row jika ada (any status), kalau tidak ada baru insert
+	var followerAccountID interface{}
+	if req.FollowerAccountID != "" {
+		followerAccountID = req.FollowerAccountID
+	}
 	res, err := h.service.repo.DB.Exec(`UPDATE analyst_subscriptions
 		SET status='ACTIVE', auto_follow=$3, cancelled_at=NULL, created_at=now(),
-		    started_at=now(), expires_at=now() + interval '30 days'
+		    started_at=now(), expires_at=now() + interval '30 days',
+		    follower_account_id=COALESCE($4::uuid, follower_account_id)
 		WHERE id = (
 			SELECT id FROM analyst_subscriptions
 			WHERE investor_id=$1::uuid AND set_id=$2
 			ORDER BY created_at DESC LIMIT 1
 		)`,
-		uid, req.SetID, req.AutoFollow)
+		uid, req.SetID, req.AutoFollow, followerAccountID)
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed update: "+err.Error()}); return }
 	rows, _ := res.RowsAffected()
 	if rows == 0 {
 		_, err = h.service.repo.DB.Exec(`INSERT INTO analyst_subscriptions
-			(investor_id, analyst_id, set_id, status, auto_follow, created_at, cancelled_at, started_at, expires_at)
-			VALUES ($1::uuid,$2::uuid,$3,'ACTIVE',$4,now(),NULL,now(),now() + interval '30 days')`,
-			uid, analystID, req.SetID, req.AutoFollow)
+			(investor_id, analyst_id, set_id, status, auto_follow, follower_account_id, created_at, cancelled_at, started_at, expires_at)
+			VALUES ($1::uuid,$2::uuid,$3,'ACTIVE',$4,$5::uuid,now(),NULL,now(),now() + interval '30 days')`,
+			uid, analystID, req.SetID, req.AutoFollow, followerAccountID)
 		if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed insert: "+err.Error()}); return }
 	}
 	c.JSON(200, gin.H{"ok": true, "message": "Subscribed successfully"})

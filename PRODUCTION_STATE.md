@@ -1538,3 +1538,73 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 1. MT4 investor copy tidak jalan — duplicate key di copy_events karena subquery subscription_id tidak match follower_account_id dengan benar
 2. Root cause: binary production-202604280955 pakai $17 parameter (CAST), source code sekarang berbeda
 3. Fix harus: sesuaikan INSERT copy_events source dengan binary lama — JANGAN ubah tanpa test menyeluruh
+
+## 📋 CHANGES 2026-04-30
+### Followers AUM Fix
+- fix: followers table — AUM = investor_equity × allocation% (bukan follower_equity yg selalu 0)
+- fix: HWM & start_equity reset setiap investor ubah allocation
+- fix: trader_account_id auto-link saat investor register EA key
+- fix: kolom "Method" dihapus dari followers table, "Equity" → "AUM"
+### Production Images
+- Backend: crunchalpha-v3:production-$(date +%Y%m%d%H%M)
+- Frontend: crunchalpha-frontend-v3:prod-$(date +%Y%m%d%H%M)
+
+## ⚠️ PENDING
+1. Earnings page trader & analyst — tunggu keputusan bisnis alur payout non-custodial
+2. Affiliate dashboard redesign dark theme  
+3. Tools page — hapus calculator, pindah API Keys ke tab Settings di TraderDashboard
+4. fix/total-deposit-alpharank — pending deploy (total_deposit tidak tersimpan di alpha_ranks)
+   - Branch sudah ada, build clean, tunggu waktu yang tepat untuk deploy
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-02)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605021500`
+- **Changes:**
+  - fix: pipMult per instrument — XAUUSD mult 100→10, add XAG/Oil/Index/Crypto
+  - fix: alpharank response tambah daysActive dari set created_at (bukan first signal)
+  - fix: avgHoldHours query dari running_at→closed_at
+  - fix: signalSets response tambah daysActive, closedSignals, alphaScore, grade
+  - fix: XAAUSD typo → XAUUSD di DB (4 signals)
+  - fix: hapus signal test id 1,2,17 (entry <3000)
+  - fix: pips DB recalc semua sets dengan pipMult yang benar
+
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202605021500`
+- **Changes:**
+  - fix: History tab — hapus kolom R:R & Status badge, pips pakai backend value
+  - fix: History pagination 20/page dengan Prev/Next
+  - fix: History nomor urut global (#1, #2... across pages)
+  - fix: pipMult & pipUnit JS — label dinamis pips/pts per instrument
+  - fix: Summary banner — SET AGE (dari daysActive DB) gantikan Closed Signals
+  - fix: Hapus 4 top summary cards — info dipindah ke Your Signal Sets table
+  - fix: Your Signal Sets table tambah kolom Age & AlphaScore
+  - fix: Hapus kolom Subscribers dari table (tidak relevan)
+  - fix: Hapus "+ New" duplikat, "+ Send Signal" warna biru
+  - fix: Discipline Score bug dihapus dari Statistics tab
+  - fix: SummaryStats Avg TP/SL/MaxTP/MaxSL kalikan pipMult
+
+## ⚠️ PENDING (Updated 2026-05-02)
+1. Analyst public profile redesign — investor-friendly, risk-focused, style summary
+2. Analyst masuk leaderboard (sama seperti trader)
+3. Tab Subscribers → ganti jadi Followers, tampilan sama seperti trader followers (AUM dll)
+4. avgHoldHours tampil di Summary stats
+5. InvestorDashboard.jsx syntax error fix (sudah fixed tapi perlu commit frontend)
+
+## 📋 CHANGES 2026-05-03
+### Marketplace Trader Card Redesign (DUB-style)
+- feat: card redesign — Risk banner, Grade hero, storytelling investor type
+- feat: totalAUM dari copy_subscriptions (equity × allocation%)
+- feat: accountAge dari first trade date (bukan ea_first_push_at)
+- feat: hapus Net P&L dari card & dropdown → ganti AUM Managed
+- feat: hapus risk banner redundant — hanya rank & copying badge
+- feat: "Trading for Xmo" label di footer card
+- feat: storytelling "Suited for [investor type]" dengan risk tag
+- fix: hapus Sort: Net P&L dari dropdown
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-03)
+### Frontend:
+- **Image:** crunchalpha-frontend-v3:prod-$(date +%Y%m%d%H%M)
+### Backend:
+- **Image:** crunchalpha-v3:production-$(date +%Y%m%d%H%M)

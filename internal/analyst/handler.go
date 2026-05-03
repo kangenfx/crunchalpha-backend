@@ -496,13 +496,20 @@ func (h *Handler) PublicMarketplace(c *gin.Context) {
 			COALESCE(s.net_pips, 0) as net_pips,
 			s.created_at,
 			COALESCE(s.alpha_score, 0) as alpha_score,
-			COALESCE(s.alpha_grade, 'D') as alpha_grade
+			COALESCE(s.alpha_grade, 'D') as alpha_grade,
+			COALESCE(s.win_rate, 0) as win_rate,
+			COALESCE(s.profit_factor, 0) as profit_factor,
+			COALESCE(s.days_active, 0) as days_active,
+			COALESCE(s.avg_signal_week, 0) as avg_signal_week,
+			COALESCE(s.flags_json, '[]') as flags_json,
+			COALESCE(s.closed_signals, 0) as closed_signals,
+			COALESCE((SELECT SUM(ta.equity) FROM analyst_subscriptions asub JOIN trader_accounts ta ON ta.user_id=asub.investor_id WHERE asub.set_id=s.id AND asub.status='ACTIVE'),0) as total_aum
 		FROM analyst_signal_sets s
 		LEFT JOIN users u ON u.id::text = s.analyst_id
 		LEFT JOIN analyst_subscriptions sub ON sub.set_id = s.id
 		LEFT JOIN analyst_signals sig ON sig.set_id = s.id
 		WHERE UPPER(s.status) = 'ACTIVE' AND COALESCE(s.closed_signals, 0) >= 20
-		GROUP BY s.id, s.name, COALESCE(s.market,'') || ' ' || COALESCE(s.style,''), s.analyst_id, u.name, u.email, s.created_at, s.alpha_score, s.alpha_grade
+		GROUP BY s.id, s.name, COALESCE(s.market,'') || ' ' || COALESCE(s.style,''), s.analyst_id, u.name, u.email, s.created_at, s.alpha_score, s.alpha_grade, s.win_rate, s.profit_factor, s.days_active, s.avg_signal_week, s.flags_json, s.closed_signals
 		ORDER BY s.alpha_score DESC, subscribers DESC
 	`)
 	if err != nil { c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return }
@@ -525,6 +532,12 @@ func (h *Handler) PublicMarketplace(c *gin.Context) {
 		AvgRR          float64 `json:"avgRR"`
 		CumulativeR    float64 `json:"cumulativeR"`
 		NetPips        float64 `json:"netPips"`
+		DaysActive     int     `json:"daysActive"`
+		AvgSignalWeek  float64 `json:"avgSignalWeek"`
+		FlagsJSON      string  `json:"flagsJson"`
+		ClosedSignals  int     `json:"closedSignals"`
+		RiskLevel      string  `json:"riskLevel"`
+		TotalAUM       float64 `json:"totalAUM"`
 	}
 
 	var items []SetItem
@@ -536,11 +549,31 @@ func (h *Handler) PublicMarketplace(c *gin.Context) {
 		var dbAlphaScore float64
 		var dbAlphaGrade string
 		var avgRR, cumulativeR, netPips float64
+		var winRate, profitFactor, avgSignalWeek, totalAUM float64
+		var daysActive, closedSignals int
+		var flagsJSON string
 		rows.Scan(&it.ID, &it.Name, &it.Description, &it.AnalystID, &analystName,
 			&it.Subscribers, &it.TotalSignals, &it.WinningSignals,
-			&avgTpDist, &avgSlDist, &avgRR, &cumulativeR, &netPips, &createdAtTime, &dbAlphaScore, &dbAlphaGrade)
+			&avgTpDist, &avgSlDist, &avgRR, &cumulativeR, &netPips, &createdAtTime, &dbAlphaScore, &dbAlphaGrade,
+			&winRate, &profitFactor, &daysActive, &avgSignalWeek, &flagsJSON, &closedSignals, &totalAUM)
 		it.AvgRR = avgRR
 		it.CumulativeR = cumulativeR
+		it.WinRate = winRate
+		it.ProfitFactor = profitFactor
+		it.DaysActive = daysActive
+		it.AvgSignalWeek = avgSignalWeek
+		it.FlagsJSON = flagsJSON
+		it.ClosedSignals = closedSignals
+		it.TotalAUM = totalAUM
+		// RiskLevel dari alpha_score + flag count
+		flagCount := strings.Count(flagsJSON, "\"code\"")
+		switch {
+		case dbAlphaScore < 30: it.RiskLevel = "EXTREME"
+		case dbAlphaScore < 50 || flagCount >= 3: it.RiskLevel = "HIGH"
+		case dbAlphaScore < 70 || flagCount >= 2: it.RiskLevel = "MEDIUM"
+		case dbAlphaScore >= 85 && flagCount == 0: it.RiskLevel = "VERIFIED_SAFE"
+		default: it.RiskLevel = "LOW"
+		}
 		it.NetPips = netPips
 		if analystName.Valid { it.AnalystName = analystName.String }
 		if createdAtTime.Valid { it.CreatedAt = createdAtTime.Time.Format("2006-01-02") }
