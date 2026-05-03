@@ -296,6 +296,8 @@ func main() {
 			investorRoutes.PUT("/analyst-subscription/:id/mode", investorHandler.UpdateSubscriptionMode)
 			investorRoutes.PUT("/analyst-subscription/:id/allocation", investorHandler.UpdateSubscriptionAllocation)
 		investorRoutes.GET("/analyst-feed", investorHandler.GetAnalystFeed)
+			investorRoutes.GET("/rebalance-check", investorHandler.RebalanceCheck)
+			investorRoutes.POST("/rebalance", investorHandler.RebalanceAllocations)
 		investorRoutes.GET("/signal-orders", investorHandler.GetSignalOrders)
 		investorRoutes.GET("/settings", investorHandler.GetSettings)
 		investorRoutes.GET("/subscription-history", investorHandler.GetSubscriptionHistory)

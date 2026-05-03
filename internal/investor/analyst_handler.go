@@ -1,6 +1,7 @@
 package investor
 
 import (
+	"math"
 	"strings"
 	"database/sql"
 	"encoding/json"
@@ -112,47 +113,47 @@ func (h *Handler) GetAnalystSubscriptions(c *gin.Context) {
 
 // POST /api/investor/analyst-subscribe
 func (h *Handler) SubscribeAnalystSet(c *gin.Context) {
-	uid, ok := getUID(c)
-	if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
-
-	var req struct {
-		SetID             string `json:"setId"`
-		AutoFollow        bool   `json:"autoFollow"`
-		FollowerAccountID string `json:"followerAccountId"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil || req.SetID == "" {
-		c.JSON(400, gin.H{"ok": false, "error": "setId required"}); return
-	}
-
-	var analystID string
-	err := h.service.repo.DB.QueryRow(`SELECT analyst_id FROM analyst_signal_sets WHERE id=$1`, req.SetID).Scan(&analystID)
-	if err != nil { c.JSON(404, gin.H{"ok": false, "error": "signal set not found"}); return }
-
-	// Update existing row jika ada (any status), kalau tidak ada baru insert
-	var followerAccountID interface{}
-	if req.FollowerAccountID != "" {
-		followerAccountID = req.FollowerAccountID
-	}
-	res, err := h.service.repo.DB.Exec(`UPDATE analyst_subscriptions
-		SET status='ACTIVE', auto_follow=$3, cancelled_at=NULL, created_at=now(),
-		    started_at=now(), expires_at=now() + interval '30 days',
-		    follower_account_id=COALESCE($4::uuid, follower_account_id)
-		WHERE id = (
-			SELECT id FROM analyst_subscriptions
-			WHERE investor_id=$1::uuid AND set_id=$2
-			ORDER BY created_at DESC LIMIT 1
-		)`,
-		uid, req.SetID, req.AutoFollow, followerAccountID)
-	if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed update: "+err.Error()}); return }
-	rows, _ := res.RowsAffected()
-	if rows == 0 {
-		_, err = h.service.repo.DB.Exec(`INSERT INTO analyst_subscriptions
-			(investor_id, analyst_id, set_id, status, auto_follow, follower_account_id, created_at, cancelled_at, started_at, expires_at)
-			VALUES ($1::uuid,$2::uuid,$3,'ACTIVE',$4,$5::uuid,now(),NULL,now(),now() + interval '30 days')`,
-			uid, analystID, req.SetID, req.AutoFollow, followerAccountID)
-		if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed insert: "+err.Error()}); return }
-	}
-	c.JSON(200, gin.H{"ok": true, "message": "Subscribed successfully"})
+uid, ok := getUID(c)
+if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+var req struct {
+SetID             string `json:"setId"`
+AutoFollow        bool   `json:"autoFollow"`
+FollowerAccountID string `json:"followerAccountId"`
+}
+if err := c.ShouldBindJSON(&req); err != nil || req.SetID == "" {
+c.JSON(400, gin.H{"ok": false, "error": "setId required"}); return
+}
+var analystID string
+err := h.service.repo.DB.QueryRow(`SELECT analyst_id FROM analyst_signal_sets WHERE id=$1`, req.SetID).Scan(&analystID)
+if err != nil { c.JSON(404, gin.H{"ok": false, "error": "signal set not found"}); return }
+var followerAccountID interface{}
+if req.FollowerAccountID != "" {
+followerAccountID = req.FollowerAccountID
+}
+res, err := h.service.repo.DB.Exec(`UPDATE analyst_subscriptions
+SET status='ACTIVE', auto_follow=$3, cancelled_at=NULL, created_at=now(),
+    started_at=now(), expires_at=now() + interval '30 days',
+    follower_account_id=COALESCE($4::uuid, follower_account_id)
+WHERE id = (
+SELECT id FROM analyst_subscriptions
+WHERE investor_id=$1::uuid AND set_id=$2
+ORDER BY created_at DESC LIMIT 1
+)`,
+uid, req.SetID, req.AutoFollow, followerAccountID)
+if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed update: "+err.Error()}); return }
+rows, _ := res.RowsAffected()
+if rows == 0 {
+_, err = h.service.repo.DB.Exec(`INSERT INTO analyst_subscriptions
+(investor_id, analyst_id, set_id, status, auto_follow, follower_account_id, created_at, cancelled_at, started_at, expires_at)
+VALUES ($1::uuid,$2::uuid,$3,'ACTIVE',$4,$5::uuid,now(),NULL,now(),now() + interval '30 days')`,
+uid, analystID, req.SetID, req.AutoFollow, followerAccountID)
+if err != nil { c.JSON(500, gin.H{"ok": false, "error": "subscribe failed insert: "+err.Error()}); return }
+}
+// Auto redistribute allocation proporsional by alpha score
+if req.FollowerAccountID != "" {
+_ = h.redistributeAllocations(uid, req.FollowerAccountID)
+}
+c.JSON(200, gin.H{"ok": true, "message": "Subscribed successfully"})
 }
 
 // POST /api/investor/analyst-unsubscribe
@@ -1171,4 +1172,209 @@ func (h *Handler) CalculateAffiliatePayout(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"ok":true,"period":req.Period,"payoutsCreated":created})
+}
+
+// redistributeAllocations — auto redistribute allocation proporsional by alpha score
+// Gabungkan semua active trader + analyst subscriptions untuk 1 follower account
+func (h *Handler) redistributeAllocations(userID, followerAccountID string) error {
+db := h.service.repo.DB
+
+// Ambil semua active trader allocations untuk follower account ini
+type allocEntry struct {
+id         string
+alphaScore float64
+entryType  string // "trader" atau "analyst"
+subID      string
+}
+var entries []allocEntry
+
+// Traders — hanya yang ada active copy_subscriptions
+traderRows, err := db.Query(`
+SELECT ua.id, COALESCE(ar.alpha_score, 1)
+FROM user_allocations ua
+JOIN copy_subscriptions cs ON cs.follower_account_id = ua.follower_account_id
+AND cs.provider_account_id = ua.trader_account_id
+AND cs.status = 'ACTIVE'
+LEFT JOIN (
+SELECT DISTINCT ON (account_id) account_id, alpha_score
+FROM alpha_ranks ORDER BY account_id, calculated_at DESC
+) ar ON ar.account_id = ua.trader_account_id
+WHERE ua.user_id=$1::uuid AND ua.follower_account_id=$2::uuid AND ua.status='ACTIVE'`,
+userID, followerAccountID)
+if err == nil {
+defer traderRows.Close()
+for traderRows.Next() {
+var e allocEntry
+e.entryType = "trader"
+traderRows.Scan(&e.id, &e.alphaScore)
+if e.alphaScore < 1 { e.alphaScore = 1 }
+entries = append(entries, e)
+}
+}
+
+// Analysts — dari analyst_subscriptions + analyst_signal_sets
+analystRows, err := db.Query(`
+SELECT ans.id, COALESCE(ass.alpha_score, 1)
+FROM analyst_subscriptions ans
+LEFT JOIN analyst_signal_sets ass ON ass.id = ans.set_id
+WHERE ans.investor_id=$1::uuid AND ans.follower_account_id=$2::uuid AND ans.status='ACTIVE'`,
+userID, followerAccountID)
+if err == nil {
+defer analystRows.Close()
+for analystRows.Next() {
+var e allocEntry
+e.entryType = "analyst"
+analystRows.Scan(&e.id, &e.alphaScore)
+if e.alphaScore < 1 { e.alphaScore = 1 }
+entries = append(entries, e)
+}
+}
+
+if len(entries) == 0 { return nil }
+
+	// Reset allocation ke 0 untuk trader yang copy_subscription-nya CANCELLED
+	db.Exec(`UPDATE user_allocations ua SET allocation_value=0
+		WHERE ua.user_id=$1::uuid AND ua.follower_account_id=$2::uuid AND ua.status='ACTIVE'
+		AND NOT EXISTS (
+			SELECT 1 FROM copy_subscriptions cs
+			WHERE cs.follower_account_id = ua.follower_account_id
+			AND cs.provider_account_id = ua.trader_account_id
+			AND cs.status = 'ACTIVE'
+		)`, userID, followerAccountID)
+
+
+// Hitung total score
+totalScore := 0.0
+for _, e := range entries { totalScore += e.alphaScore }
+
+// Distribute proporsional, min 5%, last entry dapat sisa
+remaining := 100.0
+for i, e := range entries {
+var pct float64
+if i == len(entries)-1 {
+pct = remaining
+if pct < 5 { pct = 5 }
+} else {
+pct = e.alphaScore / totalScore * 100
+if pct < 5 { pct = 5 }
+pct = math.Round(pct)
+}
+remaining -= pct
+
+if e.entryType == "trader" {
+db.Exec(`UPDATE user_allocations SET allocation_value=$1 WHERE id=$2::uuid`,
+pct, e.id)
+} else {
+db.Exec(`UPDATE analyst_subscriptions SET allocation_pct=$1 WHERE id=$2::uuid`,
+pct, e.id)
+}
+}
+return nil
+}
+
+// GET /api/investor/rebalance-check
+func (h *Handler) RebalanceCheck(c *gin.Context) {
+uid, ok := getUID(c)
+if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+
+type SubChange struct {
+Name             string  `json:"name"`
+Type             string  `json:"type"`
+SnapshotScore    float64 `json:"snapshotScore"`
+CurrentScore     float64 `json:"currentScore"`
+Change           float64 `json:"change"`
+AllocationPct    float64 `json:"allocationPct"`
+FollowerAccountID string `json:"followerAccountId"`
+}
+
+var changes []SubChange
+needsRebalance := false
+threshold := 10.0
+
+// Check trader allocations — group by follower_account_id + trader
+rows, err := h.service.repo.DB.Query(`
+SELECT DISTINCT ON (ua.follower_account_id, ua.trader_account_id)
+ua.snapshot_alpha_score, COALESCE(ar.alpha_score, 0), ua.allocation_value,
+ta.account_number, ua.follower_account_id::text
+FROM user_allocations ua
+JOIN trader_accounts ta ON ta.id = ua.trader_account_id
+LEFT JOIN (
+SELECT DISTINCT ON (account_id) account_id, alpha_score
+FROM alpha_ranks ORDER BY account_id, calculated_at DESC
+) ar ON ar.account_id = ua.trader_account_id
+WHERE ua.user_id=$1::uuid AND ua.status='ACTIVE'
+  AND ua.follower_account_id IS NOT NULL
+ORDER BY ua.follower_account_id, ua.trader_account_id`, uid)
+if err == nil {
+defer rows.Close()
+for rows.Next() {
+var s SubChange
+s.Type = "trader"
+rows.Scan(&s.SnapshotScore, &s.CurrentScore, &s.AllocationPct, &s.Name, &s.FollowerAccountID)
+s.Change = s.CurrentScore - s.SnapshotScore
+if s.Change < 0 { s.Change = -s.Change }
+if s.Change >= threshold { needsRebalance = true }
+changes = append(changes, s)
+}
+}
+
+// Check analyst subscriptions
+arows, err := h.service.repo.DB.Query(`
+SELECT ans.snapshot_alpha_score, COALESCE(ass.alpha_score, 0), ans.allocation_pct,
+       ass.name
+FROM analyst_subscriptions ans
+JOIN analyst_signal_sets ass ON ass.id = ans.set_id
+WHERE ans.investor_id=$1::uuid AND ans.status='ACTIVE'`, uid)
+if err == nil {
+defer arows.Close()
+for arows.Next() {
+var s SubChange
+s.Type = "analyst"
+arows.Scan(&s.SnapshotScore, &s.CurrentScore, &s.AllocationPct, &s.Name)
+s.Change = s.CurrentScore - s.SnapshotScore
+if s.Change < 0 { s.Change = -s.Change }
+if s.Change >= threshold { needsRebalance = true }
+changes = append(changes, s)
+}
+}
+
+c.JSON(200, gin.H{"ok": true, "needsRebalance": needsRebalance, "changes": changes, "threshold": threshold})
+}
+
+// POST /api/investor/rebalance
+func (h *Handler) RebalanceAllocations(c *gin.Context) {
+uid, ok := getUID(c)
+if !ok { c.JSON(401, gin.H{"ok": false, "error": "unauthorized"}); return }
+
+var req struct {
+FollowerAccountID string `json:"followerAccountId"`
+}
+c.ShouldBindJSON(&req)
+if req.FollowerAccountID == "" {
+c.JSON(400, gin.H{"ok": false, "error": "followerAccountId required"}); return
+}
+
+err := h.redistributeAllocations(uid, req.FollowerAccountID)
+if err != nil {
+c.JSON(500, gin.H{"ok": false, "error": err.Error()}); return
+}
+
+// Update snapshot_alpha_score setelah rebalance
+h.service.repo.DB.Exec(`
+UPDATE user_allocations ua
+SET snapshot_alpha_score = COALESCE(
+(SELECT ar.alpha_score FROM alpha_ranks ar WHERE ar.account_id = ua.trader_account_id LIMIT 1), 0
+)
+WHERE ua.user_id=$1::uuid AND ua.follower_account_id=$2::uuid AND ua.status='ACTIVE'`,
+uid, req.FollowerAccountID)
+
+h.service.repo.DB.Exec(`
+UPDATE analyst_subscriptions ans
+SET snapshot_alpha_score = COALESCE(
+(SELECT ass.alpha_score FROM analyst_signal_sets ass WHERE ass.id = ans.set_id LIMIT 1), 0
+)
+WHERE ans.investor_id=$1::uuid AND ans.follower_account_id=$2::uuid AND ans.status='ACTIVE'`,
+uid, req.FollowerAccountID)
+
+c.JSON(200, gin.H{"ok": true, "message": "Rebalanced successfully"})
 }
