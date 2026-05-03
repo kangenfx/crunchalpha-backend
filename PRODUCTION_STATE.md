@@ -1626,3 +1626,14 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Container:** `crunchalpha-frontend-v3`
 - **Image:** `crunchalpha-frontend-v3:prod-202605031215`
 - **Changes:** Investor Fees tab — tambah reference section "Fees Paid by Investor" (read-only): Performance Fee trader/analyst + Subscription Basic/Premium trader/analyst, nilai otomatis ikut dari Trader/Analyst Fees config
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-03 13:06)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202605031306`
+- **Changes:**
+  - TraderProfile redesign — pillar bars biru netral, stats netral
+  - Risk flags netral (hapus warna merah)
+  - Survivability/Scalability netral
+  - Header storytelling "Suited for X Investors"
+  - Trade History — BUY/SELL warna netral
