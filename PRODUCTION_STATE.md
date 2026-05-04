@@ -1690,3 +1690,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 1. Billing module — allocation_periods table, baseline_pnl tracking
 2. HWM reset logic saat rebalance (start_equity = current_equity)
 3. Frontend warning rebalance — BatikKwijan followerAccountId kosong di rebalance-check
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-04 01:36)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605040136`
+- **Changes:**
+  - fix: GetTradeCopies — query dari copy_executions, gabung OPEN+CLOSE per follower_ticket
+  - fix: trade history tidak lagi tampil rows kosong (order execution entries)
+  - note: profit=0 untuk trades lama sebelum 2026-04-28 — data tidak tersimpan saat itu
