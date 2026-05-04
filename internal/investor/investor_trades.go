@@ -94,6 +94,20 @@ WHERE follower_account_id = $5::uuid
 			} else {
 				upserted++
 			}
+			// Sync profit ke copy_executions
+			_, ceErr := h.service.repo.DB.Exec(`
+UPDATE copy_executions SET
+  close_price = $1,
+  profit      = $2
+WHERE follower_ticket = $3
+  AND action = 'CLOSE'
+  AND (profit IS NULL OR profit = 0)`,
+				t.ClosePrice, t.Profit, t.Ticket)
+			if ceErr != nil {
+				log.Printf("[InvestorTrades] copy_executions sync error ticket %d: %v", t.Ticket, ceErr)
+			} else {
+				log.Printf("[InvestorTrades] copy_executions synced ticket=%d profit=%f", t.Ticket, t.Profit)
+			}
 			continue
 		}
 
