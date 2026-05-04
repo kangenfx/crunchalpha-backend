@@ -1731,3 +1731,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - fix: EASyncInvestorTrades sync profit+close_price ke copy_executions saat close
   - fix: root cause profit=0 di Order History — sekarang auto update dari EA push
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-04 06:22)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605040622`
+- **Changes:**
+  - fix: EASyncInvestorTrades sync profit ke copy_executions untuk MT4 full trade
+  - fix: root cause profit=0 — sekarang auto update dari EA push setiap 5 detik
