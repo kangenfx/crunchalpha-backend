@@ -706,6 +706,9 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 		LEFT JOIN trader_accounts ta ON ta.id = cs.provider_account_id
 		LEFT JOIN trader_accounts fa ON fa.id = cs.follower_account_id
 		WHERE open_ex.action = 'OPEN'
+		AND open_ex.executed_price > 0
+		AND close_ex.id IS NOT NULL
+		AND close_ex.profit IS NOT NULL
 		AND cs.follower_account_id IN (
 			SELECT id FROM trader_accounts WHERE user_id=$1::uuid
 		)

@@ -194,7 +194,10 @@ LEFT JOIN copy_executions cx ON cx.signal_id = cc.id AND cx.action = 'CLOSE'
 LEFT JOIN trader_accounts ta ON ta.id = ce.provider_account_id
 LEFT JOIN trader_accounts fa ON fa.id = ce.follower_account_id
 WHERE ce.action = 'OPEN' AND ce.status = 'EXECUTED'
-AND fa.user_id = $1::uuid`
+AND fa.user_id = $1::uuid
+AND ox.executed_price > 0
+AND cx.close_price > 0
+AND cx.profit IS NOT NULL`
 
 	var rows *sql.Rows
 	var err error
