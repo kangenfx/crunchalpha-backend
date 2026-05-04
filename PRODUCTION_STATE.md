@@ -1714,3 +1714,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: Order History hapus kolom Status
   - fix: hapus filter All/Closed/Open — semua sudah closed
   - fix: summary cards hanya Total Trades + Total P&L
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-04 03:02)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605040302`
+- **Changes:**
+  - fix: RebalanceCheck analyst — tambah followerAccountId di response
+  - fix: trade history filter close_price>0 (hapus data lama profit=0)
+  - fix: manual update profit 31119018 — 2 trades lama
