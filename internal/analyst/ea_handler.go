@@ -214,8 +214,9 @@ func (h *Handler) EABatchUpdate(c *gin.Context) {
 		return
 	}
 
-	// Build price map + update cache
+	// Build price map + update cache + build candles
 	priceMap := make(map[string]EAPriceTick)
+	now2 := time.Now().UTC()
 	for _, p := range req.Prices {
 		pair := strings.ToUpper(p.Pair)
 		priceMap[pair] = p
@@ -224,6 +225,9 @@ func (h *Handler) EABatchUpdate(c *gin.Context) {
 			VALUES ($1,$2,$3,now())
 			ON CONFLICT (pair) DO UPDATE SET bid=$2, ask=$3, updated_at=now()`,
 			pair, p.Bid, p.Ask)
+		// Build candles from tick
+		mid := (p.Bid + p.Ask) / 2.0
+		go buildCandle(h, pair, mid, now2)
 	}
 
 	// Fetch all active signals
@@ -335,5 +339,110 @@ c.JSON(200, gin.H{
 "mid":       mid,
 "available": !stale,
 "updatedAt": updatedAt,
+})
+}
+
+// ── buildCandle — upsert OHLCV candle dari tick ───────────────────────────────
+func buildCandle(h *Handler, pair string, mid float64, t time.Time) {
+timeframes := map[string]int{
+"M1":  1,
+"M5":  5,
+"M15": 15,
+"M30": 30,
+"H1":  60,
+"H4":  240,
+"D1":  1440,
+}
+for tf, mins := range timeframes {
+openTime := t.Truncate(time.Duration(mins) * time.Minute)
+h.DB.Exec(`
+INSERT INTO ea_price_candles (pair, timeframe, open_time, open, high, low, close, tick_count, updated_at)
+VALUES ($1,$2,$3,$4,$4,$4,$4,1,now())
+ON CONFLICT (pair, timeframe, open_time) DO UPDATE SET
+high       = GREATEST(ea_price_candles.high, $4),
+low        = LEAST(ea_price_candles.low, $4),
+close      = $4,
+tick_count = ea_price_candles.tick_count + 1,
+updated_at = now()
+`, pair, tf, openTime, mid)
+}
+}
+
+// ── GET /api/public/candles/:pair ─────────────────────────────────────────────
+// Returns OHLCV candles for chart display
+// Query params: tf=M1 (default), limit=200 (default)
+func (h *Handler) GetCandles(c *gin.Context) {
+pair := strings.ToUpper(c.Param("pair"))
+tf := c.DefaultQuery("tf", "M1")
+limitStr := c.DefaultQuery("limit", "200")
+limit := 200
+if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 500 {
+limit = l
+}
+
+// Validate timeframe
+validTF := map[string]bool{"M1":true,"M5":true,"M15":true,"M30":true,"H1":true,"H4":true,"D1":true}
+if !validTF[tf] {
+c.JSON(400, gin.H{"ok": false, "error": "invalid timeframe"})
+return
+}
+
+rows, err := h.DB.Query(`
+SELECT open_time, open, high, low, close, tick_count
+FROM ea_price_candles
+WHERE pair=$1 AND timeframe=$2
+ORDER BY open_time DESC
+LIMIT $3
+`, pair, tf, limit)
+if err != nil {
+c.JSON(500, gin.H{"ok": false, "error": "db error"})
+return
+}
+defer rows.Close()
+
+type Candle struct {
+Time      int64   `json:"time"`
+Open      float64 `json:"open"`
+High      float64 `json:"high"`
+Low       float64 `json:"low"`
+Close     float64 `json:"close"`
+TickCount int     `json:"ticks"`
+}
+
+candles := make([]Candle, 0)
+for rows.Next() {
+var c Candle
+var openTime time.Time
+var o, h2, l, cl float64
+rows.Scan(&openTime, &o, &h2, &l, &cl, &c.TickCount)
+c.Time  = openTime.Unix()
+c.Open  = o
+c.High  = h2
+c.Low   = l
+c.Close = cl
+candles = append(candles, c)
+}
+
+// Reverse — oldest first for chart
+for i, j := 0, len(candles)-1; i < j; i, j = i+1, j-1 {
+candles[i], candles[j] = candles[j], candles[i]
+}
+
+// Get latest price from cache
+var bid, ask float64
+h.DB.QueryRow(`SELECT bid, ask FROM ea_price_cache WHERE pair=$1`, pair).Scan(&bid, &ask)
+mid := (bid + ask) / 2.0
+
+c.JSON(200, gin.H{
+"ok":      true,
+"pair":    pair,
+"tf":      tf,
+"count":   len(candles),
+"candles": candles,
+"last_price": gin.H{
+"bid": bid,
+"ask": ask,
+"mid": mid,
+},
 })
 }
