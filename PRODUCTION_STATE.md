@@ -1699,3 +1699,18 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: GetTradeCopies — query dari copy_executions, gabung OPEN+CLOSE per follower_ticket
   - fix: trade history tidak lagi tampil rows kosong (order execution entries)
   - note: profit=0 untuk trades lama sebelum 2026-04-28 — data tidak tersimpan saat itu
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-04 02:27)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605040227`
+- **Changes:**
+  - fix: trade-history filter hanya closed trades dengan executed_price>0, close_price>0, profit NOT NULL
+  - fix: GetTradeCopies filter sama — skip data lama tanpa price/profit
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202605040222`
+- **Changes:**
+  - fix: Order History hapus kolom Status
+  - fix: hapus filter All/Closed/Open — semua sudah closed
+  - fix: summary cards hanya Total Trades + Total P&L
