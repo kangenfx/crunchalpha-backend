@@ -1723,3 +1723,11 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: RebalanceCheck analyst — tambah followerAccountId di response
   - fix: trade history filter close_price>0 (hapus data lama profit=0)
   - fix: manual update profit 31119018 — 2 trades lama
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-04 06:06)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605040606`
+- **Changes:**
+  - fix: EASyncInvestorTrades sync profit+close_price ke copy_executions saat close
+  - fix: root cause profit=0 di Order History — sekarang auto update dari EA push
