@@ -124,6 +124,11 @@ FollowerAccountID string `json:"followerAccountId"`
 }
 if err := c.ShouldBindJSON(&req); err != nil || req.SetID == "" {
 c.JSON(400, gin.H{"ok": false, "error": "setId required"}); return
+	// Check subscription limit
+	allowed, current, maxSubs, _ := h.checkSubscriptionLimit(uid)
+	if !allowed {
+		c.JSON(403, gin.H{"ok": false, "error": "subscription limit reached", "current": current, "max": maxSubs}); return
+	}
 }
 var analystID string
 err := h.service.repo.DB.QueryRow(`SELECT analyst_id FROM analyst_signal_sets WHERE id=$1`, req.SetID).Scan(&analystID)
@@ -309,6 +314,11 @@ func (h *Handler) CopyTraderSubscribe(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.TraderAccountID == "" {
 		c.JSON(400, gin.H{"ok": false, "error": "traderAccountId required"}); return
+	// Check subscription limit
+	allowed, current, maxSubs, _ := h.checkSubscriptionLimit(uid)
+	if !allowed {
+		c.JSON(403, gin.H{"ok": false, "error": "subscription limit reached", "current": current, "max": maxSubs}); return
+	}
 	}
 	lotMethod := req.LotMode
 	if lotMethod == "" { lotMethod = "AUM" }
@@ -1386,4 +1396,74 @@ WHERE ans.investor_id=$1::uuid AND ans.follower_account_id=$2::uuid AND ans.stat
 uid, req.FollowerAccountID)
 
 c.JSON(200, gin.H{"ok": true, "message": "Rebalanced successfully"})
+}
+
+// checkSubscriptionLimit — cek apakah investor masih dalam batas tier
+// Basic: max 10, Premium: max 20, Trial: max 10
+func (h *Handler) checkSubscriptionLimit(userID string) (allowed bool, current, max int, tier string) {
+// Admin bypass — no limit
+var isAdmin bool
+var primaryRole string
+h.service.repo.DB.QueryRow(`
+SELECT COALESCE(is_admin, false), COALESCE(primary_role, 'investor')
+FROM users WHERE id=$1::uuid`, userID).Scan(&isAdmin, &primaryRole)
+if isAdmin || primaryRole == "admin" {
+return true, 0, 999, "admin"
+}
+
+// Get tier & status
+var status string
+h.service.repo.DB.QueryRow(`
+SELECT COALESCE(subscription_tier, 'none'), COALESCE(subscription_status, 'none')
+FROM users WHERE id=$1::uuid`, userID).Scan(&tier, &status)
+
+// Auto-start trial jika belum ada subscription
+if tier == "none" || status == "none" {
+now := time.Now()
+trialEnd := now.AddDate(0, 0, 14)
+h.service.repo.DB.Exec(`
+UPDATE users SET
+trial_started_at=$2, trial_ends_at=$3,
+subscription_tier='trial', subscription_status='trial',
+subscription_started_at=$2
+WHERE id=$1::uuid AND (subscription_status IS NULL OR subscription_status='none')`,
+userID, now, trialEnd)
+tier = "trial"
+status = "trial"
+}
+
+// Cek trial expired
+if status == "trial" {
+var trialEnd time.Time
+h.service.repo.DB.QueryRow(`SELECT COALESCE(trial_ends_at, now()) FROM users WHERE id=$1::uuid`, userID).Scan(&trialEnd)
+if time.Now().After(trialEnd) {
+h.service.repo.DB.Exec(`UPDATE users SET subscription_status='expired' WHERE id=$1::uuid`, userID)
+return false, 0, 0, "expired"
+}
+}
+
+// Cek suspended/expired
+if status == "suspended" || status == "expired" {
+return false, 0, 0, status
+}
+
+max = 10 // default Basic/Trial
+if tier == "premium" { max = 20 }
+
+// Count active trader subscriptions
+var traderCount int
+h.service.repo.DB.QueryRow(`
+SELECT COUNT(*) FROM copy_subscriptions cs
+JOIN trader_accounts fa ON fa.id = cs.follower_account_id
+WHERE fa.user_id=$1::uuid AND cs.status='ACTIVE'`, userID).Scan(&traderCount)
+
+// Count active analyst subscriptions
+var analystCount int
+h.service.repo.DB.QueryRow(`
+SELECT COUNT(*) FROM analyst_subscriptions
+WHERE investor_id=$1::uuid AND status='ACTIVE'`, userID).Scan(&analystCount)
+
+current = traderCount + analystCount
+allowed = current < max
+return
 }
