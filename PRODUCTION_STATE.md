@@ -1675,3 +1675,18 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - feat: POST /api/investor/rebalance — trigger manual rebalance
   - fix: GetAnalystSubscriptions tambah followerAccountId di response
   - db: user_allocations + analyst_subscriptions tambah allocation_mode, snapshot_alpha_score
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-04)
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202605040054`
+- **Changes:**
+  - feat: rebalance warning banner di Portfolio tab
+  - fix: duplikat badge di warning — unique by name
+  - feat: Auto Rebalance button — redistribute per follower account
+  - feat: Dismiss button — hide warning tanpa rebalance
+
+## ⚠️ PENDING
+1. Billing module — allocation_periods table, baseline_pnl tracking
+2. HWM reset logic saat rebalance (start_equity = current_equity)
+3. Frontend warning rebalance — BatikKwijan followerAccountId kosong di rebalance-check
