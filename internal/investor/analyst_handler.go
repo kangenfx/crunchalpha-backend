@@ -1330,7 +1330,7 @@ changes = append(changes, s)
 // Check analyst subscriptions
 arows, err := h.service.repo.DB.Query(`
 SELECT ans.snapshot_alpha_score, COALESCE(ass.alpha_score, 0), ans.allocation_pct,
-       ass.name
+       ass.name, COALESCE(ans.follower_account_id::text, '')
 FROM analyst_subscriptions ans
 JOIN analyst_signal_sets ass ON ass.id = ans.set_id
 WHERE ans.investor_id=$1::uuid AND ans.status='ACTIVE'`, uid)
@@ -1339,7 +1339,7 @@ defer arows.Close()
 for arows.Next() {
 var s SubChange
 s.Type = "analyst"
-arows.Scan(&s.SnapshotScore, &s.CurrentScore, &s.AllocationPct, &s.Name)
+arows.Scan(&s.SnapshotScore, &s.CurrentScore, &s.AllocationPct, &s.Name, &s.FollowerAccountID)
 s.Change = s.CurrentScore - s.SnapshotScore
 if s.Change < 0 { s.Change = -s.Change }
 if s.Change >= threshold { needsRebalance = true }
