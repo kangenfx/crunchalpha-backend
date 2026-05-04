@@ -94,8 +94,15 @@ WHERE follower_account_id = $5::uuid
 			} else {
 				upserted++
 			}
-			// Sync profit ke copy_executions
+			// Sync profit ke copy_executions (MT5 CLOSE deal)
 			_, ceErr := h.service.repo.DB.Exec(`
+UPDATE copy_executions SET close_price=$1, profit=$2
+WHERE follower_ticket=$3 AND action='CLOSE'
+AND (profit IS NULL OR profit=0)`,
+				t.ClosePrice, t.Profit, t.Ticket)
+			if ceErr != nil { log.Printf("[InvestorTrades] ce sync err %d: %v", t.Ticket, ceErr) } else { log.Printf("[InvestorTrades] ce synced ticket=%d profit=%f", t.Ticket, t.Profit) }
+			// Sync profit ke copy_executions
+			_, ceErr = h.service.repo.DB.Exec(`
 UPDATE copy_executions SET
   close_price = $1,
   profit      = $2
@@ -171,6 +178,13 @@ DO UPDATE SET
 					  AND x.action = 'CLOSE'
 				)`,
 				followerAcctID, provTicket)
+
+				// Sync profit ke copy_executions MT4
+				if t.CloseTime > 946684800 && t.Profit != 0 {
+					h.service.repo.DB.Exec(`UPDATE copy_executions SET close_price=$1, profit=$2 WHERE follower_ticket=$3 AND action='CLOSE' AND (profit IS NULL OR profit=0)`,
+						t.ClosePrice, t.Profit, t.Ticket)
+					log.Printf("[InvestorTrades] ce synced MT4 ticket=%d profit=%f", t.Ticket, t.Profit)
+				}
 		}
 	}
 	log.Printf("[InvestorTrades] Synced %d trades for investor %s", upserted, investorID)
