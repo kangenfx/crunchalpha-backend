@@ -1739,3 +1739,38 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - fix: EASyncInvestorTrades sync profit ke copy_executions untuk MT4 full trade
   - fix: root cause profit=0 — sekarang auto update dari EA push setiap 5 detik
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-04 11:50)
+### Frontend:
+- **Image:** crunchalpha-frontend-v3:prod-202605041150
+- **Changes:**
+  - DUB-style redesign — semua warna netral kecuali AlphaScore & Grade
+  - Marketplace card: storytelling investor type, AUM Managed, Trading for Xmo
+  - TraderProfile: pillar bars biru, stats netral, risk flags netral
+  - LandingPage: ROI/DD/WinRate netral, hapus Subscribe to analyst button
+  - Leaderboard: rank circle netral, risk badge netral
+
+## 📋 CHANGES 2026-05-04
+### Billing Foundation
+- db: ALTER TABLE users ADD trial_started_at, trial_ends_at, subscription_tier, subscription_status, next_billing_date, subscription_started_at
+- db: CREATE TABLE invoices — SUBSCRIPTION/PERFORMANCE, PENDING/PAID/OVERDUE/WAIVED
+- db: CREATE TABLE performance_fee_ledger — per-trade fee tracking
+- feat: checkSubscriptionLimit — Basic max 10, Premium max 20, Trial max 10, admin bypass
+- feat: auto-start 14-day trial saat pertama kali subscribe
+- feat: subscription limit enforced di SubscribeAnalystSet & CopyTraderSubscribe
+- feat: suspended/expired investor blocked dari subscribe baru
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-04 08:50)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605040850`
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202605041150`
+
+## ⚠️ PENDING
+1. Billing module handler & routes — GET /api/investor/billing, POST /api/admin/billing/confirm-payment
+2. Frontend billing UI — running fee display, invoice list, plan upgrade modal
+3. Performance fee recording saat close trade
+4. Monthly invoice generation cron
+5. Earnings page trader & analyst
