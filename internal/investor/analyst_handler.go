@@ -682,31 +682,35 @@ func (h *Handler) GetTradeCopies(c *gin.Context) {
 
 	rows, err := h.service.repo.DB.Query(`
 		SELECT
-			ce.id::text,
-			ce.action,
-			ce.symbol,
-			CASE WHEN ce.type=0 THEN 'BUY' ELSE 'SELL' END as type,
-			ce.calculated_lot,
-			ce.status,
-			COALESCE(ce.rejection_reason,'') as rejection_reason,
-			ce.provider_ticket::text,
-			ce.aum_used,
-			ce.created_at::text,
-			COALESCE(ta.nickname, ta.account_number) as trader_name,
-			COALESCE(fa.account_number,'') as follower_account_number,
-			COALESCE(ex.executed_price::text,'') as executed_price,
-			COALESCE(ex.close_price::text,'') as close_price,
-			COALESCE(ex.profit,0) as profit,
-			COALESCE(ex.executed_lots,0) as executed_lots
-		FROM copy_events ce
-		LEFT JOIN trader_accounts ta ON ta.id = ce.provider_account_id
-		LEFT JOIN trader_accounts fa ON fa.id = ce.follower_account_id
-		LEFT JOIN LATERAL (SELECT executed_price, close_price, profit, executed_lots FROM copy_executions WHERE signal_id = ce.id ORDER BY executed_at DESC LIMIT 1) ex ON true
-		WHERE ce.follower_account_id IN (
+			open_ex.follower_ticket::text as id,
+			open_ex.action,
+			COALESCE(ce.symbol, '') as symbol,
+			CASE WHEN COALESCE(ce.type, 0)=0 THEN 'BUY' ELSE 'SELL' END as type,
+			COALESCE(open_ex.executed_lots, 0) as lot,
+			CASE WHEN close_ex.id IS NOT NULL THEN 'CLOSED' ELSE 'OPEN' END as status,
+			'' as rejection_reason,
+			COALESCE(ce.provider_ticket::text, '') as provider_ticket,
+			0 as aum_used,
+			open_ex.executed_at::text as created_at,
+			COALESCE(ta.nickname, ta.account_number, '') as trader_name,
+			COALESCE(fa.account_number, '') as follower_account_number,
+			COALESCE(open_ex.executed_price::text, '') as executed_price,
+			COALESCE(close_ex.close_price::text, '') as close_price,
+			COALESCE(close_ex.profit, 0) as profit,
+			COALESCE(open_ex.executed_lots, 0) as executed_lots
+		FROM copy_executions open_ex
+		LEFT JOIN copy_executions close_ex ON close_ex.follower_ticket = open_ex.follower_ticket
+			AND close_ex.action = 'CLOSE'
+		LEFT JOIN copy_events ce ON ce.id = open_ex.signal_id
+		LEFT JOIN copy_subscriptions cs ON cs.id = open_ex.subscription_id
+		LEFT JOIN trader_accounts ta ON ta.id = cs.provider_account_id
+		LEFT JOIN trader_accounts fa ON fa.id = cs.follower_account_id
+		WHERE open_ex.action = 'OPEN'
+		AND cs.follower_account_id IN (
 			SELECT id FROM trader_accounts WHERE user_id=$1::uuid
 		)
-		ORDER BY ce.created_at DESC
-		LIMIT 100`, uid)
+		ORDER BY open_ex.executed_at DESC
+		LIMIT 200`, uid)
 	if err != nil { c.JSON(500, gin.H{"ok":false,"error":err.Error()}); return }
 	defer rows.Close()
 
