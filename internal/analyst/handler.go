@@ -745,10 +745,16 @@ func (h *Handler) RecalcAndSaveAlphaRank(setId string) {
 	netPips:=totalPipsWin-totalPipsLoss
 	avgTP:=0.0; if wins>0 { avgTP=totalPipsWin/float64(wins) }
 	avgSL:=0.0; if losses>0 { avgSL=totalPipsLoss/float64(losses) }
-	// daysActive dari created_at signal set
+	// daysActive — ambil yang terbesar antara: signal tertua vs created_at signal set
 	var setCreatedAt time.Time
 	h.DB.QueryRow(`SELECT created_at FROM analyst_signal_sets WHERE id=$1`, setId).Scan(&setCreatedAt)
-	daysActive:=1; if !setCreatedAt.IsZero() { daysActive=int(now.Sub(setCreatedAt).Hours()/24)+1 }
+	var oldestSignalAt time.Time
+	h.DB.QueryRow(`SELECT COALESCE(MIN(CASE WHEN issued_at IS NOT NULL AND issued_at != '' THEN issued_at::timestamp ELSE created_at END), now()) FROM analyst_signals WHERE set_id=$1`, setId).Scan(&oldestSignalAt)
+	earliestAt := setCreatedAt
+	if !oldestSignalAt.IsZero() && oldestSignalAt.Before(setCreatedAt) {
+		earliestAt = oldestSignalAt
+	}
+	daysActive:=1; if !earliestAt.IsZero() { daysActive=int(now.Sub(earliestAt).Hours()/24)+1 }
 	avgSignalMonth:=float64(totalSignals)/(float64(daysActive)/30.0)
 	avgSignalWeek:=float64(totalSignals)/(float64(daysActive)/7.0)
 	cumulativeR:=totalClosedRR

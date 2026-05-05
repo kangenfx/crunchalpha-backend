@@ -384,6 +384,8 @@ func main() {
 		adminRoutes.GET("/signal-sets", adminUserHandler.ListSignalSets)
 		adminRoutes.POST("/signals/import", adminSignalImportHandler.ImportSignals)
 		adminRoutes.GET("/signals/template.csv", adminSignalImportHandler.DownloadTemplate)
+			adminRoutes.DELETE("/signal-sets/:id", adminSignalImportHandler.DeleteSignalSet)
+			adminRoutes.GET("/signals/export/:setId", adminSignalImportHandler.ExportSignals)
 		adminRoutes.GET("/audit-logs", adminUserHandler.AuditLogs)
 		adminRoutes.GET("/brokers", adminBrokerHandler.ListBrokers)
 		adminRoutes.POST("/brokers", adminBrokerHandler.CreateBroker)

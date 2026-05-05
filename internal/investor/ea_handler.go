@@ -1,6 +1,9 @@
 package investor
 
 import (
+	"math"
+	"strconv"
+	"strings"
 	"net/http"
 	"time"
 
@@ -22,10 +25,16 @@ func (h *Handler) EAGetPendingSignals(c *gin.Context) {
 
 	rows, err := h.service.repo.DB.Query(`
 		SELECT sig.id, sig.pair, sig.direction, sig.entry, sig.sl, sig.tp,
-		       sig.status, sig.set_id, ss.name as set_name
-		FROM analyst_signals sig
-		JOIN analyst_signal_sets ss ON ss.id = sig.set_id
-		JOIN analyst_subscriptions sub ON sub.set_id = sig.set_id
+		       sig.status, sig.set_id, ss.name as set_name,
+		       COALESCE(sub.allocation_pct, 10) as allocation_pct,
+		       COALESCE(isk.equity, 0) as investor_equity,
+		       COALESCE(isk.risk_level, 'balanced') as risk_level,
+		       COALESCE(sub.follower_account_id::text, '') as follower_account_id
+			FROM analyst_signals sig
+			JOIN analyst_signal_sets ss ON ss.id = sig.set_id
+			JOIN analyst_subscriptions sub ON sub.set_id = sig.set_id
+			LEFT JOIN investor_ea_keys isk ON isk.investor_id = sub.investor_id
+			  AND isk.trader_account_id = sub.follower_account_id
 		WHERE sub.investor_id=$1::uuid
 		  AND sub.status='ACTIVE'
 		  AND sub.auto_follow=true
@@ -38,25 +47,49 @@ func (h *Handler) EAGetPendingSignals(c *gin.Context) {
 	defer rows.Close()
 
 	type SigRow struct {
-		ID        int64  `json:"id"`
-		Pair      string `json:"pair"`
-		Direction string `json:"direction"`
-		Entry     string `json:"entry"`
-		SL        string `json:"sl"`
-		TP        string `json:"tp"`
-		Status    string `json:"status"`
-		SetID     string `json:"setId"`
-		SetName   string `json:"setName"`
-		// EA order status for this investor
-		OrderStatus string `json:"orderStatus"`
-		Ticket      int64  `json:"ticket"`
+		ID            int64   `json:"id"`
+		Pair          string  `json:"pair"`
+		Direction     string  `json:"direction"`
+		Entry         string  `json:"entry"`
+		SL            string  `json:"sl"`
+		TP            string  `json:"tp"`
+		Status        string  `json:"status"`
+		SetID         string  `json:"setId"`
+		SetName       string  `json:"setName"`
+		AllocationPct float64 `json:"allocationPct"`
+		Equity        float64 `json:"equity"`
+		RiskLevel     string  `json:"riskLevel"`
+		FollowerAccID string  `json:"followerAccountId"`
+		CalculatedLot float64 `json:"calculatedLot"`
+		OrderStatus   string  `json:"orderStatus"`
+		Ticket        int64   `json:"ticket"`
 	}
 
 	var sigs []SigRow
 	for rows.Next() {
 		var s SigRow
 		rows.Scan(&s.ID, &s.Pair, &s.Direction, &s.Entry, &s.SL, &s.TP,
-			&s.Status, &s.SetID, &s.SetName)
+			&s.Status, &s.SetID, &s.SetName, &s.AllocationPct, &s.Equity, &s.RiskLevel, &s.FollowerAccID)
+		// Calculate lot based on risk
+		riskPct := 1.5 // balanced default
+		if s.RiskLevel == "conservative" { riskPct = 0.5 }
+		if s.RiskLevel == "aggressive"   { riskPct = 3.0 }
+		aum := s.Equity * s.AllocationPct / 100.0
+		riskAmt := aum * riskPct / 100.0
+		entry := 0.0; sl := 0.0
+		if s.Entry != "" { entry, _ = strconv.ParseFloat(s.Entry, 64) }
+		if s.SL != "" && s.SL != "0" { sl, _ = strconv.ParseFloat(s.SL, 64) }
+		if entry > 0 && sl > 0 {
+			slDist := entry - sl
+			if slDist < 0 { slDist = -slDist }
+			// contract size: gold=100, forex=100000, default=100000
+			contractSize := 100000.0
+			pairUp := strings.ToUpper(s.Pair)
+			if strings.Contains(pairUp, "XAU") || strings.Contains(pairUp, "GOLD") { contractSize = 100.0 }
+			if slDist > 0 { s.CalculatedLot = math.Round(riskAmt/(slDist*contractSize)*100)/100 }
+		}
+		if s.CalculatedLot < 0.01 { s.CalculatedLot = 0.01 }
+		if s.CalculatedLot > 1.0  { s.CalculatedLot = 1.0 }
 
 		// Check if investor already has order for this signal
 		h.service.repo.DB.QueryRow(`
@@ -141,7 +174,6 @@ func (h *Handler) GetSignalOrders(c *gin.Context) {
 		       ss.name as set_name
 		FROM investor_signal_orders o
 		JOIN analyst_signals sig ON sig.id = o.signal_id
-		JOIN analyst_signal_sets ss ON ss.id = o.set_id
 		WHERE o.investor_id=$1::uuid
 		ORDER BY o.id DESC LIMIT 100`, uid)
 	if err != nil {
