@@ -382,15 +382,15 @@ func (h *UserHandler) AdminCreateTradingAccount(c *gin.Context) {
 		return
 	}
 	if req.Currency == "" { req.Currency = "USD" }
-	if req.AccountRole == "" { req.AccountRole = "trader" }
+	if req.AccountRole == "" { req.AccountRole = "provider" }
 	var exists int
-	h.DB.QueryRow(`SELECT COUNT(*) FROM trading_accounts WHERE account_number=$1`, req.AccountNumber).Scan(&exists)
+	h.DB.QueryRow(`SELECT COUNT(*) FROM trader_accounts WHERE account_number=$1`, req.AccountNumber).Scan(&exists)
 	if exists > 0 {
 		c.JSON(409, gin.H{"ok": false, "error": "account number already registered"})
 		return
 	}
 	var accountId string
-	err = h.DB.QueryRow(`INSERT INTO trading_accounts (user_id, account_number, broker, platform, server, currency, account_role, status, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,'active',now(),now()) RETURNING id`,
+	err = h.DB.QueryRow(`INSERT INTO trader_accounts (user_id, account_number, broker, platform, server, currency, role, account_type, investor_password, status, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,'live','','active',now(),now()) RETURNING id`,
 		req.UserId, req.AccountNumber, req.Broker, req.Platform, req.Server, req.Currency, req.AccountRole).Scan(&accountId)
 	if err != nil {
 		c.JSON(500, gin.H{"ok": false, "error": fmt.Sprintf("db error: %v", err)})
