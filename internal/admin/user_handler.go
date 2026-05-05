@@ -340,7 +340,7 @@ func (h *UserHandler) AdminCreateSignalSet(c *gin.Context) {
 		return
 	}
 	var analystName string
-	err := h.DB.QueryRow(`SELECT COALESCE(name,'') FROM users WHERE id=$1 AND role='analyst'`, req.AnalystId).Scan(&analystName)
+	err := h.DB.QueryRow(`SELECT COALESCE(name,'') FROM users WHERE id=$1 AND primary_role='analyst'`, req.AnalystId).Scan(&analystName)
 	if err != nil {
 		c.JSON(404, gin.H{"ok": false, "error": "analyst not found"})
 		return
