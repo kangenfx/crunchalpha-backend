@@ -1774,3 +1774,22 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 3. Performance fee recording saat close trade
 4. Monthly invoice generation cron
 5. Earnings page trader & analyst
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-05)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605050420`
+- **Changes:**
+  - fix: signal import — date parse M/D/YYYY H:MM format
+  - fix: dedup via issued_at string (no more duplicate on re-import)
+  - fix: daysActive dari signal tertua (issued_at atau created_at)
+  - feat: DELETE /api/admin/signal-sets/:id — delete signal set + signals
+  - feat: GET /api/admin/signals/export/:setId — export CSV
+  - feat: GET /api/public/candles/:pair — OHLCV chart endpoint
+  - feat: ea_price_candles table — build candle dari EA tick
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-signal-import`
+- **Changes:**
+  - feat: admin signal sets — Export & Delete button per row
+  - fix: import format note — M/D/YYYY H:MM supported
