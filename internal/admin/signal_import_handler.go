@@ -136,13 +136,23 @@ if issuedAtVal != nil {
     issuedAtStr = fmt.Sprintf("entry-%s-%s-%s", pair, direction, entry)
 }
 
+// Check duplicate first
+var dupCount int
+h.DB.QueryRow(`SELECT COUNT(*) FROM analyst_signals WHERE set_id=$1 AND pair=$2 AND direction=$3 AND issued_at=$4`,
+    setId, pair, direction, issuedAtStr).Scan(&dupCount)
+if dupCount > 0 {
+    // Update existing
+    h.DB.Exec(`UPDATE analyst_signals SET entry=$1, sl=$2, tp=$3, status=$4, closed_at=$5, updated_at=now()
+        WHERE set_id=$6 AND pair=$7 AND direction=$8 AND issued_at=$9`,
+        entry, sl, tp, status, closedAtVal, setId, pair, direction, issuedAtStr)
+    results = append(results, ImportedSignal{Row: row, Pair: pair, Direction: direction, Status: status})
+    imported++
+    continue
+}
 _, dbErr := h.DB.Exec(`
 INSERT INTO analyst_signals
 (analyst_id, set_id, pair, direction, entry, sl, tp, status, issued_at, running_at, closed_at, created_at, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now())
-ON CONFLICT (set_id, pair, direction, issued_at) DO UPDATE SET
-  entry=EXCLUDED.entry, sl=EXCLUDED.sl, tp=EXCLUDED.tp,
-  status=EXCLUDED.status, closed_at=EXCLUDED.closed_at, updated_at=now()`,
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now())`,
 analystId, setId, pair, direction, entry, sl, tp, status,
 issuedAtStr, issuedAtVal, closedAtVal,
 )
