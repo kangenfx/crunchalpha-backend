@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"net/http"
+	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -317,4 +319,82 @@ if err != nil {
 c.JSON(500, gin.H{"error": err.Error()}); return
 }
 c.JSON(200, gin.H{"ok": true, "currency": body.Currency})
+}
+
+// ── POST /api/admin/signal-sets ───────────────────────────────────────────────
+
+// ── POST /api/admin/signal-sets ───────────────────────────────────────────────
+func (h *UserHandler) AdminCreateSignalSet(c *gin.Context) {
+	var req struct {
+		AnalystId   string `json:"analyst_id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"ok": false, "error": "invalid json"})
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.AnalystId == "" || req.Name == "" {
+		c.JSON(400, gin.H{"ok": false, "error": "analyst_id and name required"})
+		return
+	}
+	var analystName string
+	err := h.DB.QueryRow(`SELECT COALESCE(name,'') FROM users WHERE id=$1 AND role='analyst'`, req.AnalystId).Scan(&analystName)
+	if err != nil {
+		c.JSON(404, gin.H{"ok": false, "error": "analyst not found"})
+		return
+	}
+	id := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-")) + "-" + req.AnalystId[:6]
+	var setId, setName string
+	err = h.DB.QueryRow(`INSERT INTO analyst_signal_sets (id, analyst_id, name, description, status) VALUES ($1,$2,$3,$4,'Active') RETURNING id, name`,
+		id, req.AnalystId, req.Name, strings.TrimSpace(req.Description)).Scan(&setId, &setName)
+	if err != nil {
+		c.JSON(500, gin.H{"ok": false, "error": fmt.Sprintf("db error: %v", err)})
+		return
+	}
+	c.JSON(200, gin.H{"ok": true, "id": setId, "name": setName, "analyst": analystName})
+}
+
+// ── POST /api/admin/trading-accounts ─────────────────────────────────────────
+func (h *UserHandler) AdminCreateTradingAccount(c *gin.Context) {
+	var req struct {
+		UserId        string `json:"user_id"`
+		AccountNumber string `json:"account_number"`
+		Broker        string `json:"broker"`
+		Platform      string `json:"platform"`
+		Server        string `json:"server"`
+		Currency      string `json:"currency"`
+		AccountRole   string `json:"account_role"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"ok": false, "error": "invalid json"})
+		return
+	}
+	if req.UserId == "" || req.AccountNumber == "" || req.Broker == "" || req.Platform == "" {
+		c.JSON(400, gin.H{"ok": false, "error": "user_id, account_number, broker, platform required"})
+		return
+	}
+	var userName string
+	err := h.DB.QueryRow(`SELECT COALESCE(name,email) FROM users WHERE id=$1`, req.UserId).Scan(&userName)
+	if err != nil {
+		c.JSON(404, gin.H{"ok": false, "error": "user not found"})
+		return
+	}
+	if req.Currency == "" { req.Currency = "USD" }
+	if req.AccountRole == "" { req.AccountRole = "trader" }
+	var exists int
+	h.DB.QueryRow(`SELECT COUNT(*) FROM trading_accounts WHERE account_number=$1`, req.AccountNumber).Scan(&exists)
+	if exists > 0 {
+		c.JSON(409, gin.H{"ok": false, "error": "account number already registered"})
+		return
+	}
+	var accountId string
+	err = h.DB.QueryRow(`INSERT INTO trading_accounts (user_id, account_number, broker, platform, server, currency, account_role, status, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,'active',now(),now()) RETURNING id`,
+		req.UserId, req.AccountNumber, req.Broker, req.Platform, req.Server, req.Currency, req.AccountRole).Scan(&accountId)
+	if err != nil {
+		c.JSON(500, gin.H{"ok": false, "error": fmt.Sprintf("db error: %v", err)})
+		return
+	}
+	c.JSON(200, gin.H{"ok": true, "account_id": accountId, "user": userName, "account": req.AccountNumber, "platform": req.Platform, "broker": req.Broker})
 }

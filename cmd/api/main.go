@@ -382,6 +382,8 @@ func main() {
 		adminRoutes.DELETE("/trading-accounts/:id", adminUserHandler.DeleteTradingAccount)
 		adminRoutes.GET("/trading-accounts", adminUserHandler.ListTradingAccounts)
 		adminRoutes.GET("/signal-sets", adminUserHandler.ListSignalSets)
+			adminRoutes.POST("/signal-sets", adminUserHandler.AdminCreateSignalSet)
+			adminRoutes.POST("/trading-accounts", adminUserHandler.AdminCreateTradingAccount)
 		adminRoutes.POST("/signals/import", adminSignalImportHandler.ImportSignals)
 		adminRoutes.GET("/signals/template.csv", adminSignalImportHandler.DownloadTemplate)
 			adminRoutes.DELETE("/signal-sets/:id", adminSignalImportHandler.DeleteSignalSet)
