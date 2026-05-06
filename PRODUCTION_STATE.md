@@ -1793,3 +1793,21 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **Changes:**
   - feat: admin signal sets — Export & Delete button per row
   - fix: import format note — M/D/YYYY H:MM supported
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-06) — MIGRATED TO CONTABO
+### Server:
+- **Provider:** Contabo Cloud VPS 10
+- **IP:** 62.146.239.174
+- **Specs:** 4 vCPU, 8GB RAM, 150GB SSD, Singapore
+- **Old server:** Vultr 45.32.118.117 (pending cancel)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production`
+- **Port:** 8090 (internal), via nginx https
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:production`
+- **Port:** 5176 (internal), via nginx https
+- **URL:** https://crunchalpha.com
+### Network:
+- **Docker network:** `crunchalpha-net`
