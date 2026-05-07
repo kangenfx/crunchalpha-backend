@@ -1829,3 +1829,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 3. Monthly invoice generation cron
 4. Earnings page trader & analyst
 5. Admin invoice mark-paid/waive route — perlu tambah /api/admin/invoices/:id/mark-paid & waive
+
+## 2026-05-07 — Wine MT5 Setup (Contabo)
+- Wine 11.0 installed on Contabo
+- MT5 (Markets4you/EGlobal) running via Wine + Xvfb
+- noVNC accessible at http://62.146.239.174:6080/vnc.html
+- x11vnc running as systemd service (auto-restart)
+- EA Publisher MT5 tested OK — HTTP 200 to crunchalpha.com
+- Demo account connect OK, Live account blocked by broker (datacenter IP policy)
+- Next: test EA Investor copy trade
