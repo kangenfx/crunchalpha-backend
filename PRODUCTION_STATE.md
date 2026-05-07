@@ -1811,3 +1811,21 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - **URL:** https://crunchalpha.com
 ### Network:
 - **Docker network:** `crunchalpha-net`
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-07)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605070854`
+- **Changes:** feat: admin subscriptions endpoints — list, set tier, reset trial, invoices, stats
+
+### Frontend:
+- **Container:** `crunchalpha-frontend-v3`
+- **Image:** `crunchalpha-frontend-v3:prod-202605071530`
+- **Changes:** feat: Admin Subscriptions tab — investor list, tier badges, trial countdown, Set Tier modal, Reset Trial, Invoices modal
+
+## ⚠️ PENDING (Updated 2026-05-07)
+1. Billing module handler & routes — GET /api/investor/billing, invoice generation
+2. Performance fee recording saat close trade
+3. Monthly invoice generation cron
+4. Earnings page trader & analyst
+5. Admin invoice mark-paid/waive route — perlu tambah /api/admin/invoices/:id/mark-paid & waive
