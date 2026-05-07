@@ -13,6 +13,11 @@ DB *sql.DB
 }
 
 // ── GET /api/admin/subscriptions ─────────────────────────────────────────────
+
+func NewSubscriptionHandler(db *sql.DB) *SubscriptionHandler {
+	return &SubscriptionHandler{DB: db}
+}
+
 func (h *SubscriptionHandler) ListSubscriptions(c *gin.Context) {
 rows, err := h.DB.Query(`
 SELECT id, COALESCE(name,''), email, primary_role,
