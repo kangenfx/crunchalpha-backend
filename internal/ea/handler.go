@@ -18,9 +18,9 @@ func NewHandler(repo *Repository) *Handler {
 type TradeData struct {
 	AccountNumber string  `json:"account_number" binding:"required"`
 	Ticket        int64   `json:"ticket" binding:"required"`
-	Symbol        string  `json:"symbol" binding:"required"`
-	Type          string  `json:"type" binding:"required"`
-	Lots          float64 `json:"lots" binding:"required"`
+	Symbol        string  `json:"symbol,omitempty"`
+	Type          string  `json:"type,omitempty"`
+	Lots          float64 `json:"lots,omitempty"`
 	OpenPrice     float64 `json:"open_price"`
 	ClosePrice    float64 `json:"close_price,omitempty"`
 	Profit        float64 `json:"profit,omitempty"`
