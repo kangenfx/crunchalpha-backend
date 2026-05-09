@@ -14,6 +14,9 @@ func APIKeyAuth(repo *apikey.Repository) gin.HandlerFunc {
 		// Get API key from header
 		authHeader := c.GetHeader("X-API-Key")
 		if authHeader == "" {
+			authHeader = c.GetHeader("X-EA-Key")
+		}
+		if authHeader == "" {
 			// Try Authorization header as fallback
 			authHeader = c.GetHeader("Authorization")
 			if strings.HasPrefix(authHeader, "ApiKey ") {
