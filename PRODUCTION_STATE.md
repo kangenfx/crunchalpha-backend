@@ -1847,3 +1847,8 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
   - fix: middleware APIKeyAuth tambah fallback X-EA-Key header
   - fix: nginx pass X-API-Key dan X-EA-Key headers
   - fix: TradeData hapus binding required symbol/type/lots — allow profit-only update (hapus 400 error)
+
+## 📋 NOTE 2026-05-09
+- EA Publisher pakai key lama: crunch_0a4163... (EA HTTP Direct - Dupoin) — 200 OK
+- Key baru yang di-generate dari dashboard EA Key section → 401 via HTTPS (bug pending investigasi)
+- Nginx fix: X-API-Key + X-EA-Key header pass sudah ditambahkan
