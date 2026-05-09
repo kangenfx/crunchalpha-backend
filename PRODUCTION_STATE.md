@@ -1838,3 +1838,12 @@ Setiap perubahan frontend HARUS ikuti urutan ini:
 - EA Publisher MT5 tested OK — HTTP 200 to crunchalpha.com
 - Demo account connect OK, Live account blocked by broker (datacenter IP policy)
 - Next: test EA Investor copy trade
+
+## 🐳 CURRENT PRODUCTION (Updated 2026-05-09)
+### Backend:
+- **Container:** `crunchalpha-backend`
+- **Image:** `crunchalpha-v3:production-202605091600`
+- **Changes:**
+  - fix: middleware APIKeyAuth tambah fallback X-EA-Key header
+  - fix: nginx pass X-API-Key dan X-EA-Key headers
+  - fix: TradeData hapus binding required symbol/type/lots — allow profit-only update (hapus 400 error)
