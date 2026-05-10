@@ -10,7 +10,7 @@
 
 ### Frontend:
 - **Container:** `crunchalpha-frontend-v3`
-- **Image:** `crunchalpha-frontend-v3:prod-202605100830`
+- **Image:** `crunchalpha-frontend-v3:prod-202605101459`
 - **Port:** 5176 (internal), via nginx https
 - **URL:** https://crunchalpha.com
 
