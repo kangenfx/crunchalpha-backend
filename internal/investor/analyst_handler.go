@@ -1321,8 +1321,15 @@ LEFT JOIN (
 SELECT DISTINCT ON (account_id) account_id, alpha_score
 FROM alpha_ranks ORDER BY account_id, calculated_at DESC
 ) ar ON ar.account_id = ua.trader_account_id
-WHERE ua.user_id=$1::uuid AND ua.status='ACTIVE'
+WHERE ua.user_id=$1::uuid
+  AND ua.allocation_value > 0
   AND ua.follower_account_id IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM copy_subscriptions cs
+    WHERE cs.follower_account_id = ua.follower_account_id
+      AND cs.provider_account_id = ua.trader_account_id
+      AND cs.status = 'ACTIVE'
+  )
 ORDER BY ua.follower_account_id, ua.trader_account_id`, uid)
 if err == nil {
 defer rows.Close()

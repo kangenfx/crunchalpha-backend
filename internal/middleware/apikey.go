@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"strings"
+	"log"
 
 	"crunchalpha-v3/internal/apikey"
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,9 @@ func APIKeyAuth(repo *apikey.Repository) gin.HandlerFunc {
 		authHeader := c.GetHeader("X-API-Key")
 		if authHeader == "" {
 			authHeader = c.GetHeader("X-EA-Key")
+                if authHeader == "" {
+                        authHeader = c.Query("apikey")
+                }
 		}
 		if authHeader == "" {
 			// Try Authorization header as fallback
@@ -48,6 +52,7 @@ func APIKeyAuth(repo *apikey.Repository) gin.HandlerFunc {
 		// Hash and lookup
 		keyHash := apikey.HashAPIKey(authHeader)
 		key, err := repo.GetAPIKeyByHash(keyHash)
+			log.Printf("[APIKeyAuth] hash=%s err=%v", keyHash, err)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "Invalid API key",

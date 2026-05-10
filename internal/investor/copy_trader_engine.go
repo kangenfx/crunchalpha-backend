@@ -5,6 +5,7 @@ import (
 "fmt"
 "log"
 "math"
+"strings"
 "time"
 )
 
@@ -33,6 +34,8 @@ AllocationPct   float64 `json:"allocationPct"`
 Status          string  `json:"status"`
 RejectionReason string  `json:"rejectionReason,omitempty"`
 CreatedAt       string  `json:"createdAt"`
+MaxSlippagePips float64 `json:"maxSlippagePips"`
+OpenPrice       float64 `json:"openPrice"`
 }
 
 type TraderPosition struct {
@@ -239,10 +242,66 @@ return fmt.Sprintf("Max daily loss %.1f%% reached", maxDailyLossPct)
 return ""
 }
 
+
+// calcMaxSlippage — hitung max slippage pips berdasarkan SL distance atau fallback per kategori
+func calcMaxSlippage(symbol string, sl float64, openPrice float64) float64 {
+// Jika SL ada, pakai 20% dari SL distance
+if sl > 0 && openPrice > 0 {
+slDistance := sl - openPrice
+if slDistance < 0 {
+slDistance = -slDistance
+}
+// Convert ke pips berdasarkan symbol
+pipMult := slippagePipMult(symbol)
+slPips := slDistance * pipMult
+maxSlip := slPips * 0.20
+if maxSlip < 2 {
+maxSlip = 2 // minimum 2 pips
+}
+return maxSlip
+}
+// Fallback per kategori
+return slippageFallback(symbol)
+}
+
+func slippagePipMult(symbol string) float64 {
+s := strings.ToUpper(symbol)
+switch {
+case strings.Contains(s, "XAU") || strings.Contains(s, "XAG"):
+return 100 // gold/silver: 1 pip = 0.01
+case strings.Contains(s, "BTC") || strings.Contains(s, "ETH"):
+return 1 // crypto: 1 pip = 1.0
+case strings.Contains(s, "US30") || strings.Contains(s, "NAS") || strings.Contains(s, "SPX") || strings.Contains(s, "UK100") || strings.Contains(s, "DAX"):
+return 1 // index: 1 pip = 1.0
+case strings.Contains(s, "OIL") || strings.Contains(s, "WTI") || strings.Contains(s, "BRENT"):
+return 100 // oil: 1 pip = 0.01
+default:
+return 10000 // forex: 1 pip = 0.0001
+}
+}
+
+func slippageFallback(symbol string) float64 {
+s := strings.ToUpper(symbol)
+switch {
+case strings.Contains(s, "XAU") || strings.Contains(s, "XAG"):
+return 100
+case strings.Contains(s, "BTC") || strings.Contains(s, "ETH"):
+return 300
+case strings.Contains(s, "US30") || strings.Contains(s, "NAS") || strings.Contains(s, "SPX") || strings.Contains(s, "UK100") || strings.Contains(s, "DAX"):
+return 30
+case strings.Contains(s, "OIL") || strings.Contains(s, "WTI") || strings.Contains(s, "BRENT"):
+return 20
+case strings.Contains(s, "JPY"):
+return 8 // JPY pairs pip = 0.01
+default:
+return 3 // forex major
+}
+}
+
 func (e *CopyTraderEngine) GetPendingCopyEvents(investorID string, mt5Account string) ([]CopyEvent, error) {
 // Auto-expire PENDING events older than 3 minutes
 e.db.Exec(`UPDATE copy_events SET status='REJECTED', error='auto-expired: not executed within 3 minutes'
- WHERE status='PENDING' AND action='OPEN' AND created_at < now() - interval '3 minutes'`)
+ WHERE status='PENDING' AND action='OPEN' AND created_at < now() - interval '5 minutes'`)
 rows, err := e.db.Query(
 `SELECT ce.id, ce.provider_account_id, ce.action, ce.symbol, ce.type,
 COALESCE(ce.calculated_lot, ce.lots),
@@ -252,9 +311,11 @@ COALESCE(ce.investor_equity, 0),
 COALESCE(ce.aum_used, 0),
 ce.status,
 COALESCE(ce.rejection_reason, ''),
-ce.created_at
+ce.created_at,
+COALESCE(t.open_price, 0)
  FROM copy_events ce
  JOIN trader_accounts ta ON ta.id = ce.follower_account_id
+ LEFT JOIN trades t ON t.ticket = ce.provider_ticket AND t.account_id = ce.provider_account_id
  WHERE ta.user_id = $1::uuid
    AND ta.account_number = $2
    AND ce.status = 'PENDING'
@@ -274,11 +335,13 @@ if err := rows.Scan(
 &ev.SL, &ev.TP, &ev.ProviderTicket,
 &ev.InvestorEquity, &ev.AUMUsed,
 &ev.Status, &ev.RejectionReason, &createdAt,
+&ev.OpenPrice,
 ); err != nil {
 continue
 }
 ev.InvestorID = investorID
 ev.CreatedAt = createdAt.Format("2006-01-02 15:04:05")
+ev.MaxSlippagePips = calcMaxSlippage(ev.Symbol, ev.SL, ev.OpenPrice)
 events = append(events, ev)
 }
 if events == nil {

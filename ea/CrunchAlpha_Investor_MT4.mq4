@@ -198,8 +198,10 @@ void PollCopyTrades()
       double sl      = StringToDouble(ExtractStrFrom(j,"\"sl\":",               idPos));
       double tp      = StringToDouble(ExtractStrFrom(j,"\"tp\":",               idPos));
       long   provTkt = (long)StringToDouble(ExtractStrFrom(j,"\"providerTicket\":",idPos));
-      double aumUsed = StringToDouble(ExtractStrFrom(j,"\"aumUsed\":",          idPos));
-      ProcessCopyTrade(eventID,action,symbol,dir,calcLot,sl,tp,provTkt,aumUsed);
+      double aumUsed     = StringToDouble(ExtractStrFrom(j,"\"aumUsed\":",          idPos));
+      double maxSlipPips = StringToDouble(ExtractStrFrom(j,"\"maxSlippagePips\":", idPos));
+      double masterOpen  = StringToDouble(ExtractStrFrom(j,"\"openPrice\":",        idPos));
+      ProcessCopyTrade(eventID,action,symbol,dir,calcLot,sl,tp,provTkt,aumUsed,maxSlipPips,masterOpen);
       pos=idEnd;
       if(pos>=StringLen(j)-5) break;
    }
@@ -207,7 +209,8 @@ void PollCopyTrades()
 
 void ProcessCopyTrade(string eventID, string action, string symbol,
                       int dir, double calcLot, double sl, double tp,
-                      long provTicket, double aumUsed)
+                      long provTicket, double aumUsed,
+                      double maxSlipPips=0, double masterOpenPrice=0)
 {
    if(action=="CLOSE")
    {
@@ -234,6 +237,20 @@ void ProcessCopyTrade(string eventID, string action, string symbol,
    if(lot<MarketInfo(sym,MODE_MINLOT)) { SendCopyTradeUpdate(eventID,"REJECTED","Lot below min: "+DoubleToStr(lot,4),0,0,0); return; }
    int cmd=(dir==0)?OP_BUY:OP_SELL;
    double price=(cmd==OP_BUY)?MarketInfo(sym,MODE_ASK):MarketInfo(sym,MODE_BID);
+   // Slippage check
+   if(maxSlipPips > 0 && masterOpenPrice > 0) {
+      double currentPrice = (dir==0) ? MarketInfo(sym,MODE_ASK) : MarketInfo(sym,MODE_BID);
+      double pipSize = (MarketInfo(sym,MODE_DIGITS)==3 || MarketInfo(sym,MODE_DIGITS)==5)
+                       ? MarketInfo(sym,MODE_POINT)*10 : MarketInfo(sym,MODE_POINT);
+      double slippagePips = MathAbs(currentPrice - masterOpenPrice) / pipSize;
+      if(slippagePips > maxSlipPips) {
+         string sreason = "Slippage too high: "+DoubleToStr(slippagePips,1)+" pips (max "+DoubleToStr(maxSlipPips,1)+")";
+         Print("[CA] CopyTrade SKIPPED — ",sreason);
+         SendCopyTradeUpdate(eventID,"REJECTED",sreason,0,0,0);
+         return;
+      }
+      Print("[CA] Slippage OK: ",DoubleToStr(slippagePips,1)," pips (max ",DoubleToStr(maxSlipPips,1),")");
+   }
    string comment="CA-CT:"+IntegerToString(provTicket);
    int tkt=OrderSend(sym,cmd,lot,price,3,sl,tp,comment,20260307);
    if(tkt>0) { Print("[CA] CopyTrade opened:",tkt," lot:",lot," AUM:$",DoubleToStr(aumUsed,2)); SendCopyTradeUpdate(eventID,"EXECUTED","",tkt,lot,price); }

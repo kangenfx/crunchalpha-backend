@@ -48,6 +48,7 @@ func main() {
         // EA Handler
         eaRepo := ea.NewRepository(db, alpharankService)
         eaHandler := ea.NewHandler(eaRepo)
+        eaRepo.StartReconciliationCron()
 
         alpharankHandler := alpharank.NewHandler(alpharankService)
         
@@ -162,6 +163,7 @@ func main() {
                 })
                 traderRoutes.GET("/alpharank-perpair", traderHandler.GetAlphaRankPerPair)
                 traderRoutes.GET("/trades", traderHandler.GetTrades)
+				traderRoutes.GET("/open-trades", traderHandler.GetOpenTrades)
 			traderRoutes.GET("/earnings", traderHandler.GetEarnings)
                     traderRoutes.POST("/earnings/withdraw", traderHandler.RequestWithdraw)
                     traderRoutes.GET("/earnings/withdrawals", traderHandler.GetWithdrawals)

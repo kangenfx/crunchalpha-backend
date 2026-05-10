@@ -59,7 +59,7 @@ c.ShouldBindJSON(&body)
 // Max 3 keys
 var count int
 h.DB.QueryRow(`SELECT COUNT(*) FROM api_keys WHERE user_id=$1 AND active=true AND name LIKE 'EA Key%'`, userID).Scan(&count)
-if count >= 3 {
+if count >= 10 {
 c.JSON(http.StatusBadRequest, gin.H{"ok": false, "error": "Maximum 3 EA keys allowed"})
 return
 }

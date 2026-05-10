@@ -424,12 +424,13 @@ func (r *Repository) TriggerCopyEngine(traderAccountID string, trade *TradeData)
 		lotResult := r.calcFinalLot(traderAccountID, trade, aum, traderEquity, riskLevel, traderAvgLoss)
 		calculatedLot := lotResult.FinalLot
 
-		// Rejection checks
-		reason := r.checkCopyRejection(investorID, followerAccountID, calculatedLot, acctEquity, maxPositions, maxDailyLossPct)
-		status := "PENDING"
-		if reason != "" {
-			status = "REJECTED"
-		}
+                // Rejection checks — jika rejected, skip
+                reason := r.checkCopyRejection(investorID, followerAccountID, calculatedLot, acctEquity, maxPositions, maxDailyLossPct)
+                if reason != "" {
+                        log.Printf("[CopyEngine] SKIP investor:%s reason:%s", investorID, reason)
+                        continue
+                }
+                status := "PENDING"
 
 		// Lookup subscription_id sebelum INSERT
 		var subscriptionID string

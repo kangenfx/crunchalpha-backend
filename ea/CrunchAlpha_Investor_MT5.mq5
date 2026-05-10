@@ -223,8 +223,10 @@ void PollCopyTrades()
         double sl      = StringToDouble(ExtractStrFrom(j, "\"sl\":",                idPos));
         double tp      = StringToDouble(ExtractStrFrom(j, "\"tp\":",                idPos));
         long   provTkt = (long)StringToDouble(ExtractStrFrom(j, "\"providerTicket\":", idPos));
-        double aumUsed = StringToDouble(ExtractStrFrom(j, "\"aumUsed\":",           idPos));
-        ProcessCopyTrade(eventID, action, symbol, dir, calcLot, sl, tp, provTkt, aumUsed);
+        double aumUsed      = StringToDouble(ExtractStrFrom(j, "\"aumUsed\":",           idPos));
+        double maxSlipPips  = StringToDouble(ExtractStrFrom(j, "\"maxSlippagePips\":",  idPos));
+        double masterOpen   = StringToDouble(ExtractStrFrom(j, "\"openPrice\":",         idPos));
+        ProcessCopyTrade(eventID, action, symbol, dir, calcLot, sl, tp, provTkt, aumUsed, maxSlipPips, masterOpen);
         pos = idEnd;
         if(pos >= StringLen(j) - 5) break;
     }
@@ -232,7 +234,8 @@ void PollCopyTrades()
 
 void ProcessCopyTrade(string eventID, string action, string symbol,
                       int dir, double calcLot, double sl, double tp,
-                      long provTicket, double aumUsed)
+                      long provTicket, double aumUsed,
+                      double maxSlipPips=0, double masterOpenPrice=0)
 {
     if(action == "CLOSE") {
         string sc = "CA-CT:" + IntegerToString(provTicket);
@@ -241,11 +244,10 @@ void ProcessCopyTrade(string eventID, string action, string symbol,
             if(PositionSelectByTicket(tkt) && StringFind(PositionGetString(POSITION_COMMENT), sc) >= 0) {
                 double savedLot    = PositionGetDouble(POSITION_VOLUME);
                 double savedProfit = PositionGetDouble(POSITION_PROFIT);
-                double savedLot    = PositionGetDouble(POSITION_VOLUME);
-                double savedProfit = PositionGetDouble(POSITION_PROFIT);
                 if(trade.PositionClose(tkt)) {
                     Print("[CA] CopyTrade closed ticket:", tkt);
                     SendCopyTradeUpdate(eventID, "EXECUTED", "", tkt, savedLot, trade.ResultPrice(), savedProfit);
+                }
                 return;
             }
         }
@@ -273,6 +275,22 @@ void ProcessCopyTrade(string eventID, string action, string symbol,
         }
     }
 
+    // Slippage check — bandingkan harga master open vs harga sekarang
+    if(maxSlipPips > 0 && masterOpenPrice > 0) {
+        double currentPrice = (dir == 0) ? SymbolInfoDouble(sym, SYMBOL_ASK) : SymbolInfoDouble(sym, SYMBOL_BID);
+        double point = SymbolInfoDouble(sym, SYMBOL_POINT);
+        double digits = (double)SymbolInfoInteger(sym, SYMBOL_DIGITS);
+        double pipSize = (digits == 3 || digits == 5) ? point * 10 : point;
+        double slippagePips = MathAbs(currentPrice - masterOpenPrice) / pipSize;
+        if(slippagePips > maxSlipPips) {
+            string reason = "Slippage too high: " + DoubleToString(slippagePips, 1) +
+                            " pips (max " + DoubleToString(maxSlipPips, 1) + ")";
+            Print("[CA] CopyTrade SKIPPED — ", reason);
+            SendCopyTradeUpdate(eventID, "REJECTED", reason, 0, 0, 0);
+            return;
+        }
+        Print("[CA] Slippage OK: ", DoubleToString(slippagePips, 1), " pips (max ", DoubleToString(maxSlipPips, 1), ")");
+    }
     string comment = "CA-CT:" + IntegerToString(provTicket);
     Print("[CA] CopyTrade ", (dir == 0 ? "BUY" : "SELL"), " ", sym,
           " lot:", lot, " sl:", sl, " tp:", tp, " AUM:$", DoubleToString(aumUsed, 2));
